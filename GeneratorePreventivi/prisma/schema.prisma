@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum QuoteStatus {
+  DRAFT
+  ISSUED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  createdQuotes Quote[]  @relation("QuoteCreatedBy")
+  issuedQuotes  Quote[]  @relation("QuoteIssuedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  lastActiveAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Client {
+  id             String   @id @default(cuid())
+  ragioneSociale String
+  indirizzo      String?
+  piva           String?
+  codiceSdi      String?
+  referenteDih   String?
+  codePrefix     String   @unique
+  lastIssuedSeq  Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  quotes Quote[]
+
+  @@index([ragioneSociale])
+  @@map("clients")
+}
+
+model CatalogItem {
+  id          String   @id @default(cuid())
+  description String
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quoteItems QuoteItem[]
+
+  @@map("catalog_items")
+}
+
+model Quote {
+  id             String      @id @default(cuid())
+  status         QuoteStatus @default(DRAFT)
+  codiceServizio String?     @unique
+  issuedAt       DateTime?
+
+  title            String
+  quoteDate        DateTime
+  cup              String?
+  attivitaProgetto String      @db.Text
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  clientNomeSnap      String
+  clientIndirizzoSnap String?
+  clientPivaSnap      String?
+  clientSdiSnap       String?
+  clientReferenteSnap String?
+
+  scontoPct Decimal @db.Decimal(5, 2) @default(0)
+  ivaPct    Decimal @db.Decimal(5, 2) @default(22)
+
+  imponibile Decimal @db.Decimal(12, 2) @default(0)
+  scontoAmt  Decimal @db.Decimal(12, 2) @default(0)
+  subtotale  Decimal @db.Decimal(12, 2) @default(0)
+  ivaAmt     Decimal @db.Decimal(12, 2) @default(0)
+  totale     Decimal @db.Decimal(12, 2) @default(0)
+
+  createdById String
+  createdBy   User   @relation("QuoteCreatedBy", fields: [createdById], references: [id])
+  issuedById  String?
+  issuedBy    User?   @relation("QuoteIssuedBy", fields: [issuedById], references: [id])
+
+  items QuoteItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([clientId])
+  @@index([issuedAt])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  catalogItemId String?
+  catalogItem   CatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+
+  description String
+  qty         Decimal @db.Decimal(12, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  order       Int
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
+  @@index([catalogItemId])
+  @@map("quote_items")
+}

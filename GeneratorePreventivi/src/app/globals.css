@@ -1,0 +1,69 @@
+@import "../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--gray-100);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--teal-700);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent-blue) !important;
+  box-shadow: var(--shadow-focus);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 8px;
+}
+
+.cms-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.cms-main {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--gray-100);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .cms-shell,
+  .cms-main {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+}

@@ -1,0 +1,45 @@
+.doc-desk {
+  background: var(--gray-300);
+  padding: 48px 24px;
+  min-height: 100%;
+}
+
+.doc-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+  border-radius: 2px;
+  padding: 14mm;
+  box-sizing: border-box;
+  color: var(--teal-800);
+  font-family: var(--font-sans);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .doc-desk {
+    background: #fff !important;
+    padding: 0 !important;
+    min-height: 0;
+  }
+
+  .doc-sheet {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 14mm;
+  }
+
+  .doc-sheet table tr,
+  .doc-sheet img {
+    break-inside: avoid;
+  }
+}
