@@ -38,3 +38,17 @@ export const clientSchema = z.object({
     .optional()
     .or(z.literal("")),
 });
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "La password deve avere almeno 8 caratteri")
+      .regex(/[a-zA-Z]/, "La password deve contenere almeno una lettera")
+      .regex(/[0-9]/, "La password deve contenere almeno un numero"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono",
+    path: ["confirmPassword"],
+  });
