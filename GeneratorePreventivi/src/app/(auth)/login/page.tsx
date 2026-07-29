@@ -1,7 +1,14 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
 import LoginForm from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const user = await getCurrentUser();
+  if (user) {
+    redirect("/preventivi");
+  }
+
   return (
     <Suspense fallback={null}>
       <LoginForm />
