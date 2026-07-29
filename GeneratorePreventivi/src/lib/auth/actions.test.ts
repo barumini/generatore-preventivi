@@ -17,6 +17,27 @@ const { sendPasswordResetEmailMock } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/email/resend", () => ({ sendPasswordResetEmail: sendPasswordResetEmailMock }));
 
+// resetPassword calls destroySession() on success, which reads/clears the request's
+// cookie jar via next/headers. Outside of a real Next.js request scope (as in these
+// unit tests), `cookies()` throws, so provide a minimal in-memory stand-in. No cookie
+// is ever set by these tests, so destroySession() resolves as a no-op, matching the
+// common real-world case (an unauthenticated browser following an emailed reset link).
+const { cookiesMock } = vi.hoisted(() => {
+  const store = new Map<string, string>();
+  return {
+    cookiesMock: vi.fn(async () => ({
+      get: (name: string) => (store.has(name) ? { value: store.get(name)! } : undefined),
+      set: (name: string, value: string) => {
+        store.set(name, value);
+      },
+      delete: (name: string) => {
+        store.delete(name);
+      },
+    })),
+  };
+});
+vi.mock("next/headers", () => ({ cookies: cookiesMock }));
+
 const { requestPasswordReset, resetPassword } = await import("./actions");
 
 const MARKER = "__vitest_actions_pwreset__";
@@ -65,6 +86,30 @@ describe("requestPasswordReset", () => {
 
     expect(result.message).toContain(GENERIC_MESSAGE_FRAGMENT);
     expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the exact same message for an existing and a non-existing email (anti-enumeration)", async () => {
+    const user = await createTestUser("existing-exact");
+    const existingFormData = new FormData();
+    existingFormData.set("email", user.email);
+    const existingResult = await requestPasswordReset({ message: null }, existingFormData);
+
+    const nonExistingFormData = new FormData();
+    nonExistingFormData.set("email", `${MARKER}nobody-exact@test.local`);
+    const nonExistingResult = await requestPasswordReset({ message: null }, nonExistingFormData);
+
+    expect(existingResult.message).toBe(nonExistingResult.message);
+  });
+
+  it("still returns the generic success message when sending the email fails", async () => {
+    const user = await createTestUser("email-send-failure");
+    sendPasswordResetEmailMock.mockRejectedValueOnce(new Error("send failed"));
+    const formData = new FormData();
+    formData.set("email", user.email);
+
+    const result = await requestPasswordReset({ message: null }, formData);
+
+    expect(result.message).toContain(GENERIC_MESSAGE_FRAGMENT);
   });
 });
 
