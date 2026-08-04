@@ -1,6 +1,11 @@
 # documenti di riferimento forniti da FBE (~33 MB, non versionati)
 Documentazione addestramento/
 
+# copie di lavoro binarie dello spike Task 2: rigenerabili con
+# template/spike/build_placeholder_docx.py + npx tsx template/spike/spike.ts
+# a partire dal master FBE (~25-33 MB l'una, non versionate)
+template/spike/*.docx
+
 node_modules/
 .next/
 *.db
