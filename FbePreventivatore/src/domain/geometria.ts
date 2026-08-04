@@ -44,3 +44,37 @@ export function totaliSerramenti(
   const areaNettaTotale = arrotonda2(aperture.reduce((somma, a) => somma + a.areaNetta, 0))
   return { aperture, areaLordaTotale, areaNettaTotale, numero: serramenti.length }
 }
+
+export interface SuperficiePiano {
+  piano: string
+  valoreLordo: string
+}
+
+export const PIANI_ABITATIVI = ['Piano Terra', 'Piano Primo', 'Piano sottotetto'] as const
+export const PIANO_GARAGE = 'Garage'
+
+export function risolviValoreLordo(valore: string): number {
+  if (valore.trim() === '') return 0
+  return valore
+    .split('+')
+    .map((parte) => Number.parseFloat(parte.trim().replace(',', '.')))
+    .reduce((somma, numero) => somma + (Number.isNaN(numero) ? 0 : numero), 0)
+}
+
+export function totaleSuperficiLorde(superfici: SuperficiePiano[]): number {
+  return arrotonda2(
+    superfici
+      .filter((s) => s.piano !== PIANO_GARAGE)
+      .reduce((somma, s) => somma + risolviValoreLordo(s.valoreLordo), 0),
+  )
+}
+
+export function superficieGarage(superfici: SuperficiePiano[]): number {
+  const riga = superfici.find((s) => s.piano === PIANO_GARAGE)
+  return riga ? risolviValoreLordo(riga.valoreLordo) : 0
+}
+
+export function numeroPianiAbitativi(superfici: SuperficiePiano[]): number {
+  const pianiAbitativi: readonly string[] = PIANI_ABITATIVI
+  return superfici.filter((s) => pianiAbitativi.includes(s.piano) && risolviValoreLordo(s.valoreLordo) > 0).length
+}
