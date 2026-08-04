@@ -10,6 +10,7 @@ export const LISTINO_2026: ListinoAnno = {
   driver: {
     'pareti-mhm': { tipo: 'mq_superficie_lorda', eurMq: 597 },
     'trave-larice': { tipo: 'ml_perimetro', eurMl: 97 },
+    // STIMA NON VERIFICATA: nessun dato reale (Crivellaro è monopiano); valore indicativo tra cappotto (126) e copertura (395), da validare su un progetto multipiano reale
     'solaio-interpiano': { tipo: 'mq_superficie_lorda', eurMq: 280 },
     'copertura-falda': { tipo: 'mq_superficie_lorda', eurMq: 395 },
     cappotto: { tipo: 'mq_superficie_lorda', eurMq: 126 },
