@@ -1,0 +1,7 @@
+# documenti di riferimento forniti da FBE (~33 MB, non versionati)
+Documentazione addestramento/
+
+node_modules/
+.next/
+*.db
+.env*
