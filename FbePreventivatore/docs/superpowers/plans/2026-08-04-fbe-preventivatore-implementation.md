@@ -2451,6 +2451,15 @@ git commit -m "feat(documento): componenti preview A4 per pagine 4, 5, 6 e abaco
 
 Per restare testabile senza Testing Library/jsdom (fuori scope in questo prototipo), la logica di trasformazione stato-form → `InputCalcolo` è isolata in una funzione pura testata direttamente; il componente React la usa ma non viene testato a sua volta in questo task.
 
+**Nota — questo brief predata tre amendment successivi (Task 5/6, Task 8, Task 13) e non è stato riscritto di conseguenza.** Chi implementa deve applicare queste correzioni prima di eseguire i test, sullo stesso modello dei bug di brief già trovati e corretti nei Task 6/8/9/11/12:
+
+1. `ConfigurazioneVoci` (Task 5, amendment) richiede `chiaviInManoNelTotale: boolean` — `StatoForm`/`inputCalcoloDaStato` sotto non lo includono. Va aggiunto a `StatoForm` e passato in `configurazione`.
+2. `InputGeometricoListino` (Task 6, amendment) richiede `superficieSedime: number` — non incluso sotto. Va derivato con `superficieSedime()` da `@/domain/geometria` (stesso helper usato in Task 4/6), non un nuovo campo del form.
+3. `InputCalcolo.overrides` (Task 8, fix round 1) è tipizzato `Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>`, non `Record<string, number | string>` come scritto sotto in `StatoForm` — va allineato, altrimenti l'assegnazione a `InputCalcolo` non compila.
+4. `PaginaPrezzi` (Task 13, fix round 1) ora richiede una prop `annoListino: number` — `PannelloPreview.tsx` sotto non la passa. Usa `input.listino.anno` (`ListinoAnno.anno`, già presente in `LISTINO_2026`).
+
+**Amendment di design — spec §3.9, "il Totale Lordi non è sempre una somma piena":** su Zapparoni la somma delle superfici non è una somma piena (spazi accessori pesati 1/3, `189+100+(10+48+6)/3=310mq`) — una convenzione commerciale decisa caso per caso da chi scrive il preventivo, non un algoritmo fisso. Il totale calcolato sommando le righe (`totaleSuperficiLorde`) resta la proposta di default corretta nella maggioranza dei casi, ma **non va mai trattato come autorevole**: deve restare sovrascrivibile, con lo stesso principio di provenienza (proposto/manuale) usato per i prezzi delle voci. Aggiungi un campo opzionale `totaleLordoManuale?: number` a `StatoForm`; se valorizzato, `inputCalcoloDaStato` lo usa al posto di `totaleSuperficiLorde(stato.superfici)` per `geometria.superficiLordeTotale`. Nel form (Step 6, step "Geometria"), mostra il totale calcolato come default e permetti di sovrascriverlo con un input numerico — non serve altro meccanismo di UI oltre a questo per il prototipo.
+
 - [ ] **Step 1: Scrivere il test della trasformazione stato → input**
 
 ```ts
@@ -2469,6 +2478,7 @@ const STATO_CRIVELLARO: StatoForm = {
   serramenti: [{ n: 1, piano: 'PT', tipologia: 'porta di ingresso', b: 1, h: 2.2 }],
   perimetro: 60,
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
+  chiaviInManoNelTotale: true,
   sconti: [{ percentuale: 0.1, causale: 'sconto cliente' }],
   overrides: {},
   totaleTarget: 300000,
@@ -2481,14 +2491,35 @@ describe('inputCalcoloDaStato', () => {
     expect(input.geometria.superficieGarage).toBe(41)
   })
 
+  it('deriva superficieSedime dalla riga Piano Terra', () => {
+    const input = inputCalcoloDaStato(STATO_CRIVELLARO)
+    expect(input.geometria.superficieSedime).toBe(134)
+  })
+
   it('deriva numeroPianiAbitativi per la configurazione voci', () => {
     const input = inputCalcoloDaStato(STATO_CRIVELLARO)
     expect(input.configurazione.numeroPianiAbitativi).toBe(1)
   })
 
+  it('propaga chiaviInManoNelTotale alla configurazione voci', () => {
+    const input = inputCalcoloDaStato(STATO_CRIVELLARO)
+    expect(input.configurazione.chiaviInManoNelTotale).toBe(true)
+  })
+
   it('imposta arrotondamento come risoluzione sul totale target', () => {
     const input = inputCalcoloDaStato(STATO_CRIVELLARO)
     expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('usa la somma calcolata delle superfici come proposta di default per superficiLordeTotale', () => {
+    const input = inputCalcoloDaStato(STATO_CRIVELLARO)
+    expect(input.geometria.superficiLordeTotale).toBe(161) // nessun totaleLordoManuale impostato
+  })
+
+  it('usa totaleLordoManuale al posto della somma calcolata quando presente (spec §3.9, convenzione Zapparoni)', () => {
+    const statoConOverride = { ...STATO_CRIVELLARO, totaleLordoManuale: 310 }
+    const input = inputCalcoloDaStato(statoConOverride)
+    expect(input.geometria.superficiLordeTotale).toBe(310)
   })
 })
 ```
@@ -2502,7 +2533,7 @@ Expected: FAIL — `./stato-form` non esiste.
 
 ```ts
 // src/app/preventivi/nuovo/stato-form.ts
-import { totaleSuperficiLorde, superficieGarage, numeroPianiAbitativi, totaliSerramenti, type SuperficiePiano, type Serramento } from '@/domain/geometria'
+import { totaleSuperficiLorde, superficieGarage, superficieSedime, numeroPianiAbitativi, totaliSerramenti, type SuperficiePiano, type Serramento } from '@/domain/geometria'
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
 import type { InputCalcolo, ParametriSconto } from '@/domain/calcolo'
@@ -2511,11 +2542,13 @@ export interface StatoForm {
   cliente: { nome: string; comune: string; provincia: string }
   protocollo: string
   superfici: SuperficiePiano[]
+  totaleLordoManuale?: number // sovrascrive totaleSuperficiLorde(superfici) — spec §3.9, non sempre una somma piena (es. Zapparoni)
   serramenti: Serramento[]
   perimetro: number
   livelli: Record<Modulo, LivelloModulo>
+  chiaviInManoNelTotale: boolean
   sconti: ParametriSconto[]
-  overrides: Record<string, number | string>
+  overrides: Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>
   totaleTarget: number
 }
 
@@ -2528,10 +2561,12 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
       livelli: stato.livelli,
       numeroPianiAbitativi: numeroPianiAbitativi(stato.superfici),
       superficieGarage: superficieGarage(stato.superfici),
+      chiaviInManoNelTotale: stato.chiaviInManoNelTotale,
     },
     listino: LISTINO_2026,
     geometria: {
-      superficiLordeTotale: totaleSuperficiLorde(stato.superfici),
+      superficiLordeTotale: stato.totaleLordoManuale ?? totaleSuperficiLorde(stato.superfici),
+      superficieSedime: superficieSedime(stato.superfici),
       superficieGarage: superficieGarage(stato.superfici),
       perimetro: stato.perimetro,
       serramenti: { areaLordaTotale, numero },
@@ -2582,7 +2617,7 @@ export function PannelloPreview({ stato, input }: Props) {
         superfici={stato.superfici.filter((s) => s.piano !== 'Garage')}
         superficieGarage={stato.superfici.find((s) => s.piano === 'Garage')?.valoreLordo ?? ''}
       />
-      <PaginaPrezzi risultato={risultato} />
+      <PaginaPrezzi risultato={risultato} annoListino={input.listino.anno} />
       <PaginaAbacoSerramenti abaco={abaco} />
     </div>
   )
@@ -2605,6 +2640,7 @@ const STATO_INIZIALE: StatoForm = {
   serramenti: [],
   perimetro: 0,
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
+  chiaviInManoNelTotale: false,
   sconti: [],
   overrides: {},
   totaleTarget: 0,
