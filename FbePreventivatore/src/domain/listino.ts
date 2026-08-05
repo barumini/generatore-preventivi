@@ -12,7 +12,7 @@ export const LISTINO_2026: ListinoAnno = {
     'trave-larice': { tipo: 'ml_perimetro', eurMl: 97 },
     // STIMA NON VERIFICATA: nessun dato reale (Crivellaro è monopiano); valore indicativo tra cappotto (126) e copertura (395), da validare su un progetto multipiano reale
     'solaio-interpiano': { tipo: 'mq_superficie_lorda', eurMq: 280 },
-    'copertura-falda': { tipo: 'mq_superficie_lorda', eurMq: 395 },
+    'copertura-falda': { tipo: 'mq_superficie_sedime', eurMq: 475 },
     cappotto: { tipo: 'mq_superficie_lorda', eurMq: 126 },
     'cartongesso-q2': { tipo: 'mq_superficie_lorda', eurMq: 96 },
     'assistenza-cartongessisti': { tipo: 'percentuale_voce', percentuale: 0.142, vocePadreId: 'cartongesso-q2' },
@@ -31,6 +31,7 @@ export function driverPer(listino: ListinoAnno, voceId: string): Driver | undefi
 export interface InputGeometricoListino {
   superficiLordeTotale: number
   superficieGarage: number
+  superficieSedime: number
   perimetro: number
   serramenti: { areaLordaTotale: number; numero: number }
 }
@@ -45,6 +46,8 @@ export function proponiValore(
       return arrotonda2(driver.eurMq * input.superficiLordeTotale)
     case 'mq_garage':
       return arrotonda2(driver.eurMq * input.superficieGarage)
+    case 'mq_superficie_sedime':
+      return arrotonda2(driver.eurMq * input.superficieSedime)
     case 'ml_perimetro':
       return arrotonda2(driver.eurMl * input.perimetro)
     case 'mq_serramenti_lordi':

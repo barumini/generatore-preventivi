@@ -15,6 +15,7 @@ describe('proponiValore — coerenza con Crivellaro (tolleranza ±5%)', () => {
   const input = {
     superficiLordeTotale: 161,
     superficieGarage: 41,
+    superficieSedime: 134,
     perimetro: 60,
     serramenti: { areaLordaTotale: 30.5, numero: 11 },
   }
@@ -31,6 +32,13 @@ describe('proponiValore — coerenza con Crivellaro (tolleranza ±5%)', () => {
     const proposto = proponiValore(driver, input, new Map())
     expect(proposto).toBeGreaterThan(20000 * 0.95)
     expect(proposto).toBeLessThan(20000 * 1.05)
+  })
+
+  it('propone un valore vicino ai 63 600 € reali per la copertura, usando l\'impronta a terra', () => {
+    const driver = driverPer(LISTINO_2026, 'copertura-falda')!
+    const proposto = proponiValore(driver, input, new Map())
+    expect(proposto).toBeGreaterThan(63600 * 0.95)
+    expect(proposto).toBeLessThan(63600 * 1.05)
   })
 
   it('la consulenza progettazione esecutiva è a corpo fisso 4 000 € indipendentemente dalla geometria', () => {
