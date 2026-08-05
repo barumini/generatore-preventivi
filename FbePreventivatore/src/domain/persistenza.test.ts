@@ -38,11 +38,22 @@ describe('serializzaRevisione / deserializzaRevisione', () => {
     expect(ricostruito.input.overrides).toEqual(INPUT_MINIMO.overrides)
   })
 
-  it('congela il listino: cambiare LISTINO_2026 dopo il salvataggio non altera la revisione deserializzata', () => {
-    const risultato = eseguiCalcolo(INPUT_MINIMO)
-    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(INPUT_MINIMO, risultato)
-    // il listino "vivo" cambia altrove nell'app; la revisione salvata non deve saperlo
+  it('congela il listino: mutare il listino "vivo" dopo il salvataggio non altera la revisione deserializzata', () => {
+    const listinoMutabile = structuredClone(LISTINO_2026)
+    const inputConCopia: InputCalcolo = { ...INPUT_MINIMO, listino: listinoMutabile }
+    const risultato = eseguiCalcolo(inputConCopia)
+    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(inputConCopia, risultato)
+
+    // mutazione del listino "vivo" DOPO il salvataggio: se serializzaRevisione
+    // avesse salvato un riferimento anziché una copia indipendente, questa
+    // mutazione trapelerebbe nella revisione deserializzata.
+    listinoMutabile.driver['pareti-mhm'] = { tipo: 'mq_superficie_lorda', eurMq: 999999 }
+
     const ricostruito = deserializzaRevisione(inputCalcolo, risultatoCalcolo)
     expect(ricostruito.risultato.totaleNetto).toBe(risultato.totaleNetto)
+    expect(ricostruito.input.listino).not.toBe(listinoMutabile)
+    expect((ricostruito.input.listino as typeof LISTINO_2026).driver['pareti-mhm']).not.toEqual(
+      listinoMutabile.driver['pareti-mhm'],
+    )
   })
 })
