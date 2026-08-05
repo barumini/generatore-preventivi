@@ -14,4 +14,11 @@ describe('formattaImportoItaliano', () => {
     expect(formattaImportoItaliano('comprese')).toBe('comprese')
     expect(formattaImportoItaliano('OMAGGIO')).toBe('OMAGGIO')
   })
+
+  it('formatta un valore negativo mantenendo il segno davanti alla cifra', () => {
+    // risolviArrotondamento (src/domain/calcolo.ts) puo' restituire un arrotondamento
+    // negativo: i chiamanti (es. PaginaPrezzi) devono gestire il segno da soli — qui si
+    // blocca solo il comportamento della funzione di formattazione su un numero negativo.
+    expect(formattaImportoItaliano(-1070)).toBe('-1 070,00 €')
+  })
 })
