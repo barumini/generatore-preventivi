@@ -7,6 +7,7 @@ import {
   totaleSuperficiLorde,
   superficieGarage,
   numeroPianiAbitativi,
+  superficieSedime,
   type Serramento,
   type SuperficiePiano,
 } from './geometria'
@@ -105,5 +106,15 @@ describe('numeroPianiAbitativi', () => {
       { piano: 'Piano Primo', valoreLordo: '63' },
     ]
     expect(numeroPianiAbitativi(superfici)).toBe(2)
+  })
+})
+
+describe('superficieSedime', () => {
+  it('restituisce il valore di Piano Terra come proxy dell\'impronta a terra — golden case Crivellaro', () => {
+    expect(superficieSedime(SUPERFICI_CRIVELLARO)).toBe(134)
+  })
+
+  it('vale 0 se non c\'è nessuna riga Piano Terra', () => {
+    expect(superficieSedime([{ piano: 'Portico', valoreLordo: '13+14' }])).toBe(0)
   })
 })

@@ -78,3 +78,8 @@ export function numeroPianiAbitativi(superfici: SuperficiePiano[]): number {
   const pianiAbitativi: readonly string[] = PIANI_ABITATIVI
   return superfici.filter((s) => pianiAbitativi.includes(s.piano) && risolviValoreLordo(s.valoreLordo) > 0).length
 }
+
+export function superficieSedime(superfici: SuperficiePiano[]): number {
+  const pianoTerra = superfici.find((s) => s.piano === 'Piano Terra')
+  return pianoTerra ? risolviValoreLordo(pianoTerra.valoreLordo) : 0
+}
