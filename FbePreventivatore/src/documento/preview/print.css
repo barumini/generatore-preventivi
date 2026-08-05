@@ -1,0 +1,32 @@
+.pagina-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  background: white;
+  color: black;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+  margin: 0 auto 16px auto;
+  font-family: Georgia, serif;
+}
+
+.pagina-a4 table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pagina-a4 td {
+  padding: 4px 8px;
+  vertical-align: top;
+}
+
+.pagina-a4 .importo {
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media print {
+  .pagina-a4 {
+    box-shadow: none;
+    margin: 0;
+  }
+}
