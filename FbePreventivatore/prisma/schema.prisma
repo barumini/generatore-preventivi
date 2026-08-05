@@ -4,10 +4,40 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
 }
 
 model Cliente {
-  id   String @id @default(cuid())
-  nome String
+  id         String       @id @default(cuid())
+  nome       String
+  comune     String
+  provincia  String
+  preventivi Preventivo[]
+}
+
+model Preventivo {
+  id          String      @id @default(cuid())
+  protocollo  String      @unique
+  clienteId   String
+  cliente     Cliente     @relation(fields: [clienteId], references: [id])
+  oggetto     String
+  progettista String?
+  revisioni   Revisione[]
+  createdAt   DateTime    @default(now())
+}
+
+model Revisione {
+  id           String     @id @default(cuid())
+  preventivoId String
+  preventivo   Preventivo @relation(fields: [preventivoId], references: [id])
+  numero       Int
+  data         DateTime
+  luogo        String
+  stato        String     @default("bozza") // bozza | inviata | firmata
+
+  // Snapshot immutabile: input completo e risultato calcolato, come JSON.
+  // Non un riferimento al listino corrente — vedi CLAUDE.md vincolo 6.
+  inputCalcolo     String
+  risultatoCalcolo String
+
+  @@unique([preventivoId, numero])
 }
