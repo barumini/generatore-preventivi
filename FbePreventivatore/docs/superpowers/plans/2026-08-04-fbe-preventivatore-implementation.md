@@ -3007,13 +3007,20 @@ git commit -m "feat(template): master docx con placeholder e tabella prezzi nati
 
 ### Task 17: `documento/export-docx.ts` — generazione del documento finale
 
+**Amendment (post Task 16) — leggere prima di tutto.** Questo brief è stato riscritto dopo che il Task 16 ha prodotto il master reale: il master ha molti più placeholder di quanti questa sezione ne prevedesse in origine (vedi `template/PLACEHOLDER.md`, la fonte di verità). L'utente ha scelto esplicitamente l'opzione "export completo, wizard da estendere dopo": `esportaOfferta()` prende un `InputEsportazione` che copre OGNI placeholder reale del master — non è derivato da `StatoForm` (che oggi non modella caratteristiche costruttive testuali, condizioni di pagamento/SAL, o riferimenti pratiche). Il test end-to-end usa valori letterali per ogni campo, esattamente come già fatto per `INPUT_CRIVELLARO` nel Task 8. **Resta un follow-up esplicito, dichiarato e non risolto qui**: `FormStrutturato`/`StatoForm` (Task 14) non raccolgono ancora questi dati — collegare il wizard a questo export richiederà di estenderli in un task futuro.
+
+Due correzioni obbligatorie rispetto al brief originale, entrambe piccole ma silenziosamente rompenti se ignorate:
+
+1. **Le chiavi passate a `doc.render()` devono essere piatte con il punto nel nome**, non oggetti annidati: il parser di default di docxtemplater fa `scope["cliente.nome"]`, non `scope.cliente.nome` (`template/PLACEHOLDER.md`, sezione "Convenzione dei nomi con il punto"). Il codice originale di questo brief passava `cliente: input.cliente` (un oggetto annidato) — non avrebbe mai funzionato.
+2. **`INPUT_CRIVELLARO`** (il fixture di test, riusato dal Task 8) **mancava `chiaviInManoNelTotale` e `superficieSedime`**, aggiunti da un amendment successivo a `ConfigurazioneVoci`/`InputGeometricoListino` — stesso difetto di brief già trovato e corretto nei Task 9/11/14.
+
 **Files:**
 - Create: `src/documento/export-docx.ts`
 - Test: `src/documento/export-docx.test.ts`
 
 **Interfaces:**
-- Consuma: `RisultatoCalcolo` (Task 8), `StatoForm` (Task 14), output di `generaAbacoSerramenti()` (Task 10), il master preparato in Task 16.
-- Produce: `esportaOfferta()` — punto di chiusura del progetto: dato un preventivo completo, produce il `.docx` finale.
+- Consuma: `RisultatoCalcolo` (Task 8), il master preparato in Task 16 e il suo contratto placeholder (`template/PLACEHOLDER.md`).
+- Produce: `esportaOfferta()`, `InputEsportazione` e i tipi di supporto (`CaratteristicheOfferta`, `SuperficiOfferta`, `CondizioniOfferta`, `VoceOpzionale`, `SalRata`, `AbacoPerCategoria`) — punto di chiusura del progetto: dato un preventivo completo, produce il `.docx` finale. Non consuma `StatoForm` direttamente (vedi amendment sopra).
 
 - [ ] **Step 1: Scrivere il test end-to-end con il golden case Crivellaro**
 
@@ -3030,9 +3037,20 @@ import { LISTINO_2026 } from '@/domain/listino'
 
 const INPUT_CRIVELLARO: InputCalcolo = {
   catalogo: CATALOGO_VOCI,
-  configurazione: { livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' }, numeroPianiAbitativi: 1, superficieGarage: 41 },
+  configurazione: {
+    livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
+    numeroPianiAbitativi: 1,
+    superficieGarage: 41,
+    chiaviInManoNelTotale: true, // amendment Task 5 — mancava nel brief originale
+  },
   listino: LISTINO_2026,
-  geometria: { superficiLordeTotale: 161, superficieGarage: 41, perimetro: 60, serramenti: { areaLordaTotale: 30.5, numero: 11 } },
+  geometria: {
+    superficiLordeTotale: 161,
+    superficieSedime: 134, // amendment Task 6 — mancava nel brief originale
+    superficieGarage: 41,
+    perimetro: 60,
+    serramenti: { areaLordaTotale: 30.5, numero: 11 },
+  },
   overrides: {
     'pareti-mhm': 96100, 'trave-larice': 5800, 'copertura-falda': 63600, cappotto: 20300,
     'cartongesso-q2': 15500, 'assistenza-cartongessisti': 2200, 'infissi-pvc': 19300,
@@ -3044,15 +3062,58 @@ const INPUT_CRIVELLARO: InputCalcolo = {
 }
 
 describe('esportaOfferta — golden case Crivellaro', () => {
-  it('produce un .docx che contiene il totale netto formattato correttamente', () => {
+  it('produce un .docx con ogni placeholder sostituito e i totali corretti', () => {
     const risultato = eseguiCalcolo(INPUT_CRIVELLARO)
     const percorsoOutput = path.resolve(import.meta.dirname, '__output_test__.docx')
 
     esportaOfferta({
       cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
       protocollo: '2026059',
+      revisione: '00',
+      dataOfferta: 'Castelgomberto, 5 agosto 2026',
       risultato,
-      abacoSerramenti: 'n. 1 portoncini di ingresso dim. standard 100x220;',
+      annoListino: LISTINO_2026.anno,
+      caratteristiche: {
+        tetto: 'Tetto con travi e perline in abete',
+        mantoCopertura: 'Tegole in cemento',
+        finituraEsterna: 'Intonaco',
+        pacchettoConsegna: 'Grezzo avanzato',
+      },
+      superfici: {
+        totaleLorda: '134+13+14= 161',
+        pianoTerra: '134',
+        pianoPrimo: '',
+        sottotetto: '',
+        portico: '13+14',
+        terrazzo: '',
+        garage: '41',
+      },
+      condizioni: {
+        optional: [],
+        esclusioni: [],
+        consegna: 'da pattuire',
+        caparra: 30000,
+        salPrimi: [
+          { percentuale: 0.2, descrizione: 'Acconto al contratto' },
+          { percentuale: 0.1, descrizione: 'Informativa di cantiere' },
+          { percentuale: 0.4, descrizione: 'Inizio montaggio' },
+        ],
+        salSuccessivi: [
+          { percentuale: 0.1, descrizione: 'Al tetto primo tavolato (escluso tegole)' },
+          { percentuale: 0.1, descrizione: 'Cappotto esterno grezzo (escluso intonachino)' },
+          { percentuale: 0.05, descrizione: 'Inizio posa Cartongesso' },
+          { percentuale: 0.05, descrizione: 'Fine lavori' },
+        ],
+        validita: '31.08.2026',
+      },
+      abaco: {
+        tutti: 'n. 1 portoncini di ingresso dim. standard 100x220;',
+        finestreBattente: '',
+        portefinestreBattente: '',
+        fissiVetrate: '',
+        alzantiScorrevoli: '',
+        portoncini: 'n. 1 portoncini di ingresso dim. standard 100x220;',
+      },
       percorsoMaster: path.resolve(import.meta.dirname, '../../template/Offerta MHM master.docx'),
       percorsoOutput,
     })
@@ -3063,8 +3124,13 @@ describe('esportaOfferta — golden case Crivellaro', () => {
 
     expect(documentoXml).toContain('Crivellaro Mariano')
     expect(documentoXml).toContain('300 000,00')
+    // nessun placeholder o residuo del bug di spec §3.8 deve sopravvivere al render
     expect(documentoXml).not.toContain('{cliente.nome}')
+    expect(documentoXml).not.toContain('{riferimenti.')
+    expect(documentoXml).not.toContain('{#')
+    expect(documentoXml).not.toContain('undefined')
     expect(documentoXml).not.toContain('PROT. 000-22 REV.00')
+    expect(documentoXml).not.toContain('punto 1.a')
 
     fs.unlinkSync(percorsoOutput)
   })
@@ -3074,7 +3140,7 @@ describe('esportaOfferta — golden case Crivellaro', () => {
 - [ ] **Step 2: Eseguire il test e verificare che fallisca**
 
 Run: `npm test -- export-docx`
-Expected: FAIL — `./export-docx` non esiste (o il file master non esiste ancora se Task 16 non è completo: in tal caso questo task è bloccato su Task 16, non procedere).
+Expected: FAIL — `./export-docx` non esiste (il master di Task 16 esiste già, quindi questo task non è più bloccato).
 
 - [ ] **Step 3: Implementare `src/documento/export-docx.ts`**
 
@@ -3086,40 +3152,146 @@ import Docxtemplater from 'docxtemplater'
 import type { RisultatoCalcolo } from '@/domain/calcolo'
 import { formattaImportoItaliano } from './preview/formattazione'
 
-interface InputEsportazione {
+const SISTEMA_COSTRUTTIVO = 'MassivHolzMauer® (M.H.M.)'
+
+export interface CaratteristicheOfferta {
+  tetto: string
+  mantoCopertura: string
+  finituraEsterna: string
+  pacchettoConsegna: string
+}
+
+export interface SuperficiOfferta {
+  totaleLorda: string // stringa libera, es. '134+13+14= 161' — CLAUDE.md: forma scritta conservata
+  pianoTerra: string
+  pianoPrimo: string
+  sottotetto: string
+  portico: string
+  terrazzo: string
+  garage: string
+}
+
+export interface VoceOpzionale {
+  id: string // usato solo per {riferimenti.praticaGenioCivile} — mai stampato a schermo
+  lettera: string
+  descrizione: string
+  importo: number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'
+}
+
+export interface SalRata {
+  percentuale: number
+  descrizione: string
+}
+
+export interface CondizioniOfferta {
+  optional: VoceOpzionale[]
+  esclusioni: VoceOpzionale[]
+  consegna: string
+  caparra: number
+  salPrimi: SalRata[] // i primi 3 SAL, prima della clausola di fidejussione
+  salSuccessivi: SalRata[]
+  validita: string
+}
+
+export interface AbacoPerCategoria {
+  tutti: string
+  finestreBattente: string
+  portefinestreBattente: string
+  fissiVetrate: string
+  alzantiScorrevoli: string
+  portoncini: string
+}
+
+export interface InputEsportazione {
   cliente: { nome: string; comune: string; provincia: string }
   protocollo: string
+  revisione: string // 2 cifre, es. '00'
+  dataOfferta: string
   risultato: RisultatoCalcolo
-  abacoSerramenti: string
+  annoListino: number
+  caratteristiche: CaratteristicheOfferta
+  superfici: SuperficiOfferta
+  condizioni: CondizioniOfferta
+  abaco: AbacoPerCategoria
   percorsoMaster: string
   percorsoOutput: string
+}
+
+function formattaNumeroItaliano(valore: number): string {
+  return formattaImportoItaliano(valore).replace(' €', '')
+}
+
+function formattaPercentuale(frazione: number): string {
+  return `${(frazione * 100).toFixed(0)}%`
+}
+
+function formattaVoceOpzionale(v: VoceOpzionale) {
+  return { lettera: v.lettera, descrizione: v.descrizione, importo: formattaImportoItaliano(v.importo) }
 }
 
 export function esportaOfferta(input: InputEsportazione): void {
   const contenuto = fs.readFileSync(input.percorsoMaster, 'binary')
   const zip = new PizZip(contenuto)
-  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
+  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '' })
+
+  const vociGrezzo = input.risultato.vociValorizzate.filter((v) => v.gruppo === 'grezzo')
+  const vociPostSconto = input.risultato.vociValorizzate.filter((v) => v.gruppo === 'post_sconto')
+
+  // riferimenti.* non sono mai testo fisso (vincolo 4): si ricalcolano da vociValorizzate/optional ad ogni render
+  const numeroVoce = (id: string) => input.risultato.vociValorizzate.find((v) => v.id === id)?.numero ?? ''
+  const letteraOptional = (id: string) => input.condizioni.optional.find((v) => v.id === id)?.lettera ?? ''
+
+  const segnoArrotondamento = input.risultato.arrotondamento < 0 ? '+' : '-' // stessa logica di PaginaPrezzi.tsx
+  const arrotondamentoTesto = `${segnoArrotondamento} ${formattaImportoItaliano(Math.abs(input.risultato.arrotondamento))}`
 
   doc.render({
-    cliente: input.cliente,
+    'cliente.nome': input.cliente.nome,
+    'cliente.comune': input.cliente.comune,
+    'cliente.provincia': input.cliente.provincia,
     protocollo: input.protocollo,
-    voci: input.risultato.vociValorizzate.map((v) => ({
-      numero: v.numero,
-      descrizione: v.descrizione,
-      importo: formattaImportoItaliano(v.importo),
-    })),
+    revisione: input.revisione,
+    dataOfferta: input.dataOfferta,
+    sistemaCostruttivo: SISTEMA_COSTRUTTIVO,
+    tetto: input.caratteristiche.tetto,
+    mantoCopertura: input.caratteristiche.mantoCopertura,
+    finituraEsterna: input.caratteristiche.finituraEsterna,
+    pacchettoConsegna: input.caratteristiche.pacchettoConsegna,
+    'superficie.totaleLorda': input.superfici.totaleLorda,
+    'superficie.pianoTerra': input.superfici.pianoTerra,
+    'superficie.pianoPrimo': input.superfici.pianoPrimo,
+    'superficie.sottotetto': input.superfici.sottotetto,
+    'superficie.portico': input.superfici.portico,
+    'superficie.terrazzo': input.superfici.terrazzo,
+    'superficie.garage': input.superfici.garage,
+    annoListino: String(input.annoListino),
+    voci: vociGrezzo.map((v) => ({ numero: v.numero, descrizione: v.descrizione, importo: formattaImportoItaliano(v.importo) })),
     listinoTotale: formattaImportoItaliano(input.risultato.listinoTotale),
     sconti: input.risultato.sconti.map((s) => ({
-      percentuale: `${(s.percentuale * 100).toFixed(0)}%`,
+      percentuale: formattaPercentuale(s.percentuale),
       causale: s.causale,
-      importo: formattaImportoItaliano(s.importoCalcolato),
+      importo: formattaImportoItaliano(-s.importoCalcolato), // già col segno, cfr. PLACEHOLDER.md
     })),
-    arrotondamento: formattaImportoItaliano(input.risultato.arrotondamento),
+    arrotondamento: arrotondamentoTesto,
     parziale: formattaImportoItaliano(input.risultato.parziale),
-    sicurezzaCosto: formattaImportoItaliano(input.risultato.sicurezza.costoDichiarato),
-    sicurezzaValorizzata: formattaImportoItaliano(input.risultato.sicurezza.valorizzata),
+    'sicurezza.valorizzata': formattaImportoItaliano(input.risultato.sicurezza.valorizzata),
+    vociPostSconto: vociPostSconto.map((v) => ({ numero: v.numero, descrizione: v.descrizione, importo: formattaImportoItaliano(v.importo) })),
     totaleNetto: formattaImportoItaliano(input.risultato.totaleNetto),
-    abacoSerramenti: input.abacoSerramenti,
+    optional: input.condizioni.optional.map(formattaVoceOpzionale),
+    esclusioni: input.condizioni.esclusioni.map(formattaVoceOpzionale),
+    'riferimenti.praticaGenioCivile': letteraOptional('pratica-genio-civile'),
+    'riferimenti.tracciamentoImpianti': numeroVoce('tracciamento-impianti'),
+    'riferimenti.progettazioneEsecutiva': numeroVoce('progettazione-esecutiva'),
+    consegna: input.condizioni.consegna,
+    caparra: formattaNumeroItaliano(input.condizioni.caparra), // il master ha già "€ " davanti al placeholder
+    salPrimi: input.condizioni.salPrimi.map((s) => ({ percentuale: formattaPercentuale(s.percentuale), descrizione: s.descrizione })),
+    salSuccessivi: input.condizioni.salSuccessivi.map((s) => ({ percentuale: formattaPercentuale(s.percentuale), descrizione: s.descrizione })),
+    validita: input.condizioni.validita,
+    'abaco.finestreBattente': input.abaco.finestreBattente,
+    'abaco.portefinestreBattente': input.abaco.portefinestreBattente,
+    'abaco.fissiVetrate': input.abaco.fissiVetrate,
+    'abaco.alzantiScorrevoli': input.abaco.alzantiScorrevoli,
+    abacoSerramenti: input.abaco.tutti,
+    'abaco.portoncini': input.abaco.portoncini,
   })
 
   const buffer = doc.getZip().generate({ type: 'nodebuffer' })
@@ -3127,10 +3299,12 @@ export function esportaOfferta(input: InputEsportazione): void {
 }
 ```
 
+Nota per chi implementa: verifica la sintassi esatta dei nomi dei placeholder (chiavi dell'oggetto passato a `doc.render()`) contro `template/PLACEHOLDER.md` PRIMA di lanciare il test — sono stringhe letterali che devono coincidere carattere per carattere con quanto scritto nel `.docx` (incluso il punto nelle chiavi piatte tipo `'cliente.nome'`, `'sicurezza.valorizzata'`, `'superficie.pianoTerra'`, `'riferimenti.*'`, `'abaco.*'`). Se un tag non viene trovato, docxtemplater lancia un errore leggibile con il nome del tag mancante — usalo per correggere la corrispondenza, non per indovinare.
+
 - [ ] **Step 4: Eseguire il test e verificare che passi**
 
 Run: `npm test -- export-docx`
-Expected: PASS. Se fallisce per placeholder non trovati nel master, tornare a Task 16 e verificare che i nomi dei placeholder in `PLACEHOLDER.md` corrispondano esattamente alle chiavi passate a `doc.render()` qui sopra (`voci`, `sconti`, `totaleNetto`, ecc. — sono nomi di variabile, non testo libero, e devono coincidere carattere per carattere con quanto scritto nel `.docx`).
+Expected: PASS. Se fallisce per un tag non risolto, il messaggio di errore di docxtemplater indica quale — confronta con `PLACEHOLDER.md`, non con questo brief (il master è la fonte di verità).
 
 - [ ] **Step 5: Eseguire l'intera suite del progetto**
 
@@ -3139,7 +3313,7 @@ Expected: PASS su tutti i moduli — domain, ai, documento.
 
 - [ ] **Step 6: Verifica manuale finale**
 
-Aprire il `.docx` prodotto da un export reale (non il file temporaneo di test) e confrontarlo pagina per pagina con `Offerta MHM rev.04_crivellaro.pdf`: stessa impaginazione sulle pagine boilerplate, stessi importi sulle pagine 4/5/6/19.
+Aprire il `.docx` prodotto da un export reale (non il file temporaneo di test) e confrontarlo pagina per pagina con `Offerta MHM rev.04_crivellaro.pdf`: stessa impaginazione sulle pagine boilerplate, stessi importi sulle pagine 4/5/6/19. Questa verifica si somma, non sostituisce, il controllo visivo in Word già richiesto da `PLACEHOLDER.md` per il master stesso.
 
 - [ ] **Step 7: Commit**
 
