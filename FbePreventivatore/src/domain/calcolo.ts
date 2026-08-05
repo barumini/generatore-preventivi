@@ -73,7 +73,7 @@ export interface InputCalcolo {
   configurazione: ConfigurazioneVoci
   listino: ListinoAnno
   geometria: InputGeometricoListino
-  overrides: Record<string, number | string>
+  overrides: Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>
   sconti: ParametriSconto[]
   sicurezza: Sicurezza
   arrotondamento: number | { risolviPerTotale: number }
@@ -104,7 +104,7 @@ export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
     const override = input.overrides[voce.id]
 
     if (override !== undefined) {
-      const importo = override as number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'
+      const importo = override
       if (typeof importo === 'number') valoriPerId.set(voce.id, importo)
       vociValorizzate.push({
         numero,
