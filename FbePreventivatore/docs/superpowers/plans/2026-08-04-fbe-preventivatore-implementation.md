@@ -1768,9 +1768,9 @@ git commit -m "feat(ai): generazione deterministica abaco serramenti, verificata
 
 **Interfaces:**
 - Consuma: `SuperficiePiano`, `totaleSuperficiLorde()` (da `domain/geometria.ts`, Task 4); `RisultatoCalcolo` (da `domain/calcolo.ts`, Task 8); `sogliaArrotondamentoSuperata()` (Task 7).
-- Produce: `Avviso`, `verificaCoerenza()` — usato da Task 14 (wizard, prima dell'export) e Task 17 (export).
+- Produce: `Avviso`, `RiferimentoTestuale`, `verificaCoerenza()` — usato da Task 14 (wizard, prima dell'export) e Task 17 (export).
 
-I controlli sono quelli elencati in spec §3.8, tutti osservati come errori reali nei documenti FBE esistenti.
+I controlli sono quelli elencati in spec §3.8, tutti osservati come errori reali nei documenti FBE esistenti. A questi si aggiunge un controllo emerso dalla validazione su 3 preventivi reali aggiuntivi (spec §3.9): in Lucarelli una nota a piè di pagina cita "punto 1.a" per una voce che nella numerazione finale di quel preventivo non esiste più (rimossa/rinumerata) — un riferimento a numero di voce non più valido, invisibile finché qualcuno non prova a seguirlo. Dato che i numeri di voce si rinumerano ad ogni cambio di configurazione (vincolo 4 di CLAUDE.md), qualunque testo che cita un numero di voce come stringa fissa può restare agganciato a un numero che non esiste più: va controllato contro la numerazione effettiva calcolata, non assunto stabile.
 
 - [ ] **Step 1: Scrivere i test**
 
@@ -1808,6 +1808,7 @@ describe('verificaCoerenza', () => {
       risultato,
       protocolloPlaceholderPresente: false,
       sezioniDaDefinire: [],
+      riferimentiTestuali: [],
     })
     expect(avvisi).toHaveLength(0)
   })
@@ -1820,6 +1821,7 @@ describe('verificaCoerenza', () => {
       risultato,
       protocolloPlaceholderPresente: false,
       sezioniDaDefinire: [],
+      riferimentiTestuali: [],
     })
     expect(avvisi.some((a) => a.tipo === 'superfici-incoerenti')).toBe(true)
   })
@@ -1832,6 +1834,7 @@ describe('verificaCoerenza', () => {
       risultato,
       protocolloPlaceholderPresente: true,
       sezioniDaDefinire: [],
+      riferimentiTestuali: [],
     })
     expect(avvisi.some((a) => a.tipo === 'placeholder-non-sostituito')).toBe(true)
   })
@@ -1844,6 +1847,7 @@ describe('verificaCoerenza', () => {
       risultato,
       protocolloPlaceholderPresente: false,
       sezioniDaDefinire: ['Scuri', 'Avvolgibili'],
+      riferimentiTestuali: [],
     })
     expect(avvisi.filter((a) => a.tipo === 'sezione-da-definire')).toHaveLength(2)
   })
@@ -1857,8 +1861,37 @@ describe('verificaCoerenza', () => {
       risultato,
       protocolloPlaceholderPresente: false,
       sezioniDaDefinire: [],
+      riferimentiTestuali: [],
     })
     expect(avvisi.some((a) => a.tipo === 'arrotondamento-eccessivo')).toBe(true)
+  })
+
+  it('non segnala nulla se ogni riferimento testuale cita un numero di voce esistente', () => {
+    const risultato = eseguiCalcolo(INPUT_BASE)
+    const avvisi = verificaCoerenza({
+      superfici: SUPERFICI_COERENTI,
+      totaleLordoDichiarato: 161,
+      risultato,
+      protocolloPlaceholderPresente: false,
+      sezioniDaDefinire: [],
+      riferimentiTestuali: [{ numeroCitato: '1.a', contesto: 'nota a piè pagina 3' }],
+    })
+    expect(avvisi.filter((a) => a.tipo === 'riferimento-voce-inesistente')).toHaveLength(0)
+  })
+
+  it('segnala una nota che cita un numero di voce non più presente nella numerazione (bug reale Lucarelli)', () => {
+    const risultato = eseguiCalcolo(INPUT_BASE)
+    const avvisi = verificaCoerenza({
+      superfici: SUPERFICI_COERENTI,
+      totaleLordoDichiarato: 161,
+      risultato,
+      protocolloPlaceholderPresente: false,
+      sezioniDaDefinire: [],
+      riferimentiTestuali: [{ numeroCitato: '9', contesto: 'nota a piè pagina 3' }], // '9' non esiste in questa numerazione
+    })
+    const trovato = avvisi.find((a) => a.tipo === 'riferimento-voce-inesistente')
+    expect(trovato).toBeDefined()
+    expect(trovato?.messaggio).toContain('9')
   })
 })
 ```
@@ -1881,7 +1914,13 @@ export interface Avviso {
     | 'placeholder-non-sostituito'
     | 'sezione-da-definire'
     | 'arrotondamento-eccessivo'
+    | 'riferimento-voce-inesistente'
   messaggio: string
+}
+
+export interface RiferimentoTestuale {
+  numeroCitato: string
+  contesto: string
 }
 
 export interface InputVerificaCoerenza {
@@ -1890,6 +1929,7 @@ export interface InputVerificaCoerenza {
   risultato: RisultatoCalcolo
   protocolloPlaceholderPresente: boolean
   sezioniDaDefinire: string[]
+  riferimentiTestuali: RiferimentoTestuale[]
 }
 
 export function verificaCoerenza(input: InputVerificaCoerenza): Avviso[] {
@@ -1922,6 +1962,16 @@ export function verificaCoerenza(input: InputVerificaCoerenza): Avviso[] {
       tipo: 'arrotondamento-eccessivo',
       messaggio: `L'arrotondamento (${input.risultato.arrotondamento} €) supera il 2% del Listino — rivedere sconti o voci`,
     })
+  }
+
+  const numeriEsistenti = new Set(input.risultato.vociValorizzate.map((v) => v.numero))
+  for (const riferimento of input.riferimentiTestuali) {
+    if (!numeriEsistenti.has(riferimento.numeroCitato)) {
+      avvisi.push({
+        tipo: 'riferimento-voce-inesistente',
+        messaggio: `Il testo cita la voce "${riferimento.numeroCitato}" (${riferimento.contesto}), ma questa numerazione non ha una voce "${riferimento.numeroCitato}" — bug reale osservato in Lucarelli rev., verificare se il riferimento va aggiornato o rimosso`,
+      })
+    }
   }
 
   return avvisi
