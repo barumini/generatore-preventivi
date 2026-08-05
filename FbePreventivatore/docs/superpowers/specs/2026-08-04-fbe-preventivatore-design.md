@@ -184,6 +184,65 @@ dal cliente pagina per pagina.
 - `QUADRO ECONOMICO DEI LAVORI` (pag. 25 del computo) tutto a 0,00: boilerplate per appalti
   pubblici, mai compilato
 
+### 3.9 Validazione su tre preventivi reali aggiuntivi (Zapparoni, Fabrello, Lucarelli)
+
+Dopo l'implementazione dei Task 1-6, FBE ha fornito tre offerte reali ulteriori. Confermano
+le regole del motore e correggono due assunzioni della prima versione della spec.
+
+**Confermato, con dati più forti:**
+
+- **Sconti a cascata**, verificati a mano su tutti e tre (Zapparoni 3%+4%, Fabrello 10%+10%,
+  **Lucarelli 10%+10%+5%** — tre scaglioni, etichette diverse "SCONTO RISERVATO"/"ULTERIORE
+  SCONTO"). La cascata regge con un numero arbitrario di scaglioni.
+- **`sicurezza` post-sconto** in entrambe le forme: OMAGGIO (Fabrello, Lucarelli) e importo
+  reale sommato (Zapparoni, 2 000,00 €, verificato: 378 000 + 2 000 = 380 000 esatto).
+- **`progettazione-esecutiva` = 4 000,00 € a corpo fisso**, confermato su **tutti e quattro**
+  i preventivi indipendentemente da dimensioni e complessità.
+- **I numeri di voce non sono costanti — bug reale intercettato**: in Lucarelli la voce "1.a"
+  è stata rimossa dalla tabella prezzi, ma una nota a pag. 6 cita ancora "punto 1.a". Prova
+  diretta che il controllo di coerenza previsto (§9.3, punto 4) deve includere: *riferimento
+  testuale a un numero di voce che non esiste più nell'elenco numerato*.
+
+**Corretto — il "Totale Lordi" non è sempre una somma piena:**
+
+Crivellaro (134+13+14=161), Fabrello (131+6,5=137,5) e Lucarelli (107+86+13+24=230) sono
+somme piene. Zapparoni usa **`189+100+(10+48+6)/3 = 310 mq`**: le superfici accessorie
+(soppalco, portico, terrazzo) pesano 1/3, non al 100%. È una convenzione commerciale
+decisa caso per caso da chi scrive il preventivo, non un algoritmo fisso.
+
+**Implicazione**: il totale calcolato sommando le righe (`totaleSuperficiLorde`) resta la
+proposta di default corretta nella maggioranza dei casi, ma **non va mai trattato come
+autorevole** — deve restare sovrascrivibile con lo stesso meccanismo di provenienza
+(`proposto`/`manuale`) usato per i prezzi delle voci, non solo per gli importi.
+
+**Corretto — un unico driver "mq totali" non regge per tutte le voci di involucro:**
+
+Confronto quantitativo Crivellaro→altri progetti (stessi coefficienti €/mq applicati alla
+superficie lorda totale del progetto): scostamenti dal 12% al 93% a seconda della voce.
+Il caso più istruttivo è **Lucarelli (2 piani, 230 mq totali)**: la sua copertura reale
+(47 100 €) costa MENO di quella di Crivellaro (1 piano, 161 mq totali, 63 600 €) nonostante
+più mq totali — perché il tetto segue l'impronta a terra dell'edificio, non la somma dei
+piani (un tetto copre l'edificio una sola volta, indipendentemente da quanti piani ci sono
+sotto).
+
+Verificato che questo vale **solo per la copertura**, non per pareti/cappotto: Lucarelli
+include pareti divisorie/strutturali interne che scalano col numero di piani, e usare
+l'impronta a terra come driver per pareti e cappotto peggiora la stima (dal 10-12% di
+errore al 38-50%) invece di migliorarla. Decisione presa: **solo `copertura-falda` cambia
+driver**, da `mq_superficie_lorda` a una nuova quantità geometrica `mq_superficie_sedime`
+(l'impronta a terra, approssimata dal valore della riga "Piano Terra"), con il coefficiente
+ricalibrato di conseguenza (395 → 475 €/mq, usando 63 600 / 134 anziché 63 600 / 161).
+Pareti e cappotto restano su `mq_superficie_lorda` invariati.
+
+**Corretto — l'inclusione di "opere chiavi in mano" nel totale è una scelta, non una regola:**
+
+In Fabrello la "Stima opere chiavi in mano" (90 000 €) è in sezione `Optional:`, **esclusa**
+dal totale. In Crivellaro la stessa voce (89 100 €) **è sommata** in `TOTALE AL NETTO`.
+La spec originale (§5) derivava l'inclusione automaticamente dal livello del Modulo 3
+(`finiture !== 'completo'`) — ma è invece una decisione commerciale esplicita per ogni
+offerta (proporre la stima come riferimento, o impegnarsi a un totale formale che la
+include). Il modello aggiunge un campo booleano esplicito, di default `false`.
+
 ---
 
 ## 4. Struttura del documento target
@@ -340,6 +399,13 @@ Coerente col fatto che il suo contenuto (massetti, pavimenti, impianti, tinteggi
 oscuranti) è l'elenco delle 34 `OPERE ESCLUSE DAL "GREZZO AVANZATO"` marcate
 `(optional chiavi in mano)` a pag. 11.
 
+**Correzione (§3.9): la sua presenza nel `TOTALE AL NETTO` non è automatica.** In Crivellaro
+è sommata; in un'altra offerta reale con lo stesso Modulo 3 impoverito (Fabrello) è invece
+riportata solo in sezione `Optional:`, esclusa dal totale. È una scelta commerciale
+esplicita per singola offerta, non derivabile dal solo livello del modulo. Il modello
+aggiunge un campo `chiaviInManoNelTotale: boolean` (default `false`); la voce è candidabile
+quando `finiture !== 'completo'`, ma entra nel totale numerato solo se il flag è `true`.
+
 Questa tabella è configurazione, non codice: si corregge senza toccare l'applicazione.
 
 ---
@@ -357,7 +423,7 @@ Numerazione delle voci come in Crivellaro (cfr. §5.1: i numeri si rinumerano).
 |---|---|---|---|
 | 1 Pareti strutturali MHM (est. 205 / int. 205-160) | mq sup. lorda | **597 €/mq** | 40,5% |
 | 1.c Trave alla base in larice | ml perimetro | ~97 €/ml (5 800 su ~60 ml) | 2,4% |
-| 2 Copertura a falda | mq sup. lorda | **395 €/mq** | 26,8% |
+| 2 Copertura a falda | **mq sup. sedime** (impronta a terra, non somma piani) | **475 €/mq** | 26,8% |
 | 3 Cappotto fibra di legno 60+40 | mq sup. lorda | **126 €/mq** | 8,6% |
 | 4 Cartongesso interno Q2 | mq sup. lorda | **96 €/mq** | 6,5% |
 | 4.a Assistenza cartongessisti | % voce 4 | **14,2%** di voce 4 | 0,9% |
@@ -380,6 +446,15 @@ Controprove:
 linearmente e cosa no (una casa da 80 mq non costa metà di una da 160), né tarare il caso
 multipiano con solaio interpiano (assente in Crivellaro, monopiano). Mitigazione: i valori
 sono parametri esposti in UI; ogni importo mostra la propria provenienza.
+
+**Aggiornamento (§3.9), dopo tre preventivi reali aggiuntivi:** confermato che il driver
+"mq sup. lorda" non generalizza sul caso multipiano per la copertura — un tetto segue
+l'impronta a terra, non la somma dei piani (Lucarelli, 2 piani: errore dal +93% al +8%
+correggendo il driver). Verificato invece che pareti e cappotto **non** beneficiano dello
+stesso cambio (l'errore peggiora, da 10-12% a 38-50%): scalano col numero di piani, quindi
+`mq sup. lorda` resta il driver corretto per quelle due voci. Solo `copertura-falda` è
+stata corretta; il coefficiente 475 €/mq deriva da 63 600 € / 134 mq (impronta Piano Terra
+di Crivellaro), non più da 63 600 / 161.
 
 ### 6.1 Prezzi unitari optional (dal corpo tecnico del documento)
 
