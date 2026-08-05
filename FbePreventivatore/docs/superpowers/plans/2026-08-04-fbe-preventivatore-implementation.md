@@ -1051,6 +1051,45 @@ git commit -m "feat(domain): listino parametrico 2026 con proposta di valore per
 
 ---
 
+### Amendment (post Task 6): tre preventivi reali aggiuntivi hanno corretto Task 4-6
+
+Dopo il completamento e la review di Task 1-6, FBE ha fornito tre offerte reali aggiuntive
+(Zapparoni, Fabrello, Lucarelli). L'analisi (spec §3.9) ha corretto due assunzioni già
+implementate. Le correzioni sono state applicate con un fix-round per ciascun task
+(implementer originale ripreso, poi ri-revisionato) — il dettaglio è nel ledger SDD, qui il
+riassunto per chi legge questa sezione del piano da questo punto in poi:
+
+- **`src/domain/geometria.ts` (Task 4)**: aggiunta `superficieSedime(superfici): number`,
+  che restituisce il valore risolto della riga `'Piano Terra'` (proxy dell'impronta a
+  terra dell'edificio). Stessa firma/stile delle funzioni già presenti in questo file.
+
+- **`src/domain/voci.ts` (Task 5)**:
+  - Il tipo `Driver` guadagna una variante: `{ tipo: 'mq_superficie_sedime'; eurMq: number }`.
+  - `ConfigurazioneVoci` guadagna il campo `chiaviInManoNelTotale: boolean`.
+  - La `condizione` di `opere-chiavi-in-mano` diventa
+    `(config) => config.livelli.finiture !== 'completo' && config.chiaviInManoNelTotale`
+    (prima era solo la prima metà — vedi spec §3.9 per il perché: non è derivabile dal
+    solo livello del modulo, è una scelta commerciale esplicita).
+
+- **`src/domain/listino.ts` (Task 6)**:
+  - `InputGeometricoListino` guadagna il campo `superficieSedime: number`.
+  - `proponiValore` guadagna un case `'mq_superficie_sedime'` (identico a
+    `'mq_superficie_lorda'` ma legge `input.superficieSedime`).
+  - **Solo** il driver di `'copertura-falda'` cambia, da
+    `{ tipo: 'mq_superficie_lorda', eurMq: 395 }` a
+    `{ tipo: 'mq_superficie_sedime', eurMq: 475 }`. Pareti e cappotto restano invariati:
+    verificato sui dati Lucarelli che scalare quelle due voci con l'impronta a terra
+    peggiora la stima invece di migliorarla (scalano col numero di piani, non con
+    l'impronta), quindi la spec ha deliberatamente ristretto la correzione alla sola
+    copertura.
+
+**Ogni task successivo che referenzia `ConfigurazioneVoci`, `InputGeometricoListino` o il
+golden case Crivellaro deve usare queste firme aggiornate** (il Task 8, più sotto in questo
+stesso file, è già stato aggiornato di conseguenza: `configurazione.chiaviInManoNelTotale:
+true` e `geometria.superficieSedime: 134` nel fixture Crivellaro).
+
+---
+
 ### Task 7: `domain/calcolo.ts` — sconti a cascata e arrotondamento (diretto e inverso)
 
 **Files:**
@@ -1232,10 +1271,12 @@ describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
       livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
       numeroPianiAbitativi: 1,
       superficieGarage: 41,
+      chiaviInManoNelTotale: true, // Crivellaro somma "opere-chiavi-in-mano" nel totale (§3.9)
     },
     listino: LISTINO_2026,
     geometria: {
       superficiLordeTotale: 161,
+      superficieSedime: 134, // impronta Piano Terra, driver di copertura-falda (§3.9)
       superficieGarage: 41,
       perimetro: 60,
       serramenti: { areaLordaTotale: 30.5, numero: 11 },
