@@ -16,13 +16,22 @@ Punti da guardare per primi in quel controllo:
    larghezza della tabella `CARATTERISTICHE FABBRICATO` di pag. 4): verificare
    larghezze colonne, bordi, che stia in una pagina e che gli importi siano
    allineati a destra.
-2. **pag. 6** — la scaletta SAL ha ora due sole righe-modello al posto delle 7
+2. **pag. 5, rientro delle righe di riepilogo** — nell'immagine originale le
+   etichette `SCONTO RISERVATO:`, `Arrotondamento`, `PARZIALE AL GREZZO
+   AVANZATO`, `COSTI SICUREZZA :` e `TOTALE AL NETTO` partono dal **bordo
+   sinistro** della tabella, attraversando la colonna stretta del numero voce.
+   Nella tabella nativa questo è ottenuto unendo le prime due celle
+   (`gridSpan=2`): verificare che quelle 5 righe siano effettivamente allineate
+   a sinistra e senza un bordo verticale spurio dopo la prima colonna. La riga
+   `Listino 2026` invece è rientrata **anche** nell'originale e resta a tre
+   celle: se appare allineata a sinistra come le altre, è un errore.
+3. **pag. 6** — la scaletta SAL ha ora due sole righe-modello al posto delle 7
    righe fisse (vedi sotto): verificare che dopo il rendering l'interlinea e i
    bordi siano quelli di prima.
-3. **copertina** — il residuo `PROT. 000-22 REV.00` (bug della spec §3.8) è
+4. **copertina** — il residuo `PROT. 000-22 REV.00` (bug della spec §3.8) è
    stato svuotato ma il paragrafo vuoto è rimasto: verificare che non lasci
    uno spazio anomalo.
-4. **pagg. 19-20** — abaco serramenti e portoncino sono dentro caselle di
+5. **pagg. 19-20** — abaco serramenti e portoncino sono dentro caselle di
    testo duplicate (`mc:AlternateContent`, rami Choice + Fallback): entrambi i
    rami sono stati aggiornati, verificare che il testo non tracimi dal box con
    elenchi lunghi.
@@ -123,21 +132,38 @@ come stringa, vuota se la riga non si applica.
 Struttura: 3 colonne senza intestazione (`n.` | `Descrizione` | `Importo`
 allineato a destra), 13 righe-modello di cui 5 sono righe di ciclo.
 
-| Riga | Placeholder | Sorgente |
-|---|---|---|
-| intestazione | *(fissa)* `GREZZO AVANZATO` | — |
-| ciclo | `{#voci}{numero}` · `{descrizione}` · `{importo}{/voci}` | `risultato.vociValorizzate` filtrate su `gruppo === 'grezzo'` |
-| fissa | `Listino {annoListino}` · `{listinoTotale}` | `stato.annoListino`, `risultato.listinoTotale` |
-| ciclo | `{#sconti}` · `SCONTO RISERVATO: {percentuale}   {causale}` · `{importo}{/sconti}` | `risultato.sconti` (a cascata, nell'ordine di applicazione) |
-| fissa | `Arrotondamento` · `{arrotondamento}` | `risultato.arrotondamento` (con segno, cfr. `PaginaPrezzi.tsx`) |
-| fissa | `PARZIALE AL GREZZO AVANZATO esclusa I.V.A.` · `{parziale}` | `risultato.parziale` |
-| fissa | `COSTI SICUREZZA : SICUREZZA ***` · `{sicurezza.valorizzata}` | `risultato.sicurezza.valorizzata` |
-| ciclo | `{#vociPostSconto}{numero}` · `{descrizione}` · `{importo}{/vociPostSconto}` | `risultato.vociValorizzate` filtrate su `gruppo === 'post_sconto'` (**non** scontate) |
-| fissa | `TOTALE AL NETTO esclusa I.V.A.` · `{totaleNetto}` | `risultato.totaleNetto` |
-| intestazione | *(fissa)* `Optional:` | — |
-| ciclo | `{#optional}{lettera}` · `{descrizione}` · `{importo}{/optional}` | `stato.condizioni.optional` — importi **non sommati** (spec §4.2) |
-| intestazione | *(fissa)* `Esclusioni :` | — |
-| ciclo | `{#esclusioni}{lettera}` · `{descrizione}` · `{importo}{/esclusioni}` | `stato.condizioni.esclusioni` — colonna destra testuale (`escluso`, `€ 35,00/ora`) |
+Le colonne non sono le stesse su tutte le righe, e riprodurre l'originale
+richiede tre forme di riga:
+
+- **3 celle** (`n.` | descrizione | importo): righe delle voci e la riga
+  `Listino`, che nell'originale è rientrata;
+- **2 celle** con `gridSpan=2` sulla prima: le 5 righe di riepilogo (sconti,
+  arrotondamento, parziale, costi sicurezza, totale), che nell'originale
+  partono dal bordo sinistro attraversando la colonna del numero voce;
+- **1 cella** con `gridSpan=3`: le intestazioni di banda (`GREZZO AVANZATO`,
+  `Optional:`, `Esclusioni :`).
+
+| Riga | Celle | Placeholder | Sorgente |
+|---|---|---|---|
+| intestazione | 1 (span 3) | *(fissa)* `GREZZO AVANZATO` | — |
+| ciclo | 3 | `{#voci}{numero}` · `{descrizione}` · `{importo}{/voci}` | `risultato.vociValorizzate` filtrate su `gruppo === 'grezzo'` |
+| fissa | 3 | `Listino {annoListino}` · `{listinoTotale}` | `stato.annoListino`, `risultato.listinoTotale` |
+| ciclo | 2 (span 2) | `{#sconti}SCONTO RISERVATO: {percentuale}   {causale}` · `{importo}{/sconti}` | `risultato.sconti` (a cascata, nell'ordine di applicazione) |
+| fissa | 2 (span 2) | `Arrotondamento` · `{arrotondamento}` | `risultato.arrotondamento` (con segno, cfr. `PaginaPrezzi.tsx`) |
+| fissa | 2 (span 2) | `PARZIALE AL GREZZO AVANZATO esclusa I.V.A.` · `{parziale}` | `risultato.parziale` |
+| fissa | 2 (span 2) | `COSTI SICUREZZA : SICUREZZA ***` · `{sicurezza.valorizzata}` | `risultato.sicurezza.valorizzata` |
+| ciclo | 3 | `{#vociPostSconto}{numero}` · `{descrizione}` · `{importo}{/vociPostSconto}` | `risultato.vociValorizzate` filtrate su `gruppo === 'post_sconto'` (**non** scontate) |
+| fissa | 2 (span 2) | `TOTALE AL NETTO esclusa I.V.A.` · `{totaleNetto}` | `risultato.totaleNetto` |
+| intestazione | 1 (span 3) | *(fissa)* `Optional:` | — |
+| ciclo | 3 | `{#optional}{lettera}` · `{descrizione}` · `{importo}{/optional}` | `stato.condizioni.optional` — importi **non sommati** (spec §4.2) |
+| intestazione | 1 (span 3) | *(fissa)* `Esclusioni :` | — |
+| ciclo | 3 | `{#esclusioni}{lettera}` · `{descrizione}` · `{importo}{/esclusioni}` | `stato.condizioni.esclusioni` — colonna destra testuale (`escluso`, `€ 35,00/ora`) |
+
+Nella riga di ciclo degli sconti il tag di apertura sta nella cella unita e
+quello di chiusura nella cella dell'importo: sono comunque due celle diverse
+della stessa riga, quindi la regione fra i due tag attraversa un confine
+`<w:tc>` e docxtemplater espande ancora a `w:tr` (verificato con 0, 1 e 3
+sconti).
 
 Chiavi attese dentro i cicli: `voci`/`vociPostSconto` → `{numero, descrizione,
 importo}`; `sconti` → `{percentuale, causale, importo}` (percentuale già come

@@ -167,6 +167,29 @@ def _tr_tre_colonne(numero: str, descrizione: str, importo: str, grassetto: bool
     )
 
 
+def _tr_riepilogo(descrizione: str, importo: str, grassetto: bool = False) -> str:
+    """Riga di riepilogo (sconti, arrotondamento, parziale, sicurezza, totale).
+
+    Nell'immagine originale (`image15.png`) queste etichette partono dal bordo
+    sinistro della tabella, attraversando la colonna stretta del numero voce:
+    servono quindi DUE celle, con la prima che copre le colonne n.+descrizione
+    (`gridSpan=2`). Una prima cella vuota da 709 twip rientrerebbe il testo di
+    ~1,25 cm rispetto all'originale. La riga `Listino {annoListino}` invece e'
+    rientrata anche nell'originale e resta a tre celle.
+
+    Nota per la riga di ciclo degli sconti: con due celle il tag di apertura
+    resta nella prima e quello di chiusura nell'ultima cella della stessa
+    riga, quindi la regione fra i due tag attraversa ancora un confine
+    `<w:tc>` e il loop continua a espandere a `w:tr`.
+    """
+    return (
+        "<w:tr>"
+        + _tc(COL_N + COL_DESC, _p(descrizione, grassetto), gridspan=2)
+        + _tc(COL_IMP, _p(importo, grassetto, "right"))
+        + "</w:tr>"
+    )
+
+
 def _tr_intestazione(testo: str) -> str:
     return "<w:tr>" + _tc(COL_N + COL_DESC + COL_IMP, _p(testo, True), gridspan=3) + "</w:tr>"
 
@@ -186,23 +209,23 @@ def tabella_prezzi() -> str:
         _tr_intestazione("GREZZO AVANZATO"),
         # voci di listino (gruppo GREZZO): una riga per voce
         _tr_tre_colonne("{#voci}{numero}", "{descrizione}", "{importo}{/voci}"),
+        # unica riga rientrata anche nell'originale: resta a tre celle
         _tr_tre_colonne("", "Listino {annoListino}", "{listinoTotale}", grassetto=True),
         # sconti a cascata: una riga per sconto, nell'ordine di applicazione
-        _tr_tre_colonne(
-            "{#sconti}",
-            "SCONTO RISERVATO: {percentuale}   {causale}",
+        _tr_riepilogo(
+            "{#sconti}SCONTO RISERVATO: {percentuale}   {causale}",
             "{importo}{/sconti}",
         ),
-        _tr_tre_colonne("", "Arrotondamento", "{arrotondamento}"),
-        _tr_tre_colonne(
-            "", "PARZIALE AL GREZZO AVANZATO  esclusa I.V.A.", "{parziale}", grassetto=True
+        _tr_riepilogo("Arrotondamento", "{arrotondamento}"),
+        _tr_riepilogo(
+            "PARZIALE AL GREZZO AVANZATO  esclusa I.V.A.", "{parziale}", grassetto=True
         ),
-        _tr_tre_colonne("", "COSTI SICUREZZA :      SICUREZZA ***", "{sicurezza.valorizzata}"),
+        _tr_riepilogo("COSTI SICUREZZA :      SICUREZZA ***", "{sicurezza.valorizzata}"),
         # voci POST_SCONTO (chiavi in mano, garage): sommate dopo il PARZIALE
         _tr_tre_colonne(
             "{#vociPostSconto}{numero}", "{descrizione}", "{importo}{/vociPostSconto}"
         ),
-        _tr_tre_colonne("", "TOTALE AL NETTO  esclusa I.V.A.", "{totaleNetto}", grassetto=True),
+        _tr_riepilogo("TOTALE AL NETTO  esclusa I.V.A.", "{totaleNetto}", grassetto=True),
         _tr_intestazione("Optional:"),
         _tr_tre_colonne("{#optional}{lettera}", "{descrizione}", "{importo}{/optional}"),
         _tr_intestazione("Esclusioni :"),
