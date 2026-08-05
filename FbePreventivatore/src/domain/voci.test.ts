@@ -6,6 +6,7 @@ const CONFIG_CRIVELLARO: ConfigurazioneVoci = {
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
   numeroPianiAbitativi: 1,
   superficieGarage: 41,
+  chiaviInManoNelTotale: true,
 }
 
 describe('voceInclusa', () => {
@@ -27,12 +28,17 @@ describe('voceInclusa', () => {
     expect(voceInclusa(garage, { ...CONFIG_CRIVELLARO, superficieGarage: 0 })).toBe(false)
   })
 
-  it('include le opere chiavi in mano solo se finiture non è già completo', () => {
+  it('include le opere chiavi in mano solo se finiture non è già completo e flag è true', () => {
     const chiaviInMano = CATALOGO_VOCI.find((v) => v.id === 'opere-chiavi-in-mano')!
     expect(voceInclusa(chiaviInMano, CONFIG_CRIVELLARO)).toBe(true)
     expect(
       voceInclusa(chiaviInMano, { ...CONFIG_CRIVELLARO, livelli: { ...CONFIG_CRIVELLARO.livelli, finiture: 'completo' } }),
     ).toBe(false)
+  })
+
+  it('esclude opere-chiavi-in-mano se chiaviInManoNelTotale è false, anche con finiture impoverito', () => {
+    const chiaviInMano = CATALOGO_VOCI.find((v) => v.id === 'opere-chiavi-in-mano')!
+    expect(voceInclusa(chiaviInMano, { ...CONFIG_CRIVELLARO, chiaviInManoNelTotale: false })).toBe(false)
   })
 })
 

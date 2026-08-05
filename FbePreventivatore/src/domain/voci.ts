@@ -6,6 +6,7 @@ export type LivelloModulo = 'completo' | 'impoverito' | 'escluso'
 
 export type Driver =
   | { tipo: 'mq_superficie_lorda'; eurMq: number }
+  | { tipo: 'mq_superficie_sedime'; eurMq: number }
   | { tipo: 'mq_garage'; eurMq: number }
   | { tipo: 'ml_perimetro'; eurMl: number }
   | { tipo: 'mq_serramenti_lordi'; eurMq: number; extraCorpo?: number }
@@ -17,6 +18,7 @@ export interface ConfigurazioneVoci {
   livelli: Record<Modulo, LivelloModulo>
   numeroPianiAbitativi: number
   superficieGarage: number
+  chiaviInManoNelTotale: boolean
 }
 
 export interface VoceCatalogo {
@@ -189,7 +191,7 @@ export const CATALOGO_VOCI: VoceCatalogo[] = [
     gruppo: 'post_sconto',
     descrizioneTemplate: 'Stima opere chiavi in mano',
     driver: null,
-    condizione: (config) => config.livelli.finiture !== 'completo',
+    condizione: (config) => config.livelli.finiture !== 'completo' && config.chiaviInManoNelTotale,
   },
   {
     id: 'garage',
