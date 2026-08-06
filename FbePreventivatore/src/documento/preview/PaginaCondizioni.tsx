@@ -1,11 +1,11 @@
-interface Sal {
+export interface Sal {
   percentuale: number
   milestone: string
 }
 
 interface Props {
   caparra: string
-  sal: Sal[]
+  sal: readonly Sal[]
   consegna: string
   validita: string
 }
