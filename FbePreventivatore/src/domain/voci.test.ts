@@ -1,6 +1,14 @@
 // src/domain/voci.test.ts
 import { describe, expect, it } from 'vitest'
-import { CATALOGO_VOCI, voceInclusa, vociIncluse, numeraVoci, type ConfigurazioneVoci } from './voci'
+import {
+  CATALOGO_VOCI,
+  voceInclusa,
+  vociIncluse,
+  numeraVoci,
+  valutaCondizione,
+  type CondizioneVoce,
+  type ConfigurazioneVoci,
+} from './voci'
 
 const CONFIG_CRIVELLARO: ConfigurazioneVoci = {
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
@@ -39,6 +47,30 @@ describe('voceInclusa', () => {
   it('esclude opere-chiavi-in-mano se chiaviInManoNelTotale è false, anche con finiture impoverito', () => {
     const chiaviInMano = CATALOGO_VOCI.find((v) => v.id === 'opere-chiavi-in-mano')!
     expect(voceInclusa(chiaviInMano, { ...CONFIG_CRIVELLARO, chiaviInManoNelTotale: false })).toBe(false)
+  })
+})
+
+describe('le condizioni del catalogo sono dati serializzabili', () => {
+  it('nessuna condizione è una funzione: JSON.stringify non ne perde nessuna (vincolo #6)', () => {
+    const conCondizione = CATALOGO_VOCI.filter((v) => v.condizione !== undefined)
+    expect(conCondizione.map((v) => v.id)).toEqual([
+      'solaio-interpiano',
+      'opere-chiavi-in-mano',
+      'garage',
+    ])
+    for (const voce of conCondizione) {
+      expect(typeof voce.condizione).toBe('object')
+    }
+    const dopoRoundTrip = JSON.parse(JSON.stringify(CATALOGO_VOCI)) as typeof CATALOGO_VOCI
+    expect(dopoRoundTrip.filter((v) => v.condizione !== undefined).map((v) => v.id)).toEqual(
+      conCondizione.map((v) => v.id),
+    )
+  })
+
+  it('valutaCondizione rifiuta un tipo sconosciuto invece di includere la voce in silenzio', () => {
+    expect(() =>
+      valutaCondizione({ tipo: 'inventata' } as unknown as CondizioneVoce, CONFIG_CRIVELLARO),
+    ).toThrow(/non riconosciuta/)
   })
 })
 

@@ -21,6 +21,22 @@ export interface ConfigurazioneVoci {
   chiaviInManoNelTotale: boolean
 }
 
+/**
+ * Condizione di inclusione di una voce, espressa come DATO e non come closure.
+ *
+ * Vincolo CLAUDE.md #6: la revisione congela il listino salvando una copia dei
+ * parametri usati. La copia passa per `JSON.stringify` (cfr. `persistenza.ts`),
+ * che scarta silenziosamente le proprietà funzione: una `condizione` scritta come
+ * `(config) => boolean` sopravviveva al salvataggio ma non al round-trip, e al
+ * ricalcolo le voci condizionate rientravano tutte. L'errore non era visibile
+ * perché l'arrotondamento inverso assorbiva la differenza nel TOTALE.
+ * Perciò la condizione deve restare serializzabile: una discriminated union.
+ */
+export type CondizioneVoce =
+  | { tipo: 'piani-abitativi-maggiore-di'; valore: number }
+  | { tipo: 'chiavi-in-mano-da-stimare' }
+  | { tipo: 'garage-presente' }
+
 export interface VoceCatalogo {
   id: string
   modulo?: Modulo
@@ -30,16 +46,36 @@ export interface VoceCatalogo {
   descrizioneTemplate: string
   driver: Driver | null
   importoTestualeDefault?: 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'
-  condizione?: (config: ConfigurazioneVoci) => boolean
+  condizione?: CondizioneVoce
 }
 
 const RANK: Record<LivelloModulo, number> = { escluso: 0, impoverito: 1, completo: 2 }
+
+export function valutaCondizione(condizione: CondizioneVoce, config: ConfigurazioneVoci): boolean {
+  switch (condizione.tipo) {
+    case 'piani-abitativi-maggiore-di':
+      return config.numeroPianiAbitativi > condizione.valore
+    case 'chiavi-in-mano-da-stimare':
+      // Le opere a finire si stimano solo se le finiture NON sono già complete
+      // e l'importo va conteggiato nel totale dell'offerta.
+      return config.livelli.finiture !== 'completo' && config.chiaviInManoNelTotale
+    case 'garage-presente':
+      return config.superficieGarage > 0
+    default: {
+      // Una revisione salvata con un tipo di condizione che questa versione non
+      // conosce non deve includere la voce "per default": meglio fallire forte
+      // che alterare in silenzio un prezzo già firmato dal cliente.
+      const sconosciuta: never = condizione
+      throw new Error(`Condizione di voce non riconosciuta: ${JSON.stringify(sconosciuta)}`)
+    }
+  }
+}
 
 export function voceInclusa(voce: VoceCatalogo, config: ConfigurazioneVoci): boolean {
   if (voce.modulo && voce.livelloRichiesto) {
     if (RANK[config.livelli[voce.modulo]] < RANK[voce.livelloRichiesto]) return false
   }
-  if (voce.condizione && !voce.condizione(config)) return false
+  if (voce.condizione && !valutaCondizione(voce.condizione, config)) return false
   return true
 }
 
@@ -122,7 +158,7 @@ export const CATALOGO_VOCI: VoceCatalogo[] = [
     gruppo: 'grezzo',
     descrizioneTemplate: 'Solaio interpiano in legno lato inferiore a vista',
     driver: null,
-    condizione: (config) => config.numeroPianiAbitativi > 1,
+    condizione: { tipo: 'piani-abitativi-maggiore-di', valore: 1 },
   },
   {
     id: 'copertura-falda',
@@ -191,13 +227,13 @@ export const CATALOGO_VOCI: VoceCatalogo[] = [
     gruppo: 'post_sconto',
     descrizioneTemplate: 'Stima opere chiavi in mano',
     driver: null,
-    condizione: (config) => config.livelli.finiture !== 'completo' && config.chiaviInManoNelTotale,
+    condizione: { tipo: 'chiavi-in-mano-da-stimare' },
   },
   {
     id: 'garage',
     gruppo: 'post_sconto',
     descrizioneTemplate: 'Garage realizzato con struttura a telaio portante',
     driver: null,
-    condizione: (config) => config.superficieGarage > 0,
+    condizione: { tipo: 'garage-presente' },
   },
 ]
