@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { estraiCampi, type ClienteEstrazione } from './estrazione'
+import { estraiCampi, PROMPT_SISTEMA, type ClienteEstrazione } from './estrazione'
+import { PIANI_CANONICI } from '@/domain/geometria'
 
 function clienteFinto(rispostaJson: string): ClienteEstrazione {
   return {
@@ -37,5 +38,17 @@ describe('estraiCampi', () => {
     // cliente.nome è l'unico campo davvero obbligatorio dello schema: qui è assente.
     const rispostaIncompleta = JSON.stringify({ cliente: { comune: 'Trissino' } })
     await expect(estraiCampi('testo qualsiasi', clienteFinto(rispostaIncompleta))).rejects.toThrow()
+  })
+})
+
+describe('PROMPT_SISTEMA', () => {
+  it('enumera esplicitamente i nomi piano canonici, così il modello non inventa varianti', () => {
+    for (const nome of PIANI_CANONICI) {
+      expect(PROMPT_SISTEMA).toContain(`"${nome}"`)
+    }
+  })
+
+  it('istruisce a non scartare un piano non riconosciuto', () => {
+    expect(PROMPT_SISTEMA).toMatch(/campiMancanti/)
   })
 })

@@ -8,6 +8,8 @@ import {
   superficieGarage,
   numeroPianiAbitativi,
   superficieSedime,
+  normalizzaNomePiano,
+  PIANI_CANONICI,
   type Serramento,
   type SuperficiePiano,
 } from './geometria'
@@ -116,5 +118,40 @@ describe('superficieSedime', () => {
 
   it('vale 0 se non c\'è nessuna riga Piano Terra', () => {
     expect(superficieSedime([{ piano: 'Portico', valoreLordo: '13+14' }])).toBe(0)
+  })
+})
+
+describe('normalizzaNomePiano', () => {
+  it("riporta alla forma canonica un nome che differisce solo per maiuscole", () => {
+    expect(normalizzaNomePiano('Piano terra')).toBe('Piano Terra')
+    expect(normalizzaNomePiano('piano primo')).toBe('Piano Primo')
+    expect(normalizzaNomePiano('garage')).toBe('Garage')
+    expect(normalizzaNomePiano('PIANO SOTTOTETTO')).toBe('Piano sottotetto')
+  })
+
+  it('tollera spazi in eccesso attorno al nome', () => {
+    expect(normalizzaNomePiano('  Garage  ')).toBe('Garage')
+    expect(normalizzaNomePiano(' piano terra ')).toBe('Piano Terra')
+  })
+
+  it('lascia invariato un nome che non riconosce, invece di indovinare o scartarlo', () => {
+    expect(normalizzaNomePiano('Mansarda')).toBe('Mansarda')
+    expect(normalizzaNomePiano('Interrato')).toBe('Interrato')
+    expect(normalizzaNomePiano('')).toBe('')
+  })
+
+  it('è idempotente su tutti i nomi canonici', () => {
+    for (const nome of PIANI_CANONICI) {
+      expect(normalizzaNomePiano(nome)).toBe(nome)
+    }
+  })
+
+  it("un nome normalizzato viene riconosciuto dai calcoli, quello grezzo no", () => {
+    const grezzo: SuperficiePiano[] = [{ piano: 'piano terra', valoreLordo: '134' }]
+    expect(superficieSedime(grezzo)).toBe(0)
+
+    const normalizzato = grezzo.map((s) => ({ ...s, piano: normalizzaNomePiano(s.piano) }))
+    expect(superficieSedime(normalizzato)).toBe(134)
+    expect(numeroPianiAbitativi(normalizzato)).toBe(1)
   })
 })

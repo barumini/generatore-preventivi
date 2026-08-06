@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { totaleSuperficiLorde, type Serramento, type SuperficiePiano } from '@/domain/geometria'
+import { totaleSuperficiLorde, PIANI_CANONICI, type Serramento, type SuperficiePiano } from '@/domain/geometria'
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import type { StatoForm } from './stato-form'
 
@@ -136,10 +136,25 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
             <div key={i}>
               <label>
                 Piano
-                <input
+                {/* Il dominio confronta i nomi piano per stringa esatta: un testo libero
+                    come "Piano terra" azzererebbe il driver della copertura e farebbe
+                    sparire il garage senza avvisi. La lista canonica vive in geometria.ts. */}
+                <select
                   value={riga.piano}
                   onChange={(e) => aggiorna({ superfici: aggiornaRiga(stato.superfici, i, { piano: e.target.value }) })}
-                />
+                >
+                  <option value="">— seleziona il piano —</option>
+                  {PIANI_CANONICI.map((nome) => (
+                    <option key={nome} value={nome}>
+                      {nome}
+                    </option>
+                  ))}
+                  {riga.piano !== '' && !(PIANI_CANONICI as readonly string[]).includes(riga.piano) && (
+                    // Un nome arrivato dall'estrazione e non riconosciuto resta visibile
+                    // e marcato: va corretto a mano, non fatto sparire.
+                    <option value={riga.piano}>{riga.piano} — nome non valido, da correggere</option>
+                  )}
+                </select>
               </label>
               <label>
                 Sup. lorda (mq)

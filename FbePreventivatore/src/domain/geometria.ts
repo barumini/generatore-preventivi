@@ -52,6 +52,41 @@ export interface SuperficiePiano {
 
 export const PIANI_ABITATIVI = ['Piano Terra', 'Piano Primo', 'Piano sottotetto'] as const
 export const PIANO_GARAGE = 'Garage'
+export const PIANO_TERRA = 'Piano Terra'
+
+/**
+ * I nomi piano ammessi, nella forma esatta con cui il dominio li confronta.
+ *
+ * Il confronto è per stringa esatta (`PIANI_ABITATIVI`, `PIANO_GARAGE`,
+ * `superficieSedime`) e il master docx ha una riga per ciascuno di questi nomi
+ * (cfr. `template/PLACEHOLDER.md`, placeholder `superficie.*`). Un nome fuori
+ * lista — anche solo `'Piano terra'` con la t minuscola — non viene riconosciuto:
+ * azzera il driver della copertura, fa sparire il garage e gonfia le pareti.
+ * Perciò la lista sta qui, in un posto solo: form e normalizzazione la importano.
+ */
+export const PIANI_CANONICI = [
+  'Piano Terra',
+  'Piano Primo',
+  'Piano sottotetto',
+  'Portico',
+  'Terrazzo',
+  'Garage',
+] as const
+
+export type PianoCanonico = (typeof PIANI_CANONICI)[number]
+
+/**
+ * Riporta un nome piano alla sua forma canonica se lo riconosce a meno di
+ * spazi e maiuscole. Un nome non riconosciuto viene restituito INVARIATO:
+ * il `<select>` del form lo mostrerà come valore non valido e l'operatore lo
+ * correggerà. Non va sostituito con un default plausibile né scartato, perché
+ * entrambe le cose cambierebbero un prezzo senza dirlo a nessuno.
+ */
+export function normalizzaNomePiano(valore: string): string {
+  const pulito = valore.trim()
+  const canonico = PIANI_CANONICI.find((nome) => nome.toLowerCase() === pulito.toLowerCase())
+  return canonico ?? pulito
+}
 
 export function risolviValoreLordo(valore: string): number {
   if (valore.trim() === '') return 0
@@ -80,6 +115,6 @@ export function numeroPianiAbitativi(superfici: SuperficiePiano[]): number {
 }
 
 export function superficieSedime(superfici: SuperficiePiano[]): number {
-  const pianoTerra = superfici.find((s) => s.piano === 'Piano Terra')
+  const pianoTerra = superfici.find((s) => s.piano === PIANO_TERRA)
   return pianoTerra ? risolviValoreLordo(pianoTerra.valoreLordo) : 0
 }

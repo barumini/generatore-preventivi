@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
+import { PIANI_CANONICI } from '@/domain/geometria'
 
 const SchemaCampiEstratti = z.object({
   cliente: z.object({
@@ -39,7 +40,7 @@ export async function estraiCampi(testo: string, cliente: ClienteEstrazione): Pr
   return risultato.data
 }
 
-const PROMPT_SISTEMA = `Estrai dal testo dell'utente i campi di un preventivo per case in legno FBE WoodLiving.
+export const PROMPT_SISTEMA = `Estrai dal testo dell'utente i campi di un preventivo per case in legno FBE WoodLiving.
 Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
 {
   "cliente": { "nome": string, "comune"?: string, "provincia"?: string },
@@ -50,6 +51,15 @@ Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
   "pacchetto"?: "grezzo" | "grezzo avanzato" | "chiavi in mano",
   "campiMancanti": string[]
 }
+Il campo "piano" di ogni superficie deve usare ESATTAMENTE una di queste stringhe,
+comprese maiuscole e minuscole così come sono scritte:
+${PIANI_CANONICI.map((nome) => `- "${nome}"`).join('\n')}
+Esempi di normalizzazione attesa: "piano terra" → "Piano Terra"; "PT" → "Piano Terra";
+"primo piano" → "Piano Primo"; "mansarda"/"sottotetto" → "Piano sottotetto";
+"box auto"/"autorimessa" → "Garage".
+Se un piano citato nel testo non corrisponde a nessuna di queste voci, riportalo come
+lo trovi e aggiungilo a campiMancanti: sarà corretto a mano.
+
 Se un campo non è menzionato nel testo, ometterlo o aggiungerlo a campiMancanti. Non inventare valori.`
 
 // NOTA: l'estrazione LLM qui riguarda SOLO campi anagrafici/geometrici dal testo libero

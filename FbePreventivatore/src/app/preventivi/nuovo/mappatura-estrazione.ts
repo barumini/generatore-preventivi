@@ -1,5 +1,6 @@
 // src/app/preventivi/nuovo/mappatura-estrazione.ts
 import type { CampiEstratti } from '@/ai/estrazione'
+import { normalizzaNomePiano } from '@/domain/geometria'
 import type { StatoForm } from './stato-form'
 
 export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoForm> {
@@ -9,7 +10,11 @@ export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoFor
       comune: campi.cliente.comune ?? '',
       provincia: campi.cliente.provincia ?? '',
     },
-    superfici: campi.superfici,
+    // Il prompt chiede i nomi canonici, ma il modello può comunque restituire
+    // "Piano terra" o "garage": il dominio confronta per stringa esatta, quindi
+    // una variante non normalizzata sposterebbe i prezzi in silenzio. Un nome
+    // che non si riconosce resta com'è e il form lo segnala da correggere.
+    superfici: campi.superfici.map((s) => ({ ...s, piano: normalizzaNomePiano(s.piano) })),
   }
 
   if (campi.protocollo) parziale.protocollo = campi.protocollo
