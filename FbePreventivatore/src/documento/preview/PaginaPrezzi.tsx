@@ -1,5 +1,6 @@
 import type { RisultatoCalcolo } from '@/domain/calcolo'
 import { formattaImportoItaliano } from './formattazione'
+import { righeVoci, segnoArrotondamento as calcolaSegnoArrotondamento, formattaPercentuale } from '../tabella-prezzi'
 
 interface Props {
   risultato: RisultatoCalcolo
@@ -7,14 +8,10 @@ interface Props {
 }
 
 export function PaginaPrezzi({ risultato, annoListino }: Props) {
-  const vociGrezzo = risultato.vociValorizzate.filter((v) => v.gruppo === 'grezzo')
-  const vociPostSconto = risultato.vociValorizzate.filter((v) => v.gruppo === 'post_sconto')
+  const { vociGrezzo, vociPostSconto } = righeVoci(risultato)
 
-  // Arrotondamento > 0: leva sottratta dal parziale (caso comune, come nel golden case).
-  // Arrotondamento < 0: risolviArrotondamento ha risolto il problema inverso richiedendo
-  // di aggiungere al parziale — il segno mostrato deve seguirlo, altrimenti si legge
-  // un doppio negativo ("- -50,00 €") su un documento firmato dal cliente.
-  const segnoArrotondamento = risultato.arrotondamento < 0 ? '+' : '-'
+  // cfr. tabella-prezzi.ts: stessa logica di segno usata da export-docx.ts
+  const segnoArrotondamento = calcolaSegnoArrotondamento(risultato.arrotondamento)
   const arrotondamentoAssoluto = Math.abs(risultato.arrotondamento)
 
   return (
@@ -32,7 +29,7 @@ export function PaginaPrezzi({ risultato, annoListino }: Props) {
           {risultato.sconti.map((s) => (
             <tr key={s.ordine}>
               <td />
-              <td>SCONTO RISERVATO: {(s.percentuale * 100).toFixed(0)}% {s.causale}</td>
+              <td>SCONTO RISERVATO: {formattaPercentuale(s.percentuale)} {s.causale}</td>
               <td className="importo">- {formattaImportoItaliano(s.importoCalcolato)}</td>
             </tr>
           ))}

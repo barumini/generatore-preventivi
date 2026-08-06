@@ -82,9 +82,13 @@ richiede la dipendenza `angular-expressions` (oggi **non** installata).
 Due note operative per Task 17:
 
 - il `nullGetter` di default stampa la stringa `"undefined"` per un tag
-  semplice senza dato: conviene passare `nullGetter: () => ''` per non
-  rischiare di mandare al cliente un documento con `undefined` scritto dentro
-  (per i cicli invece un dato mancante è già equivalente a lista vuota);
+  semplice senza dato: **non basta** però passare semplicemente
+  `nullGetter: () => ''` — una review (Task 17, Finding 1) ha dimostrato che in
+  quel caso un refuso nella chiave passata a `render()` svuota in silenzio una
+  cella, con la suite verde. `esportaOfferta()` usa quindi un `nullGetter` che
+  registra il nome di ogni tag semplice non risolto (`part.module` assente — i
+  cicli con dato mancante restano legittimamente equivalenti a lista vuota) e
+  fa fallire l'export con un errore leggibile se l'elenco non è vuoto;
 - gli importi vanno passati **già formattati** (`96 100,00 €`, formato
   italiano di `formattaImportoItaliano`), placeholder inclusi quelli testuali
   (`comprese`, `escluso`, `OMAGGIO`): il master non fa formattazione.
@@ -226,6 +230,29 @@ schermo. Tutti i valori sono output di `generaAbacoSerramenti()`
 | `{abaco.alzantiScorrevoli}` | 2 | `generaAbacoSerramenti(alzanti scorrevoli)` |
 | `{abacoSerramenti}` | 1 | `generaAbacoSerramenti(tutti)` — elenco completo, riga dei monoblocchi Hella (pag. 20) |
 | `{abaco.portoncini}` | 2 | `generaAbacoSerramenti(portoncini, { prefisso: 'n. {n} portoncini di ingresso dim. standard {dim}' })` |
+
+## ⚠️ Placeholder di spessore non interpolati nelle descrizioni (pag. 5)
+
+Tre `descrizioneTemplate` del catalogo voci (`src/domain/voci.ts`, id `pareti-mhm`,
+`copertura-falda`, `cappotto`) contengono placeholder testuali a **doppia** graffa
+(`{{spessoreEsterno}}`, `{{spessoreInterno}}`, `{{spessoreCoibente}}`,
+`{{spessoreCappotto}}` — 4 in totale) che **nessun meccanismo del progetto interpola
+oggi**: non sono tag docxtemplater (quelli sono a graffa singola) e finiscono
+letteralmente nella colonna "Descrizione" della tabella prezzi. Lo stesso testo
+compare già, tale e quale, nella preview React (`src/documento/preview/PaginaPrezzi.tsx`)
+— non è un difetto silenzioso lato UI, un operatore lo vede prima di esportare — ma
+**non è un documento pronto per un cliente reale**.
+
+`esportaOfferta()` (`src/documento/export-docx.ts`) si blocca per default se rileva
+questi token nelle descrizioni delle voci incluse, e lancia un errore invece di
+scrivere il `.docx`. Per esportare comunque (solo se si accetta consapevolmente il
+residuo, es. per un giro di test interno) va passato l'opt-in esplicito
+`consentiPlaceholderNonRisolti: true` su `InputEsportazione`. **Non usare
+`consentiPlaceholderNonRisolti: true` con un cliente reale finché il meccanismo di
+interpolazione non esiste**: risolvere il problema per davvero richiede nuovi campi
+di dominio (gli spessori per voce), un meccanismo di interpolazione nella
+`descrizioneTemplate` e la raccolta di questi dati nel wizard — un follow-up
+dichiarato, non ancora fatto.
 
 ## Cosa NON è stato reso variabile (e perché)
 
