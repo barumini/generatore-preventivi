@@ -3,7 +3,7 @@
 
 import { eseguiCalcolo, type InputCalcolo } from '@/domain/calcolo'
 import { totaleSuperficiLorde, PIANO_GARAGE } from '@/domain/geometria'
-import { generaAbacoSerramenti } from '@/ai/abaco'
+import { generaAbacoPerCategoria } from '@/ai/abaco'
 import { verificaCoerenza } from '@/ai/coerenza'
 import { PaginaCaratteristiche } from '@/documento/preview/PaginaCaratteristiche'
 import { PaginaPrezzi } from '@/documento/preview/PaginaPrezzi'
@@ -20,7 +20,7 @@ interface Props {
 
 export function PannelloPreview({ stato, input }: Props) {
   const risultato = eseguiCalcolo(input)
-  const abaco = generaAbacoSerramenti(stato.serramenti)
+  const abaco = generaAbacoPerCategoria(stato.serramenti)
 
   // Gli avvisi di coerenza stanno PRIMA delle pagine: sono i bug osservati nei
   // documenti FBE reali (superfici che non tornano, protocollo non sostituito,
