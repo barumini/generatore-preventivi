@@ -13,7 +13,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "@prisma/client": "^7.0.0",
     "docxtemplater": "^3.65.0",
     "next": "^16.2.0",
