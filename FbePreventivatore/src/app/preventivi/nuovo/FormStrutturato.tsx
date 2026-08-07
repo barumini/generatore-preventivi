@@ -18,6 +18,7 @@ const STATO_INIZIALE: StatoForm = {
   overrides: {},
   totaleTarget: 0,
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
+  caratteristiche: { copertura: 'falde', manto: 'Tegole in cemento', finituraEsterna: 'intonaco', tetto: 'Tetto con travi e perline in abete' },
 }
 
 interface Props {
@@ -137,6 +138,46 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
               onChange={(e) => aggiorna({ chiaviInManoNelTotale: e.target.checked })}
             />
             Chiavi in mano nel totale
+          </label>
+          <label>
+            Copertura
+            <select
+              value={stato.caratteristiche.copertura}
+              onChange={(e) =>
+                aggiorna({ caratteristiche: { ...stato.caratteristiche, copertura: e.target.value as 'falde' | 'piano' } })
+              }
+            >
+              <option value="falde">A falde</option>
+              <option value="piano">Piano</option>
+            </select>
+          </label>
+          <label>
+            Manto di copertura
+            <input
+              value={stato.caratteristiche.manto}
+              onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, manto: e.target.value } })}
+            />
+          </label>
+          <label>
+            Finitura esterna
+            <select
+              value={stato.caratteristiche.finituraEsterna}
+              onChange={(e) =>
+                aggiorna({
+                  caratteristiche: { ...stato.caratteristiche, finituraEsterna: e.target.value as 'intonaco' | 'rivestimento' },
+                })
+              }
+            >
+              <option value="intonaco">Intonaco</option>
+              <option value="rivestimento">Rivestimento</option>
+            </select>
+          </label>
+          <label>
+            Tetto (descrizione)
+            <input
+              value={stato.caratteristiche.tetto}
+              onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, tetto: e.target.value } })}
+            />
           </label>
         </fieldset>
       )}

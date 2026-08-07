@@ -10,6 +10,7 @@ import { PaginaPrezzi } from '@/documento/preview/PaginaPrezzi'
 import { PaginaAbacoSerramenti } from '@/documento/preview/PaginaAbacoSerramenti'
 import { PaginaCondizioni } from '@/documento/preview/PaginaCondizioni'
 import { SAL_DEFAULT, CONDIZIONE_DA_DEFINIRE } from '@/documento/condizioni-default'
+import { pacchettoDaLivelli } from './stato-form'
 import type { StatoForm } from './stato-form'
 
 interface Props {
@@ -48,10 +49,12 @@ export function PannelloPreview({ stato, input }: Props) {
       )}
       <PaginaCaratteristiche
         sistemaCostruttivo="MassivHolzMauer® (M.H.M.)"
-        tetto="Tetto con travi e perline in abete"
-        mantoCopertura="Tegole in cemento"
-        finituraEsterna="Intonaco"
-        pacchetto="Grezzo avanzato"
+        tetto={stato.caratteristiche.tetto}
+        mantoCopertura={stato.caratteristiche.manto}
+        finituraEsterna={
+          stato.caratteristiche.finituraEsterna.charAt(0).toUpperCase() + stato.caratteristiche.finituraEsterna.slice(1)
+        }
+        pacchetto={pacchettoDaLivelli(stato.livelli)}
         superfici={stato.superfici.filter((s) => s.piano !== PIANO_GARAGE)}
         superficieGarage={stato.superfici.find((s) => s.piano === PIANO_GARAGE)?.valoreLordo ?? ''}
       />

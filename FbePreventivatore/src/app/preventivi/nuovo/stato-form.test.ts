@@ -1,6 +1,6 @@
 // src/app/preventivi/nuovo/stato-form.test.ts
 import { describe, expect, it } from 'vitest'
-import { inputCalcoloDaStato, type StatoForm } from './stato-form'
+import { inputCalcoloDaStato, pacchettoDaLivelli, type StatoForm } from './stato-form'
 
 const STATO_CRIVELLARO: StatoForm = {
   cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
@@ -18,6 +18,12 @@ const STATO_CRIVELLARO: StatoForm = {
   overrides: {},
   totaleTarget: 300000,
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
+  caratteristiche: {
+    copertura: 'falde',
+    manto: 'Tegole in cemento',
+    finituraEsterna: 'intonaco',
+    tetto: 'Tetto con travi e perline in abete',
+  },
 }
 
 describe('inputCalcoloDaStato', () => {
@@ -65,5 +71,29 @@ describe('inputCalcoloDaStato', () => {
     }
     const input = inputCalcoloDaStato(statoConSicurezza)
     expect(input.sicurezza).toEqual({ costoDichiarato: 3500, valorizzata: 1800 })
+  })
+})
+
+describe('pacchettoDaLivelli', () => {
+  it('Grezzo: involucro impoverito, finiture escluso', () => {
+    expect(pacchettoDaLivelli({ struttura: 'completo', involucro: 'impoverito', finiture: 'escluso' })).toBe('Grezzo')
+  })
+
+  it('Grezzo avanzato: involucro completo, finiture impoverito — golden case Crivellaro', () => {
+    expect(pacchettoDaLivelli({ struttura: 'completo', involucro: 'completo', finiture: 'impoverito' })).toBe(
+      'Grezzo avanzato',
+    )
+  })
+
+  it('Chiavi in mano: involucro completo, finiture completo', () => {
+    expect(pacchettoDaLivelli({ struttura: 'completo', involucro: 'completo', finiture: 'completo' })).toBe(
+      'Chiavi in mano',
+    )
+  })
+
+  it('chiaviInManoNelTotale=true su Crivellaro NON cambia il pacchetto (resta Grezzo avanzato, non Chiavi in mano)', () => {
+    // Crivellaro: finiture impoverito + chiaviInManoNelTotale true, ma il documento reale
+    // mostra "Grezzo avanzato" in copertina — il flag decide solo l'inclusione nel totale.
+    expect(pacchettoDaLivelli(STATO_CRIVELLARO.livelli)).toBe('Grezzo avanzato')
   })
 })
