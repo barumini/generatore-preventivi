@@ -102,9 +102,10 @@ export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
           temperature: 0.1,
         }),
       })
-    } catch {
+    } catch (errore) {
       throw new Error(
         `Estrazione fallita: impossibile raggiungere LM Studio su ${this.baseUrl} — verifica che LM Studio sia in esecuzione con il server locale attivo (Impostazioni > Local Server > Start Server)`,
+        { cause: errore },
       )
     }
 

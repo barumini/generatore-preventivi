@@ -65,6 +65,7 @@ describe('ClienteEstrazioneLMStudio', () => {
 
   it('costruisce la richiesta HTTP verso l\'endpoint di default e restituisce il testo della risposta', async () => {
     vi.stubEnv('LM_STUDIO_MODEL', 'qwen2.5-7b-instruct')
+    vi.stubEnv('LM_STUDIO_BASE_URL', undefined)
     const fetchFinto = vi.fn(async (url: string, opzioni: RequestInit) => {
       expect(url).toBe('http://localhost:1234/v1/chat/completions')
       const corpo = JSON.parse(opzioni.body as string)
