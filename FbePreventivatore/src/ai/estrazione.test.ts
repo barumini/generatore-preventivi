@@ -123,6 +123,14 @@ describe('ClienteEstrazioneLMStudio', () => {
     await expect(cliente.estrai('testo')).rejects.toThrow(/404/)
   })
 
+  it('lancia un errore leggibile se LM Studio risponde 200 con un corpo non-JSON', async () => {
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('non è json', { status: 200 })))
+
+    const cliente = new ClienteEstrazioneLMStudio()
+    await expect(cliente.estrai('testo')).rejects.toThrow(/Estrazione fallita/)
+  })
+
   it('lancia un errore se LM_STUDIO_MODEL non è impostata', () => {
     vi.stubEnv('LM_STUDIO_MODEL', undefined)
     expect(() => new ClienteEstrazioneLMStudio()).toThrow(/LM_STUDIO_MODEL/)

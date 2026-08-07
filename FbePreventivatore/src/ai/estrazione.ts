@@ -113,7 +113,12 @@ export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
       throw new Error(`Estrazione fallita: LM Studio ha risposto ${risposta.status} — ${corpo.slice(0, 300)}`)
     }
 
-    const dati = await risposta.json()
-    return dati.choices?.[0]?.message?.content ?? ''
+    let dati: unknown
+    try {
+      dati = await risposta.json()
+    } catch {
+      throw new Error(`Estrazione fallita: LM Studio ha risposto con un corpo non-JSON (status ${risposta.status})`)
+    }
+    return (dati as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? ''
   }
 }
