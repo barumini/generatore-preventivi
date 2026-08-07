@@ -1,5 +1,4 @@
 // src/app/preventivi/nuovo/FormStrutturato.tsx
-// Force rebuild for new fields
 'use client'
 
 import { useState } from 'react'
@@ -75,7 +74,6 @@ function rimuoviRiga<T>(righe: T[], indice: number): T[] {
 }
 
 export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
-  console.log('FormStrutturato component loaded with STATO_INIZIALE keys:', Object.keys(STATO_INIZIALE))
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
 

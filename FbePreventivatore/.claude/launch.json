@@ -4,16 +4,8 @@
     {
       "name": "fbe-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "build"],
-      "port": 3000,
-      "autoPort": false
-    },
-    {
-      "name": "fbe-prod",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "port": 3000,
-      "autoPort": false
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
     }
   ]
 }
