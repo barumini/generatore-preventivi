@@ -1,7 +1,17 @@
+export const CATEGORIE_SERRAMENTO = [
+  'finestra-battente',
+  'portafinestra-battente',
+  'fisso-vetrata',
+  'alzante-scorrevole',
+  'portoncino',
+] as const
+export type CategoriaSerramento = (typeof CATEGORIE_SERRAMENTO)[number]
+
 export interface Serramento {
   n: number
   piano: string
   tipologia: string
+  categoria: CategoriaSerramento
   b: number
   h: number
 }

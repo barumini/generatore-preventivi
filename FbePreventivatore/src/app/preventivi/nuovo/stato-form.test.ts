@@ -10,7 +10,7 @@ const STATO_CRIVELLARO: StatoForm = {
     { piano: 'Portico', valoreLordo: '13+14' },
     { piano: 'Garage', valoreLordo: '41' },
   ],
-  serramenti: [{ n: 1, piano: 'PT', tipologia: 'porta di ingresso', b: 1, h: 2.2 }],
+  serramenti: [{ n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1, h: 2.2 }],
   perimetro: 60,
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
   chiaviInManoNelTotale: true,

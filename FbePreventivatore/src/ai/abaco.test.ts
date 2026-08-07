@@ -3,17 +3,17 @@ import { generaAbacoSerramenti } from './abaco'
 import type { Serramento } from '@/domain/geometria'
 
 const SERRAMENTI_CRIVELLARO: Serramento[] = [
-  { n: 1, piano: 'PT', tipologia: 'porta di ingresso', b: 1.0, h: 2.2 },
-  { n: 2, piano: 'PT', tipologia: 'finestra', b: 2.0, h: 1.8 },
-  { n: 3, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 2.2 },
-  { n: 4, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 5, piano: 'PT', tipologia: 'doppia finestra', b: 0.9, h: 1.2 },
-  { n: 6, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 7, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 8, piano: 'PT', tipologia: 'finestra', b: 2.6, h: 2.2 },
-  { n: 9, piano: 'PT', tipologia: 'finestra', b: 2.8, h: 2.2 },
-  { n: 10, piano: 'PT', tipologia: 'portafinestra', b: 2.2, h: 2.2 },
-  { n: 11, piano: 'PT', tipologia: 'finestra', b: 0.8, h: 2.1 },
+  { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
+  { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
+  { n: 3, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 2.2 },
+  { n: 4, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 5, piano: 'PT', tipologia: 'doppia finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 6, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 7, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 8, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.6, h: 2.2 },
+  { n: 9, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.8, h: 2.2 },
+  { n: 10, piano: 'PT', tipologia: 'portafinestra', categoria: 'portafinestra-battente', b: 2.2, h: 2.2 },
+  { n: 11, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.8, h: 2.1 },
 ]
 
 describe('generaAbacoSerramenti — golden case Crivellaro', () => {

@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { totaleSuperficiLorde, PIANI_CANONICI, type Serramento, type SuperficiePiano } from '@/domain/geometria'
+import { totaleSuperficiLorde, PIANI_CANONICI, CATEGORIE_SERRAMENTO, type CategoriaSerramento, type Serramento, type SuperficiePiano } from '@/domain/geometria'
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import type { StatoForm } from './stato-form'
 
@@ -274,6 +274,21 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
                 />
               </label>
               <label>
+                Categoria
+                <select
+                  value={riga.categoria}
+                  onChange={(e) =>
+                    aggiorna({ serramenti: aggiornaRiga(stato.serramenti, i, { categoria: e.target.value as CategoriaSerramento }) })
+                  }
+                >
+                  {CATEGORIE_SERRAMENTO.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 Base (m)
                 <input
                   type="number"
@@ -300,7 +315,7 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
               aggiorna({
                 serramenti: [
                   ...stato.serramenti,
-                  { n: stato.serramenti.length + 1, piano: '', tipologia: '', b: 0, h: 0 } satisfies Serramento,
+                  { n: stato.serramenti.length + 1, piano: '', tipologia: '', categoria: 'finestra-battente', b: 0, h: 0 } satisfies Serramento,
                 ],
               })
             }

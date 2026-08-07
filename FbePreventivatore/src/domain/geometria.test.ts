@@ -15,22 +15,22 @@ import {
 } from './geometria'
 
 const SERRAMENTI_CRIVELLARO: Serramento[] = [
-  { n: 1, piano: 'PT', tipologia: 'porta di ingresso', b: 1.0, h: 2.2 },
-  { n: 2, piano: 'PT', tipologia: 'finestra', b: 2.0, h: 1.8 },
-  { n: 3, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 2.2 },
-  { n: 4, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 5, piano: 'PT', tipologia: 'doppia finestra', b: 0.9, h: 1.2 },
-  { n: 6, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 7, piano: 'PT', tipologia: 'finestra', b: 0.9, h: 1.2 },
-  { n: 8, piano: 'PT', tipologia: 'finestra', b: 2.6, h: 2.2 },
-  { n: 9, piano: 'PT', tipologia: 'finestra', b: 2.8, h: 2.2 },
-  { n: 10, piano: 'PT', tipologia: 'portafinestra', b: 2.2, h: 2.2 },
-  { n: 11, piano: 'PT', tipologia: 'finestra', b: 0.8, h: 2.1 },
+  { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
+  { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
+  { n: 3, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 2.2 },
+  { n: 4, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 5, piano: 'PT', tipologia: 'doppia finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 6, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 7, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.9, h: 1.2 },
+  { n: 8, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.6, h: 2.2 },
+  { n: 9, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.8, h: 2.2 },
+  { n: 10, piano: 'PT', tipologia: 'portafinestra', categoria: 'portafinestra-battente', b: 2.2, h: 2.2 },
+  { n: 11, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 0.8, h: 2.1 },
 ]
 
 describe('calcolaApertura', () => {
   it('calcola area lorda e netta con le detrazioni standard 0,60 x 0,30', () => {
-    const risultato = calcolaApertura({ n: 1, piano: 'PT', tipologia: 'porta di ingresso', b: 1.0, h: 2.2 })
+    const risultato = calcolaApertura({ n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 })
     expect(risultato.areaLorda).toBeCloseTo(2.2, 2)
     expect(risultato.larghezzaNetta).toBeCloseTo(0.4, 2)
     expect(risultato.altezzaNetta).toBeCloseTo(1.9, 2)
@@ -39,10 +39,15 @@ describe('calcolaApertura', () => {
 
   it('accetta detrazioni personalizzate', () => {
     const risultato = calcolaApertura(
-      { n: 1, piano: 'PT', tipologia: 'finestra', b: 1.0, h: 1.0 },
+      { n: 1, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 1.0, h: 1.0 },
       { orizzontale: 0, verticale: 0 },
     )
     expect(risultato.areaNetta).toBeCloseTo(1.0, 2)
+  })
+
+  it('conserva la categoria nell\'apertura calcolata', () => {
+    const risultato = calcolaApertura({ n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 })
+    expect(risultato.categoria).toBe('portoncino')
   })
 })
 
