@@ -11,3 +11,6 @@ node_modules/
 *.db
 .env*
 !.env.example
+
+# worktree isolati per l'esecuzione di piani (superpowers:using-git-worktrees)
+.worktrees/
