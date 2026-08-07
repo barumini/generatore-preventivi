@@ -323,19 +323,59 @@ def sostituisci_tabella_sal(xml: str) -> str:
         '<w:tcW w:w="8700" w:type="dxa" />', f'<w:tcW w:w="{LARGHEZZA_COL_DESCRIZIONE}" w:type="dxa" />'
     )
 
+    # Nessun bordo definito su questa tabella (segnalato dal controllo visivo
+    # in Word) — stesso grigio sottile gia' usato per la tabella prezzi di
+    # pag. 5, per coerenza visiva.
+    if "<w:tblBorders>" in tbl:
+        raise Fallita("tabella SAL: bordi già presenti, non dovrebbe succedere")
+    bordo_grigio = (
+        '<w:tblBorders>'
+        '<w:top w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '<w:left w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '<w:right w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
+        '</w:tblBorders>'
+    )
+    tbl, n_tbl_ind = re.subn(
+        r'(<w:tblInd[^/]*/>)', r"\1" + bordo_grigio, tbl, count=1
+    )
+    if n_tbl_ind != 1:
+        raise Fallita("tabella SAL: <w:tblInd> non trovato, non riesco a inserire i bordi")
+
     righe = list(re.finditer(r"<w:tr\b.*?</w:tr>", tbl, re.S))
     if len(righe) != 9:
         raise Fallita(f"tabella SAL: attese 9 righe, trovate {len(righe)}")
 
+    def azzera_rientro_colonna1(riga_xml: str, contesto: str) -> str:
+        """Il rientro sinistro della prima colonna e' incoerente tra le righe
+        nell'originale (alcune non lo definiscono affatto, ereditando un
+        default diverso da zero; altre lo azzerano esplicitamente) — segnalato
+        dal controllo visivo in Word come disallineamento della tabella.
+        Forza w:ind w:left="0" sul paragrafo della sola prima colonna."""
+        fine_col1 = riga_xml.index("</w:tc>") + len("</w:tc>")
+        col1, resto = riga_xml[:fine_col1], riga_xml[fine_col1:]
+        if 'w:ind w:left="0"' in col1:
+            return riga_xml  # gia' zero
+        nuovo_col1, n = re.subn(r'<w:ind w:right="([\-0-9]+)" />', r'<w:ind w:left="0" w:right="\1" />', col1, count=1)
+        if n != 1:
+            raise Fallita(f"tabella SAL: rientro colonna 1 riga {contesto} in forma inattesa")
+        return nuovo_col1 + resto
+
+    riga_caparra = azzera_rientro_colonna1(righe[0].group(0), "caparra")
+    riga_sal_primi = azzera_rientro_colonna1(righe[1].group(0), "salPrimi")
+    riga_sal_successivi = azzera_rientro_colonna1(righe[5].group(0), "salSuccessivi")
+
     r_caparra = sostituisci(
-        righe[0].group(0),
+        riga_caparra,
         ("€", "____", "____"),
         ("€ {caparra}", "", ""),
         1,
         "caparra",
     )
     r_sal_primi = sostituisci(
-        righe[1].group(0),
+        riga_sal_primi,
         ("2", "0%", "Acconto al contratto"),
         ("{#salPrimi}{percentuale}", "", "{descrizione}{/salPrimi}"),
         1,
@@ -343,7 +383,7 @@ def sostituisci_tabella_sal(xml: str) -> str:
     )
     r_clausola = righe[4].group(0)
     r_sal_successivi = sostituisci(
-        righe[5].group(0),
+        riga_sal_successivi,
         ("1", "0", "%", "Al tetto primo tavolato (escluso tegole)"),
         ("{#salSuccessivi}{percentuale}", "", "", "{descrizione}{/salSuccessivi}"),
         1,
