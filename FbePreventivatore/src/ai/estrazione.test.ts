@@ -52,3 +52,79 @@ describe('PROMPT_SISTEMA', () => {
     expect(PROMPT_SISTEMA).toMatch(/campiMancanti/)
   })
 })
+
+// aggiunta a src/ai/estrazione.test.ts
+import { afterEach, vi } from 'vitest'
+import { ClienteEstrazioneLMStudio } from './estrazione'
+
+describe('ClienteEstrazioneLMStudio', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  it('costruisce la richiesta HTTP verso l\'endpoint di default e restituisce il testo della risposta', async () => {
+    vi.stubEnv('LM_STUDIO_MODEL', 'qwen2.5-7b-instruct')
+    const fetchFinto = vi.fn(async (url: string, opzioni: RequestInit) => {
+      expect(url).toBe('http://localhost:1234/v1/chat/completions')
+      const corpo = JSON.parse(opzioni.body as string)
+      expect(corpo.model).toBe('qwen2.5-7b-instruct')
+      expect(corpo.temperature).toBe(0.1)
+      expect(corpo.messages).toEqual([
+        { role: 'system', content: expect.any(String) },
+        { role: 'user', content: 'casa per Rossi a Vicenza' },
+      ])
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: '{"cliente":{"nome":"Rossi"}}' } }] }),
+        { status: 200 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    const cliente = new ClienteEstrazioneLMStudio()
+    const risultato = await cliente.estrai('casa per Rossi a Vicenza')
+
+    expect(risultato).toBe('{"cliente":{"nome":"Rossi"}}')
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+
+  it('usa LM_STUDIO_BASE_URL personalizzato quando impostato', async () => {
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+    vi.stubEnv('LM_STUDIO_BASE_URL', 'http://192.168.1.50:1234/v1')
+    const fetchFinto = vi.fn(async (url: string) => {
+      expect(url).toBe('http://192.168.1.50:1234/v1/chat/completions')
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    await new ClienteEstrazioneLMStudio().estrai('testo')
+
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+
+  it('lancia un errore leggibile se LM Studio non è raggiungibile', async () => {
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('fetch failed')
+      }),
+    )
+
+    const cliente = new ClienteEstrazioneLMStudio()
+    await expect(cliente.estrai('testo')).rejects.toThrow(/LM Studio.*in esecuzione/)
+  })
+
+  it('lancia un errore leggibile se LM Studio risponde con uno stato di errore', async () => {
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-inesistente')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('modello non trovato', { status: 404 })))
+
+    const cliente = new ClienteEstrazioneLMStudio()
+    await expect(cliente.estrai('testo')).rejects.toThrow(/404/)
+  })
+
+  it('lancia un errore se LM_STUDIO_MODEL non è impostata', () => {
+    vi.stubEnv('LM_STUDIO_MODEL', undefined)
+    expect(() => new ClienteEstrazioneLMStudio()).toThrow(/LM_STUDIO_MODEL/)
+  })
+})

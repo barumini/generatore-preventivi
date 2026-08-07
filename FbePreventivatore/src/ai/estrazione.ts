@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
 import { PIANI_CANONICI } from '@/domain/geometria'
 
 const SchemaCampiEstratti = z.object({
@@ -62,25 +61,59 @@ lo trovi e aggiungilo a campiMancanti: sarà corretto a mano.
 
 Se un campo non è menzionato nel testo, ometterlo o aggiungerlo a campiMancanti. Non inventare valori.`
 
+function leggiModelloRichiesto(): string {
+  const modello = process.env.LM_STUDIO_MODEL
+  if (!modello) {
+    throw new Error(
+      'Estrazione fallita: variabile LM_STUDIO_MODEL non impostata — imposta il nome esatto del modello caricato in LM Studio',
+    )
+  }
+  return modello
+}
+
 // NOTA: l'estrazione LLM qui riguarda SOLO campi anagrafici/geometrici dal testo libero
 // iniziale (nome cliente, comune, superfici dichiarate, tipo copertura, ecc.).
 // L'AI non decide MAI prezzi o importi (vincolo CLAUDE.md #7): quelli vengono dal
 // listino parametrico o sono digitati altrove nel flusso.
-export class ClienteEstrazioneAnthropic implements ClienteEstrazione {
-  private client: Anthropic
+export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
+  private baseUrl: string
+  private modello: string
 
-  constructor(apiKey: string = process.env.ANTHROPIC_API_KEY ?? '') {
-    this.client = new Anthropic({ apiKey })
+  constructor(
+    baseUrl: string = process.env.LM_STUDIO_BASE_URL ?? 'http://localhost:1234/v1',
+    modello: string = leggiModelloRichiesto(),
+  ) {
+    this.baseUrl = baseUrl
+    this.modello = modello
   }
 
   async estrai(testo: string): Promise<string> {
-    const messaggio = await this.client.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 1024,
-      system: PROMPT_SISTEMA,
-      messages: [{ role: 'user', content: testo }],
-    })
-    const blocco = messaggio.content[0]
-    return blocco?.type === 'text' ? blocco.text : ''
+    let risposta: Response
+    try {
+      risposta = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.modello,
+          messages: [
+            { role: 'system', content: PROMPT_SISTEMA },
+            { role: 'user', content: testo },
+          ],
+          temperature: 0.1,
+        }),
+      })
+    } catch {
+      throw new Error(
+        `Estrazione fallita: impossibile raggiungere LM Studio su ${this.baseUrl} — verifica che LM Studio sia in esecuzione con il server locale attivo (Impostazioni > Local Server > Start Server)`,
+      )
+    }
+
+    if (!risposta.ok) {
+      const corpo = await risposta.text()
+      throw new Error(`Estrazione fallita: LM Studio ha risposto ${risposta.status} — ${corpo.slice(0, 300)}`)
+    }
+
+    const dati = await risposta.json()
+    return dati.choices?.[0]?.message?.content ?? ''
   }
 }
