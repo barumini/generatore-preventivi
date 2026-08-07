@@ -1,6 +1,6 @@
 # Placeholder del master `Offerta MHM master.docx`
 
-## ⚠️ STATO: verifica visiva in Word in corso — 1 punto ancora da ricontrollare
+## ⚠️ STATO: verifica visiva in Word fatta — 1 dettaglio cosmetico accettato così com'è
 
 Questo master è stato preparato senza accesso a Word/LibreOffice (nessuna GUI
 in questo ambiente): tutte le correzioni sono fatte alla cieca sull'XML, poi
@@ -12,24 +12,32 @@ verificate a vista da un umano su un export reale generato da
 2. **pag. 5, rientro delle righe di riepilogo** (`SCONTO RISERVATO`,
    `Arrotondamento`, `PARZIALE`, `COSTI SICUREZZA`, `TOTALE` a sinistra;
    `Listino 2026` rientrata) — ✅ confermato a vista.
-3. **pag. 6, tabella Pagamento** — ❌ **era rotto, ora corretto, da
-   riconfermare**. La colonna dell'importo caparra (1027 dxa nell'originale,
-   dimensionata per uno spazio da riempire a mano tipo `€ ____,____`) troncava
-   un importo vero: `€ 30 000,00` appariva come `€ 30 000,0`, tagliato a metà
-   dove iniziava il testo della cella successiva. Corretto allargando quella
-   colonna a 2000 dxa (e restringendo la colonna descrizione da 8700 a 7727,
-   stessa larghezza totale) in `template/build_master_placeholder.py`,
-   funzione `sostituisci_tabella_sal`. **Non ancora riverificato a vista con
-   il fix applicato** — è il prossimo controllo da fare.
+3. **pag. 6, tabella Pagamento** — ✅ corretta e confermata, con tre round di
+   fix trovati dal controllo visivo:
+   - la colonna dell'importo caparra (1027 dxa nell'originale, dimensionata
+     per uno spazio da riempire a mano tipo `€ ____,____`) troncava un
+     importo vero (`€ 30 000,00` → `€ 30 000,0`) — allargata a 2000 dxa
+     (colonna descrizione ridotta da 8700 a 7727, stessa larghezza totale);
+   - la tabella non aveva bordi e il rientro sinistro della prima colonna
+     era incoerente tra le righe (alcune ereditavano un default non zero,
+     altre lo azzeravano esplicitamente) — aggiunti bordi grigi coerenti con
+     pag. 5, rientro forzato a zero su tutte le righe;
+   - la tabella aveva un rientro di 357 dxa dal margine di pagina, diverso
+     dalle altre due tabelle del documento — rimosso.
+   Tutto in `template/build_master_placeholder.py`, funzione
+   `sostituisci_tabella_sal`. Resta un residuo cosmetico minore (un piccolo
+   spazio percepito a sinistra, non isolato con certezza — margine di cella
+   normale o scarto residuo) che l'utente ha scelto di accettare così com'è,
+   non bloccante.
 4. **copertina** (nessuno spazio anomalo dove stava `PROT. 000-22 REV.00`)
    — ✅ confermato a vista.
 5. **pagg. 19-20, abaco serramenti** (nessun testo che tracima dalle caselle)
    — ✅ confermato a vista.
 
-Prima di usare il master con un cliente reale, ricontrollare il punto 3 con
-un export rigenerato dopo il fix, e restare comunque attenti a colonne strette
-analoghe altrove nel documento (qualunque punto dell'originale pensato per
-essere riempito a mano è un candidato allo stesso problema).
+Tutti i punti della checklist sono stati controllati a vista in Word. Restare
+comunque attenti a colonne strette analoghe altrove nel documento (qualunque
+punto dell'originale pensato per essere riempito a mano è un candidato allo
+stesso problema del punto 3).
 
 ## Come si rigenera
 
