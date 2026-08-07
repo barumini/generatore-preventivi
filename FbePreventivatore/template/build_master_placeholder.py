@@ -297,6 +297,32 @@ def sostituisci_tabella_sal(xml: str) -> str:
     if tbl.count("<w:tbl>") != 1:
         raise Fallita("tabella SAL: trovata tabella annidata, non procedo")
 
+    # La prima colonna (1027 dxa, ~1,8 cm) e' dimensionata nell'originale per
+    # uno spazio da riempire a mano ("€ ____,____"), non per un importo vero:
+    # verificato in Word che "€ 30 000,00" viene troncato a "€ 30 000,0".
+    # Allarghiamo la prima colonna e restringiamo la seconda della stessa
+    # quantita' (la larghezza totale della tabella, 9727 dxa, non cambia).
+    LARGHEZZA_COL_IMPORTO = 2000
+    LARGHEZZA_COL_DESCRIZIONE = 7727
+    n_grid_1027 = tbl.count('<w:gridCol w:w="1027" />')
+    n_grid_8700 = tbl.count('<w:gridCol w:w="8700" />')
+    n_tc_1027 = tbl.count('<w:tcW w:w="1027" w:type="dxa" />')
+    n_tc_8700 = tbl.count('<w:tcW w:w="8700" w:type="dxa" />')
+    if (n_grid_1027, n_grid_8700, n_tc_1027, n_tc_8700) != (1, 1, 8, 8):
+        raise Fallita(
+            "tabella SAL: larghezze colonna diverse da quelle attese "
+            f"(gridCol 1027={n_grid_1027} 8700={n_grid_8700}, "
+            f"tcW 1027={n_tc_1027} 8700={n_tc_8700})"
+        )
+    tbl = tbl.replace('<w:gridCol w:w="1027" />', f'<w:gridCol w:w="{LARGHEZZA_COL_IMPORTO}" />')
+    tbl = tbl.replace('<w:gridCol w:w="8700" />', f'<w:gridCol w:w="{LARGHEZZA_COL_DESCRIZIONE}" />')
+    tbl = tbl.replace(
+        '<w:tcW w:w="1027" w:type="dxa" />', f'<w:tcW w:w="{LARGHEZZA_COL_IMPORTO}" w:type="dxa" />'
+    )
+    tbl = tbl.replace(
+        '<w:tcW w:w="8700" w:type="dxa" />', f'<w:tcW w:w="{LARGHEZZA_COL_DESCRIZIONE}" w:type="dxa" />'
+    )
+
     righe = list(re.finditer(r"<w:tr\b.*?</w:tr>", tbl, re.S))
     if len(righe) != 9:
         raise Fallita(f"tabella SAL: attese 9 righe, trovate {len(righe)}")

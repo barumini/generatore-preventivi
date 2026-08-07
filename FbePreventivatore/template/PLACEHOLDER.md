@@ -1,40 +1,35 @@
 # Placeholder del master `Offerta MHM master.docx`
 
-## ⚠️ STATO: da controllare a vista in Word vero prima dell'uso reale
+## ⚠️ STATO: verifica visiva in Word in corso — 1 punto ancora da ricontrollare
 
 Questo master è stato preparato senza accesso a Word/LibreOffice (nessuna GUI
-in questo ambiente). Le verifiche fatte sono solo strutturali (XML ben
-formato, integrità zip, rendering di prova con docxtemplater) — NON è stata
-fatta una verifica visiva. Prima di usarlo per un'offerta reale a un cliente,
-un umano deve aprirlo in Word e controllare che ogni pagina sia leggibile e
-formattata correttamente, in particolare la tabella prezzi nativa di pag. 5.
+in questo ambiente): tutte le correzioni sono fatte alla cieca sull'XML, poi
+verificate a vista da un umano su un export reale generato da
+`scripts/genera-offerta-esempio.ts`. Stato dei controlli (2026-08-07):
 
-Punti da guardare per primi in quel controllo:
+1. **pag. 5, tabella prezzi nativa** (colonne, bordi, importi a destra,
+   sta in una pagina) — ✅ confermato a vista.
+2. **pag. 5, rientro delle righe di riepilogo** (`SCONTO RISERVATO`,
+   `Arrotondamento`, `PARZIALE`, `COSTI SICUREZZA`, `TOTALE` a sinistra;
+   `Listino 2026` rientrata) — ✅ confermato a vista.
+3. **pag. 6, tabella Pagamento** — ❌ **era rotto, ora corretto, da
+   riconfermare**. La colonna dell'importo caparra (1027 dxa nell'originale,
+   dimensionata per uno spazio da riempire a mano tipo `€ ____,____`) troncava
+   un importo vero: `€ 30 000,00` appariva come `€ 30 000,0`, tagliato a metà
+   dove iniziava il testo della cella successiva. Corretto allargando quella
+   colonna a 2000 dxa (e restringendo la colonna descrizione da 8700 a 7727,
+   stessa larghezza totale) in `template/build_master_placeholder.py`,
+   funzione `sostituisci_tabella_sal`. **Non ancora riverificato a vista con
+   il fix applicato** — è il prossimo controllo da fare.
+4. **copertina** (nessuno spazio anomalo dove stava `PROT. 000-22 REV.00`)
+   — ✅ confermato a vista.
+5. **pagg. 19-20, abaco serramenti** (nessun testo che tracima dalle caselle)
+   — ✅ confermato a vista.
 
-1. **pag. 5** — la tabella prezzi non è più l'immagine `image15.png` ma una
-   tabella Word nativa a 3 colonne (709 + 7479 + 1996 twip = 10184, la stessa
-   larghezza della tabella `CARATTERISTICHE FABBRICATO` di pag. 4): verificare
-   larghezze colonne, bordi, che stia in una pagina e che gli importi siano
-   allineati a destra.
-2. **pag. 5, rientro delle righe di riepilogo** — nell'immagine originale le
-   etichette `SCONTO RISERVATO:`, `Arrotondamento`, `PARZIALE AL GREZZO
-   AVANZATO`, `COSTI SICUREZZA :` e `TOTALE AL NETTO` partono dal **bordo
-   sinistro** della tabella, attraversando la colonna stretta del numero voce.
-   Nella tabella nativa questo è ottenuto unendo le prime due celle
-   (`gridSpan=2`): verificare che quelle 5 righe siano effettivamente allineate
-   a sinistra e senza un bordo verticale spurio dopo la prima colonna. La riga
-   `Listino 2026` invece è rientrata **anche** nell'originale e resta a tre
-   celle: se appare allineata a sinistra come le altre, è un errore.
-3. **pag. 6** — la scaletta SAL ha ora due sole righe-modello al posto delle 7
-   righe fisse (vedi sotto): verificare che dopo il rendering l'interlinea e i
-   bordi siano quelli di prima.
-4. **copertina** — il residuo `PROT. 000-22 REV.00` (bug della spec §3.8) è
-   stato svuotato ma il paragrafo vuoto è rimasto: verificare che non lasci
-   uno spazio anomalo.
-5. **pagg. 19-20** — abaco serramenti e portoncino sono dentro caselle di
-   testo duplicate (`mc:AlternateContent`, rami Choice + Fallback): entrambi i
-   rami sono stati aggiornati, verificare che il testo non tracimi dal box con
-   elenchi lunghi.
+Prima di usare il master con un cliente reale, ricontrollare il punto 3 con
+un export rigenerato dopo il fix, e restare comunque attenti a colonne strette
+analoghe altrove nel documento (qualunque punto dell'originale pensato per
+essere riempito a mano è un candidato allo stesso problema).
 
 ## Come si rigenera
 
