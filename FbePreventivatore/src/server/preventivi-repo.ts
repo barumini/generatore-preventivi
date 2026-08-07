@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client'
 
+export class RisorsaNonTrovata extends Error {}
+
 export interface DatiRevisione {
   statoForm: string
   inputCalcolo: string
@@ -58,7 +60,7 @@ export async function aggiungiRevisione(
   dati: DatiRevisione & { data: string; luogo: string },
 ) {
   const ultima = await db.revisione.findFirst({ where: { preventivoId }, orderBy: { numero: 'desc' } })
-  if (!ultima) throw new Error(`Nessun preventivo trovato con id ${preventivoId}`)
+  if (!ultima) throw new RisorsaNonTrovata(`Nessun preventivo trovato con id ${preventivoId}`)
 
   return db.revisione.create({
     data: {
@@ -76,7 +78,7 @@ export async function aggiungiRevisione(
 
 export async function aggiornaBozza(db: PrismaClient, preventivoId: string, numero: number, dati: DatiRevisione) {
   const revisione = await db.revisione.findUnique({ where: { preventivoId_numero: { preventivoId, numero } } })
-  if (!revisione) throw new Error(`Revisione ${numero} non trovata per il preventivo ${preventivoId}`)
+  if (!revisione) throw new RisorsaNonTrovata(`Revisione ${numero} non trovata per il preventivo ${preventivoId}`)
   if (revisione.stato !== 'bozza') {
     throw new Error(
       `La revisione ${numero} è "${revisione.stato}", non modificabile — crea una nuova revisione con aggiungiRevisione.`,

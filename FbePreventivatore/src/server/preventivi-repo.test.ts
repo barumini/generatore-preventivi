@@ -7,6 +7,7 @@ import {
   aggiornaBozza,
   elencaPreventivi,
   caricaRevisione,
+  RisorsaNonTrovata,
 } from './preventivi-repo'
 
 const DATI_BASE = {
@@ -63,6 +64,10 @@ describe('aggiungiRevisione', () => {
     const originale = await caricaRevisione(db, preventivo.id, 1)
     expect(originale?.stato).toBe('bozza')
   })
+
+  it('lancia RisorsaNonTrovata se il preventivo non esiste', async () => {
+    await expect(aggiungiRevisione(db, 'id-inesistente', DATI_BASE)).rejects.toThrow(RisorsaNonTrovata)
+  })
 })
 
 describe('aggiornaBozza', () => {
@@ -80,6 +85,11 @@ describe('aggiornaBozza', () => {
       data: { stato: 'firmata' },
     })
     await expect(aggiornaBozza(db, preventivo.id, 1, DATI_BASE)).rejects.toThrow(/non modificabile/)
+  })
+
+  it('lancia RisorsaNonTrovata se il numero di revisione non esiste', async () => {
+    const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    await expect(aggiornaBozza(db, preventivo.id, 99, DATI_BASE)).rejects.toThrow(RisorsaNonTrovata)
   })
 })
 

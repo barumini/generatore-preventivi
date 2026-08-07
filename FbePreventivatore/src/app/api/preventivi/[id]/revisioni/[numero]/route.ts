@@ -1,5 +1,5 @@
 import { prisma } from '@/server/prisma'
-import { aggiornaBozza, caricaRevisione } from '@/server/preventivi-repo'
+import { aggiornaBozza, caricaRevisione, RisorsaNonTrovata } from '@/server/preventivi-repo'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; numero: string }> }) {
   const { id, numero } = await params
@@ -16,6 +16,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return Response.json(revisione)
   } catch (errore) {
     const messaggio = errore instanceof Error ? errore.message : 'Errore sconosciuto'
-    return Response.json({ errore: messaggio }, { status: 409 })
+    const status = errore instanceof RisorsaNonTrovata ? 404 : 409
+    return Response.json({ errore: messaggio }, { status })
   }
 }

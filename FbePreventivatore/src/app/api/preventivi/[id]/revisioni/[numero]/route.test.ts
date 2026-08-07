@@ -73,4 +73,12 @@ describe('PUT /api/preventivi/[id]/revisioni/[numero]', () => {
     })
     expect(risposta.status).toBe(409)
   })
+
+  it('risponde 404 su una revisione inesistente', async () => {
+    const preventivo = await creaPreventivoConBozza(db, CORPO_BASE)
+    const risposta = await PUT(new Request('http://localhost', { method: 'PUT', body: JSON.stringify(CORPO_BASE) }), {
+      params: Promise.resolve({ id: preventivo.id, numero: '99' }),
+    })
+    expect(risposta.status).toBe(404)
+  })
 })

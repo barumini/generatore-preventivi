@@ -39,4 +39,11 @@ describe('POST /api/preventivi/[id]/revisioni', () => {
     const corpo = await risposta.json()
     expect(corpo.numero).toBe(2)
   })
+
+  it('risponde 404 se il preventivo non esiste', async () => {
+    const risposta = await POST(new Request('http://localhost/api/preventivi/id-inesistente/revisioni', { method: 'POST', body: JSON.stringify(CORPO_BASE) }), {
+      params: Promise.resolve({ id: 'id-inesistente' }),
+    })
+    expect(risposta.status).toBe(404)
+  })
 })
