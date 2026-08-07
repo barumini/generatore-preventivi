@@ -34,6 +34,13 @@ model Revisione {
   luogo        String
   stato        String     @default("bozza") // bozza | inviata | firmata
 
+  // Stato grezzo del wizard (StatoForm serializzato) — per riaprire una bozza e
+  // continuare a modificarla. Default stringa vuota solo per compatibilità DDL SQLite
+  // (una colonna NOT NULL aggiunta a una tabella esistente richiede un default anche a
+  // 0 righe); ogni riga reale scritta dall'app valorizza sempre un JSON vero, mai questo
+  // default — non c'è nessun codice che lo legga come dato valido.
+  statoForm String @default("")
+
   // Snapshot immutabile: input completo e risultato calcolato, come JSON.
   // Non un riferimento al listino corrente — vedi CLAUDE.md vincolo 6.
   inputCalcolo     String
