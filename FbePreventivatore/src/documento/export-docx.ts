@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import type { RisultatoCalcolo, VoceValorizzata } from '@/domain/calcolo'
+import type { AbacoPerCategoria } from '@/ai/abaco'
 import { formattaImportoItaliano } from './preview/formattazione'
 import { righeVoci, segnoArrotondamento, formattaPercentuale } from './tabella-prezzi'
 
@@ -47,15 +48,6 @@ export interface CondizioniOfferta {
   salPrimi: SalRata[] // i primi 3 SAL, prima della clausola di fidejussione
   salSuccessivi: SalRata[]
   validita: string
-}
-
-export interface AbacoPerCategoria {
-  tutti: string
-  finestreBattente: string
-  portefinestreBattente: string
-  fissiVetrate: string
-  alzantiScorrevoli: string
-  portoncini: string
 }
 
 export interface InputEsportazione {

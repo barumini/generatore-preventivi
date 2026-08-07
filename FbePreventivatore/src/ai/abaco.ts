@@ -25,3 +25,26 @@ export function generaAbacoSerramenti(serramenti: Serramento[], opzioni: Opzioni
 
   return righe.join('; ') + (righe.length > 0 && !opzioni.prefisso ? ';' : '')
 }
+
+export interface AbacoPerCategoria {
+  tutti: string
+  finestreBattente: string
+  portefinestreBattente: string
+  fissiVetrate: string
+  alzantiScorrevoli: string
+  portoncini: string
+}
+
+export function generaAbacoPerCategoria(serramenti: Serramento[]): AbacoPerCategoria {
+  const perCategoria = (categoria: Serramento['categoria']) =>
+    generaAbacoSerramenti(serramenti.filter((s) => s.categoria === categoria))
+
+  return {
+    tutti: generaAbacoSerramenti(serramenti),
+    finestreBattente: perCategoria('finestra-battente'),
+    portefinestreBattente: perCategoria('portafinestra-battente'),
+    fissiVetrate: perCategoria('fisso-vetrata'),
+    alzantiScorrevoli: perCategoria('alzante-scorrevole'),
+    portoncini: perCategoria('portoncino'),
+  }
+}

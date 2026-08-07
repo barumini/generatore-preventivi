@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generaAbacoSerramenti } from './abaco'
+import { generaAbacoSerramenti, generaAbacoPerCategoria } from './abaco'
 import type { Serramento } from '@/domain/geometria'
 
 const SERRAMENTI_CRIVELLARO: Serramento[] = [
@@ -31,5 +31,29 @@ describe('generaAbacoSerramenti — golden case Crivellaro', () => {
     const porta = SERRAMENTI_CRIVELLARO.find((s) => s.tipologia === 'porta di ingresso')!
     const abaco = generaAbacoSerramenti([porta], { prefisso: 'n. {n} portoncini di ingresso dim. standard {dim}' })
     expect(abaco).toBe('n. 1 portoncini di ingresso dim. standard 100x220')
+  })
+})
+
+describe('generaAbacoPerCategoria — golden case Crivellaro', () => {
+  it('smista il portoncino solo nella categoria portoncini', () => {
+    const abaco = generaAbacoPerCategoria(SERRAMENTI_CRIVELLARO)
+    expect(abaco.portoncini).toBe('n. 1 dim. 100x220;')
+    expect(abaco.finestreBattente).not.toContain('100x220')
+  })
+
+  it('smista la portafinestra nella categoria portefinestreBattente', () => {
+    const abaco = generaAbacoPerCategoria(SERRAMENTI_CRIVELLARO)
+    expect(abaco.portefinestreBattente).toBe('n. 1 dim. 220x220;')
+  })
+
+  it('lascia vuote le categorie senza serramenti (fissi e scorrevoli, assenti in Crivellaro)', () => {
+    const abaco = generaAbacoPerCategoria(SERRAMENTI_CRIVELLARO)
+    expect(abaco.fissiVetrate).toBe('')
+    expect(abaco.alzantiScorrevoli).toBe('')
+  })
+
+  it('tutti resta identico all\'output esistente di generaAbacoSerramenti', () => {
+    const abaco = generaAbacoPerCategoria(SERRAMENTI_CRIVELLARO)
+    expect(abaco.tutti).toBe(generaAbacoSerramenti(SERRAMENTI_CRIVELLARO))
   })
 })
