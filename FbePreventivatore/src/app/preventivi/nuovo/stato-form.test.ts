@@ -17,6 +17,7 @@ const STATO_CRIVELLARO: StatoForm = {
   sconti: [{ percentuale: 0.1, causale: 'sconto cliente' }],
   overrides: {},
   totaleTarget: 300000,
+  sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
 }
 
 describe('inputCalcoloDaStato', () => {
@@ -55,5 +56,14 @@ describe('inputCalcoloDaStato', () => {
     const statoConOverride = { ...STATO_CRIVELLARO, totaleLordoManuale: 310 }
     const input = inputCalcoloDaStato(statoConOverride)
     expect(input.geometria.superficiLordeTotale).toBe(310)
+  })
+
+  it('propaga la sicurezza (costo dichiarato e valorizzazione) da stato a input', () => {
+    const statoConSicurezza: StatoForm = {
+      ...STATO_CRIVELLARO,
+      sicurezza: { costoDichiarato: 3500, valorizzata: 1800 },
+    }
+    const input = inputCalcoloDaStato(statoConSicurezza)
+    expect(input.sicurezza).toEqual({ costoDichiarato: 3500, valorizzata: 1800 })
   })
 })

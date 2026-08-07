@@ -2,7 +2,7 @@
 import { totaleSuperficiLorde, superficieGarage, superficieSedime, numeroPianiAbitativi, totaliSerramenti, type SuperficiePiano, type Serramento } from '@/domain/geometria'
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
-import type { InputCalcolo, ParametriSconto } from '@/domain/calcolo'
+import type { InputCalcolo, ParametriSconto, Sicurezza } from '@/domain/calcolo'
 
 export interface StatoForm {
   cliente: { nome: string; comune: string; provincia: string }
@@ -16,6 +16,7 @@ export interface StatoForm {
   sconti: ParametriSconto[]
   overrides: Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>
   totaleTarget: number
+  sicurezza: Sicurezza
 }
 
 export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
@@ -39,7 +40,7 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
     },
     overrides: stato.overrides,
     sconti: stato.sconti,
-    sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
+    sicurezza: stato.sicurezza,
     arrotondamento: { risolviPerTotale: stato.totaleTarget },
   }
 }

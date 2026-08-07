@@ -17,6 +17,7 @@ const STATO_INIZIALE: StatoForm = {
   sconti: [],
   overrides: {},
   totaleTarget: 0,
+  sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
 }
 
 interface Props {
@@ -44,6 +45,18 @@ function parseValoreOverride(testo: string): number | ValoreTestualeOverride | u
 
 function formattaValoreOverride(valore: number | ValoreTestualeOverride | undefined): string {
   if (valore === undefined) return ''
+  return String(valore)
+}
+
+function parseValorizzataSicurezza(testo: string): number | 'OMAGGIO' | undefined {
+  const pulito = testo.trim()
+  if (pulito === '') return undefined
+  if (pulito === 'OMAGGIO') return 'OMAGGIO'
+  const numero = Number.parseFloat(pulito.replace(',', '.'))
+  return Number.isNaN(numero) ? undefined : numero
+}
+
+function formattaValorizzataSicurezza(valore: number | 'OMAGGIO'): string {
   return String(valore)
 }
 
@@ -284,6 +297,27 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
               type="number"
               value={stato.totaleTarget}
               onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })}
+            />
+          </label>
+          <h4>Sicurezza</h4>
+          <label>
+            Costo dichiarato
+            <input
+              type="number"
+              value={stato.sicurezza.costoDichiarato}
+              onChange={(e) =>
+                aggiorna({ sicurezza: { ...stato.sicurezza, costoDichiarato: Number(e.target.value) } })
+              }
+            />
+          </label>
+          <label>
+            Valorizzata (importo oppure OMAGGIO)
+            <input
+              value={formattaValorizzataSicurezza(stato.sicurezza.valorizzata)}
+              onChange={(e) => {
+                const valore = parseValorizzataSicurezza(e.target.value)
+                if (valore !== undefined) aggiorna({ sicurezza: { ...stato.sicurezza, valorizzata: valore } })
+              }}
             />
           </label>
         </fieldset>
