@@ -323,6 +323,16 @@ def sostituisci_tabella_sal(xml: str) -> str:
         '<w:tcW w:w="8700" w:type="dxa" />', f'<w:tcW w:w="{LARGHEZZA_COL_DESCRIZIONE}" w:type="dxa" />'
     )
 
+    # Rientro di 357 dxa dal margine sinistro (invisibile finche' non c'erano
+    # bordi — segnalato dal controllo visivo in Word non appena aggiunti,
+    # come uno scarto fra "Pagamento:" e la tabella sotto). Le altre due
+    # tabelle del documento (prezzi pag. 5, caratteristiche fabbricato pag. 4)
+    # non hanno alcun rientro: lo togliamo per allinearle tutte allo stesso
+    # margine.
+    tbl, n_tbl_ind_rimosso = re.subn(r'<w:tblInd[^/]*/>', "", tbl, count=1)
+    if n_tbl_ind_rimosso != 1:
+        raise Fallita("tabella SAL: <w:tblInd> non trovato, non riesco a rimuovere il rientro")
+
     # Nessun bordo definito su questa tabella (segnalato dal controllo visivo
     # in Word) — stesso grigio sottile gia' usato per la tabella prezzi di
     # pag. 5, per coerenza visiva.
@@ -338,11 +348,11 @@ def sostituisci_tabella_sal(xml: str) -> str:
         '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="7F7F7F"/>'
         '</w:tblBorders>'
     )
-    tbl, n_tbl_ind = re.subn(
-        r'(<w:tblInd[^/]*/>)', r"\1" + bordo_grigio, tbl, count=1
+    tbl, n_tbl_w = re.subn(
+        r'(<w:tblW[^/]*/>)', r"\1" + bordo_grigio, tbl, count=1
     )
-    if n_tbl_ind != 1:
-        raise Fallita("tabella SAL: <w:tblInd> non trovato, non riesco a inserire i bordi")
+    if n_tbl_w != 1:
+        raise Fallita("tabella SAL: <w:tblW> non trovato, non riesco a inserire i bordi")
 
     righe = list(re.finditer(r"<w:tr\b.*?</w:tr>", tbl, re.S))
     if len(righe) != 9:
