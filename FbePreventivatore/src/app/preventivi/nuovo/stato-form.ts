@@ -29,6 +29,10 @@ export function pacchettoDaLivelli(livelli: Record<Modulo, LivelloModulo>): Pacc
 export interface StatoForm {
   cliente: { nome: string; comune: string; provincia: string }
   protocollo: string
+  oggetto: string // NUOVO — Preventivo.oggetto
+  progettista: string // NUOVO — Preventivo.progettista (opzionale nello schema, stringa vuota se non compilato)
+  data: string // NUOVO — Revisione.data, formato ISO 'YYYY-MM-DD'
+  luogo: string // NUOVO — Revisione.luogo
   superfici: SuperficiePiano[]
   totaleLordoManuale?: number // sovrascrive totaleSuperficiLorde(superfici) — spec §3.9, non sempre una somma piena (es. Zapparoni)
   serramenti: Serramento[]

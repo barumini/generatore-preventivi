@@ -5,6 +5,10 @@ import { inputCalcoloDaStato, pacchettoDaLivelli, type StatoForm } from './stato
 const STATO_CRIVELLARO: StatoForm = {
   cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
   protocollo: '2026059',
+  oggetto: 'Fornitura e posa in opera di casa in legno MHM',
+  progettista: '',
+  data: '2026-08-07',
+  luogo: 'Trissino',
   superfici: [
     { piano: 'Piano Terra', valoreLordo: '134' },
     { piano: 'Portico', valoreLordo: '13+14' },

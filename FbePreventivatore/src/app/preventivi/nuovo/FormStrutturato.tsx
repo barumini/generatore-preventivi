@@ -1,4 +1,5 @@
 // src/app/preventivi/nuovo/FormStrutturato.tsx
+// Force rebuild for new fields
 'use client'
 
 import { useState } from 'react'
@@ -9,6 +10,10 @@ import type { StatoForm } from './stato-form'
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
   protocollo: '',
+  oggetto: '',
+  progettista: '',
+  data: new Date().toISOString().slice(0, 10),
+  luogo: '',
   superfici: [],
   serramenti: [],
   perimetro: 0,
@@ -70,6 +75,7 @@ function rimuoviRiga<T>(righe: T[], indice: number): T[] {
 }
 
 export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
+  console.log('FormStrutturato component loaded with STATO_INIZIALE keys:', Object.keys(STATO_INIZIALE))
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
 
@@ -108,6 +114,22 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
           <label>
             Protocollo
             <input value={stato.protocollo} onChange={(e) => aggiorna({ protocollo: e.target.value })} />
+          </label>
+          <label>
+            Progettista
+            <input value={stato.progettista} onChange={(e) => aggiorna({ progettista: e.target.value })} />
+          </label>
+          <label>
+            Oggetto
+            <input value={stato.oggetto} onChange={(e) => aggiorna({ oggetto: e.target.value })} />
+          </label>
+          <label>
+            Data
+            <input type="date" value={stato.data} onChange={(e) => aggiorna({ data: e.target.value })} />
+          </label>
+          <label>
+            Luogo
+            <input value={stato.luogo} onChange={(e) => aggiorna({ luogo: e.target.value })} />
           </label>
         </fieldset>
       )}
