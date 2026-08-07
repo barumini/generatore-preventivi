@@ -5,6 +5,8 @@ import { eseguiCalcolo, type InputCalcolo } from './calcolo'
 import { CATALOGO_VOCI } from './voci'
 import { LISTINO_2026 } from './listino'
 
+const STATO_FINTO = { esempio: 'qualsiasi valore JSON-serializzabile', numero: 42 }
+
 const INPUT_MINIMO: InputCalcolo = {
   catalogo: CATALOGO_VOCI,
   configurazione: {
@@ -70,8 +72,8 @@ const INPUT_GOLDEN: InputCalcolo = {
 describe('vincolo 6 — la revisione deserializzata RICALCOLA gli stessi numeri', () => {
   it('ri-eseguendo eseguiCalcolo sull\'input deserializzato ottiene lo stesso Listino, arrotondamento e numerazione', () => {
     const originale = eseguiCalcolo(INPUT_GOLDEN)
-    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(INPUT_GOLDEN, originale)
-    const ricostruito = deserializzaRevisione(inputCalcolo, risultatoCalcolo)
+    const { statoForm, inputCalcolo, risultatoCalcolo } = serializzaRevisione(STATO_FINTO, INPUT_GOLDEN, originale)
+    const ricostruito = deserializzaRevisione<typeof STATO_FINTO>(statoForm, inputCalcolo, risultatoCalcolo)
 
     // Non basta rileggere lo snapshot: il calcolo va RIFATTO sull'input deserializzato.
     // Se il catalogo perde i predicati di inclusione, `solaio-interpiano` rientra,
@@ -91,11 +93,12 @@ describe('vincolo 6 — la revisione deserializzata RICALCOLA gli stessi numeri'
   })
 
   it('non reintroduce le voci escluse per condizione: monopiano resta senza solaio interpiano', () => {
-    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(
+    const { statoForm, inputCalcolo, risultatoCalcolo } = serializzaRevisione(
+      STATO_FINTO,
       INPUT_GOLDEN,
       eseguiCalcolo(INPUT_GOLDEN),
     )
-    const ricostruito = deserializzaRevisione(inputCalcolo, risultatoCalcolo)
+    const ricostruito = deserializzaRevisione<typeof STATO_FINTO>(statoForm, inputCalcolo, risultatoCalcolo)
     const ricalcolato = eseguiCalcolo(ricostruito.input)
 
     expect(ricalcolato.vociValorizzate.find((v) => v.id === 'solaio-interpiano')).toBeUndefined()
@@ -107,8 +110,8 @@ describe('vincolo 6 — la revisione deserializzata RICALCOLA gli stessi numeri'
 describe('serializzaRevisione / deserializzaRevisione', () => {
   it('fa un round-trip senza perdere dati, incluso il risultato calcolato', () => {
     const risultato = eseguiCalcolo(INPUT_MINIMO)
-    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(INPUT_MINIMO, risultato)
-    const ricostruito = deserializzaRevisione(inputCalcolo, risultatoCalcolo)
+    const { statoForm, inputCalcolo, risultatoCalcolo } = serializzaRevisione(STATO_FINTO, INPUT_MINIMO, risultato)
+    const ricostruito = deserializzaRevisione<typeof STATO_FINTO>(statoForm, inputCalcolo, risultatoCalcolo)
 
     expect(ricostruito.risultato.totaleNetto).toBe(risultato.totaleNetto)
     expect(ricostruito.risultato.listinoTotale).toBe(risultato.listinoTotale)
@@ -119,18 +122,28 @@ describe('serializzaRevisione / deserializzaRevisione', () => {
     const listinoMutabile = structuredClone(LISTINO_2026)
     const inputConCopia: InputCalcolo = { ...INPUT_MINIMO, listino: listinoMutabile }
     const risultato = eseguiCalcolo(inputConCopia)
-    const { inputCalcolo, risultatoCalcolo } = serializzaRevisione(inputConCopia, risultato)
+    const { statoForm, inputCalcolo, risultatoCalcolo } = serializzaRevisione(STATO_FINTO, inputConCopia, risultato)
 
     // mutazione del listino "vivo" DOPO il salvataggio: se serializzaRevisione
     // avesse salvato un riferimento anziché una copia indipendente, questa
     // mutazione trapelerebbe nella revisione deserializzata.
     listinoMutabile.driver['pareti-mhm'] = { tipo: 'mq_superficie_lorda', eurMq: 999999 }
 
-    const ricostruito = deserializzaRevisione(inputCalcolo, risultatoCalcolo)
+    const ricostruito = deserializzaRevisione<typeof STATO_FINTO>(statoForm, inputCalcolo, risultatoCalcolo)
     expect(ricostruito.risultato.totaleNetto).toBe(risultato.totaleNetto)
     expect(ricostruito.input.listino).not.toBe(listinoMutabile)
     expect((ricostruito.input.listino as typeof LISTINO_2026).driver['pareti-mhm']).not.toEqual(
       listinoMutabile.driver['pareti-mhm'],
     )
+  })
+
+  it('il round-trip preserva lo stato grezzo del wizard, non solo il calcolo', () => {
+    const { statoForm, inputCalcolo, risultatoCalcolo } = serializzaRevisione(
+      STATO_FINTO,
+      INPUT_MINIMO,
+      eseguiCalcolo(INPUT_MINIMO),
+    )
+    const ricostruito = deserializzaRevisione<typeof STATO_FINTO>(statoForm, inputCalcolo, risultatoCalcolo)
+    expect(ricostruito.stato).toEqual(STATO_FINTO)
   })
 })

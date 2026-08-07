@@ -1,21 +1,25 @@
 // src/domain/persistenza.ts
 import type { InputCalcolo, RisultatoCalcolo } from './calcolo'
 
-export function serializzaRevisione(
+export function serializzaRevisione<T>(
+  stato: T,
   input: InputCalcolo,
   risultato: RisultatoCalcolo,
-): { inputCalcolo: string; risultatoCalcolo: string } {
+): { statoForm: string; inputCalcolo: string; risultatoCalcolo: string } {
   return {
+    statoForm: JSON.stringify(stato),
     inputCalcolo: JSON.stringify(input),
     risultatoCalcolo: JSON.stringify(risultato),
   }
 }
 
-export function deserializzaRevisione(
+export function deserializzaRevisione<T>(
+  statoForm: string,
   inputCalcolo: string,
   risultatoCalcolo: string,
-): { input: InputCalcolo; risultato: RisultatoCalcolo } {
+): { stato: T; input: InputCalcolo; risultato: RisultatoCalcolo } {
   return {
+    stato: JSON.parse(statoForm) as T,
     input: JSON.parse(inputCalcolo) as InputCalcolo,
     risultato: JSON.parse(risultatoCalcolo) as RisultatoCalcolo,
   }
