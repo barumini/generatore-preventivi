@@ -14,3 +14,4 @@ node_modules/
 
 # worktree isolati per l'esecuzione di piani (superpowers:using-git-worktrees)
 .worktrees/
+.superpowers/
