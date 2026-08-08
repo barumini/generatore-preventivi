@@ -95,13 +95,20 @@ export async function aggiornaBozza(db: PrismaClient, preventivoId: string, nume
     }
   }
 
+  let cliente = await db.cliente.findFirst({
+    where: { nome: dati.cliente.nome, comune: dati.cliente.comune, provincia: dati.cliente.provincia },
+  })
+  if (!cliente) {
+    cliente = await db.cliente.create({ data: dati.cliente })
+  }
+
   await db.preventivo.update({
     where: { id: preventivoId },
     data: {
       protocollo: dati.protocollo,
       oggetto: dati.oggetto,
       progettista: dati.progettista || null,
-      cliente: { update: dati.cliente },
+      clienteId: cliente.id,
     },
   })
 

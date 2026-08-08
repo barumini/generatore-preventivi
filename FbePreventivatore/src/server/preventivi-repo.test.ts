@@ -125,6 +125,26 @@ describe('aggiornaBozza', () => {
       /protocollo/,
     )
   })
+
+  it('non muta il cliente condiviso con un altro preventivo', async () => {
+    const primo = await creaPreventivoConBozza(db, DATI_BASE)
+    const secondo = await creaPreventivoConBozza(db, { ...DATI_BASE, protocollo: '2026060' })
+    const clienti = await db.cliente.findMany()
+    expect(clienti).toHaveLength(1) // condividono la stessa riga Cliente
+
+    await aggiornaBozza(db, primo.id, 1, {
+      ...DATI_BASE,
+      cliente: { nome: 'Bianchi Paolo', comune: 'Arzignano', provincia: 'VI' },
+    })
+
+    const elenco = await elencaPreventivi(db)
+    const voceSecondo = elenco.find((p) => p.id === secondo.id)
+    expect(voceSecondo?.cliente.nome).toBe(DATI_BASE.cliente.nome)
+    expect(voceSecondo?.cliente.comune).toBe(DATI_BASE.cliente.comune)
+
+    const vocePrimo = elenco.find((p) => p.id === primo.id)
+    expect(vocePrimo?.cliente.nome).toBe('Bianchi Paolo')
+  })
 })
 
 describe('elencaPreventivi', () => {
