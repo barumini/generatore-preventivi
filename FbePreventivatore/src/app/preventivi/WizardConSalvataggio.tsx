@@ -14,9 +14,10 @@ interface PreventivoEsistente {
 interface Props {
   statoIniziale?: Partial<StatoForm>
   preventivoEsistente?: PreventivoEsistente
+  onSalvato?: (salvataggio: PreventivoEsistente) => void
 }
 
-export function WizardConSalvataggio({ statoIniziale, preventivoEsistente }: Props) {
+export function WizardConSalvataggio({ statoIniziale, preventivoEsistente, onSalvato }: Props) {
   const [stato, setStato] = useState<StatoForm | null>(null)
   const [salvataggio, setSalvataggio] = useState<PreventivoEsistente | null>(preventivoEsistente ?? null)
   const [statoSalvataggio, setStatoSalvataggio] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
@@ -43,15 +44,18 @@ export function WizardConSalvataggio({ statoIniziale, preventivoEsistente }: Pro
           method: 'PUT',
           body: JSON.stringify(corpo),
         })
-        if (!risposta.ok) throw new Error('Salvataggio fallito')
+        if (!risposta.ok) throw new Error(`Salvataggio fallito (${risposta.status}): ${await risposta.text().catch(() => '')}`)
       } else {
         const risposta = await fetch('/api/preventivi', { method: 'POST', body: JSON.stringify(corpo) })
-        if (!risposta.ok) throw new Error('Salvataggio fallito')
+        if (!risposta.ok) throw new Error(`Salvataggio fallito (${risposta.status}): ${await risposta.text().catch(() => '')}`)
         const preventivo = await risposta.json()
-        setSalvataggio({ id: preventivo.id, numero: preventivo.revisioni[0].numero })
+        const nuovoSalvataggio = { id: preventivo.id, numero: preventivo.revisioni[0].numero }
+        setSalvataggio(nuovoSalvataggio)
+        onSalvato?.(nuovoSalvataggio)
       }
       setStatoSalvataggio('inattivo')
-    } catch {
+    } catch (errore) {
+      console.error('Salvataggio bozza fallito:', errore)
       setStatoSalvataggio('errore')
     }
   }

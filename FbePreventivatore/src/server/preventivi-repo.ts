@@ -76,8 +76,11 @@ export async function aggiungiRevisione(
   })
 }
 
-export async function aggiornaBozza(db: PrismaClient, preventivoId: string, numero: number, dati: DatiRevisione) {
-  const revisione = await db.revisione.findUnique({ where: { preventivoId_numero: { preventivoId, numero } } })
+export async function aggiornaBozza(db: PrismaClient, preventivoId: string, numero: number, dati: DatiBozza) {
+  const revisione = await db.revisione.findUnique({
+    where: { preventivoId_numero: { preventivoId, numero } },
+    include: { preventivo: true },
+  })
   if (!revisione) throw new RisorsaNonTrovata(`Revisione ${numero} non trovata per il preventivo ${preventivoId}`)
   if (revisione.stato !== 'bozza') {
     throw new Error(
@@ -85,9 +88,28 @@ export async function aggiornaBozza(db: PrismaClient, preventivoId: string, nume
     )
   }
 
+  if (dati.protocollo !== revisione.preventivo.protocollo) {
+    const conflitto = await db.preventivo.findUnique({ where: { protocollo: dati.protocollo } })
+    if (conflitto && conflitto.id !== preventivoId) {
+      throw new Error(`Esiste già un altro preventivo con protocollo ${dati.protocollo}.`)
+    }
+  }
+
+  await db.preventivo.update({
+    where: { id: preventivoId },
+    data: {
+      protocollo: dati.protocollo,
+      oggetto: dati.oggetto,
+      progettista: dati.progettista || null,
+      cliente: { update: dati.cliente },
+    },
+  })
+
   return db.revisione.update({
     where: { preventivoId_numero: { preventivoId, numero } },
     data: {
+      data: new Date(dati.data),
+      luogo: dati.luogo,
       statoForm: dati.statoForm,
       inputCalcolo: dati.inputCalcolo,
       risultatoCalcolo: dati.risultatoCalcolo,

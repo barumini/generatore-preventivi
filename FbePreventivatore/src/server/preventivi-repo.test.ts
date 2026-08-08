@@ -91,6 +91,40 @@ describe('aggiornaBozza', () => {
     const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
     await expect(aggiornaBozza(db, preventivo.id, 99, DATI_BASE)).rejects.toThrow(RisorsaNonTrovata)
   })
+
+  it('aggiorna anche i campi anagrafici (cliente, protocollo, oggetto, data, luogo)', async () => {
+    const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    const datiAggiornati = {
+      ...DATI_BASE,
+      cliente: { nome: 'Bianchi Paolo', comune: 'Arzignano', provincia: 'VI' },
+      protocollo: '2026099',
+      oggetto: 'Fornitura e posa in opera di casa in legno MHM — variante',
+      data: '2026-09-01',
+      luogo: 'Arzignano',
+    }
+    await aggiornaBozza(db, preventivo.id, 1, datiAggiornati)
+
+    const elenco = await elencaPreventivi(db)
+    expect(elenco).toHaveLength(1)
+    expect(elenco[0].protocollo).toBe('2026099')
+    expect(elenco[0].cliente.nome).toBe('Bianchi Paolo')
+    expect(elenco[0].cliente.comune).toBe('Arzignano')
+
+    const rivista = await caricaRevisione(db, preventivo.id, 1)
+    expect(rivista?.preventivo.protocollo).toBe('2026099')
+    expect(rivista?.preventivo.oggetto).toBe('Fornitura e posa in opera di casa in legno MHM — variante')
+    expect(rivista?.preventivo.cliente.nome).toBe('Bianchi Paolo')
+    expect(rivista?.luogo).toBe('Arzignano')
+    expect(rivista?.data.toISOString().slice(0, 10)).toBe('2026-09-01')
+  })
+
+  it('rifiuta un protocollo che coincide con quello di un altro preventivo esistente', async () => {
+    const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    await creaPreventivoConBozza(db, { ...DATI_BASE, protocollo: '2026060' })
+    await expect(aggiornaBozza(db, preventivo.id, 1, { ...DATI_BASE, protocollo: '2026060' })).rejects.toThrow(
+      /protocollo/,
+    )
+  })
 })
 
 describe('elencaPreventivi', () => {
