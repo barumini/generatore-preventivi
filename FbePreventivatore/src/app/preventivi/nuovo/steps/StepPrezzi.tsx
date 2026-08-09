@@ -1,4 +1,6 @@
 import { CATALOGO_VOCI } from '@/domain/voci'
+import { Field, controlClassName } from '../../ui/Field'
+import { Section } from '../../ui/Section'
 import type { StatoForm } from '../stato-form'
 
 interface Props {
@@ -36,51 +38,62 @@ function formattaValorizzataSicurezza(valore: number | 'OMAGGIO'): string {
 
 export function StepPrezzi({ stato, aggiorna }: Props) {
   return (
-    <fieldset>
-      <legend>Prezzi</legend>
-      <h4>Override voci di listino</h4>
-      {CATALOGO_VOCI.map((voce) => (
-        <label key={voce.id}>
-          {voce.id}
-          <input
-            value={formattaValoreOverride(stato.overrides[voce.id])}
-            placeholder="proposto dal listino"
-            onChange={(e) => {
-              const valore = parseValoreOverride(e.target.value)
-              const nuoviOverrides = { ...stato.overrides }
-              if (valore === undefined) {
-                delete nuoviOverrides[voce.id]
-              } else {
-                nuoviOverrides[voce.id] = valore
-              }
-              aggiorna({ overrides: nuoviOverrides })
-            }}
-          />
-        </label>
-      ))}
-      <label>
-        Totale target (per risoluzione arrotondamento)
-        <input type="number" value={stato.totaleTarget} onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })} />
-      </label>
-      <h4>Sicurezza</h4>
-      <label>
-        Costo dichiarato
+    <Section title="Prezzi">
+      <Section title="Override voci di listino">
+        <div className="grid grid-cols-3 gap-x-4">
+          {CATALOGO_VOCI.map((voce) => (
+            <Field key={voce.id} label={voce.id}>
+              <input
+                className={controlClassName}
+                value={formattaValoreOverride(stato.overrides[voce.id])}
+                placeholder="proposto dal listino"
+                onChange={(e) => {
+                  const valore = parseValoreOverride(e.target.value)
+                  const nuoviOverrides = { ...stato.overrides }
+                  if (valore === undefined) {
+                    delete nuoviOverrides[voce.id]
+                  } else {
+                    nuoviOverrides[voce.id] = valore
+                  }
+                  aggiorna({ overrides: nuoviOverrides })
+                }}
+              />
+            </Field>
+          ))}
+        </div>
+      </Section>
+
+      <Field label="Totale target (per risoluzione arrotondamento)">
         <input
           type="number"
-          value={stato.sicurezza.costoDichiarato}
-          onChange={(e) => aggiorna({ sicurezza: { ...stato.sicurezza, costoDichiarato: Number(e.target.value) } })}
+          className={controlClassName}
+          value={stato.totaleTarget}
+          onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })}
         />
-      </label>
-      <label>
-        Valorizzata (importo oppure OMAGGIO)
-        <input
-          value={formattaValorizzataSicurezza(stato.sicurezza.valorizzata)}
-          onChange={(e) => {
-            const valore = parseValorizzataSicurezza(e.target.value)
-            if (valore !== undefined) aggiorna({ sicurezza: { ...stato.sicurezza, valorizzata: valore } })
-          }}
-        />
-      </label>
-    </fieldset>
+      </Field>
+
+      <Section title="Sicurezza">
+        <div className="grid grid-cols-2 gap-x-4">
+          <Field label="Costo dichiarato">
+            <input
+              type="number"
+              className={controlClassName}
+              value={stato.sicurezza.costoDichiarato}
+              onChange={(e) => aggiorna({ sicurezza: { ...stato.sicurezza, costoDichiarato: Number(e.target.value) } })}
+            />
+          </Field>
+          <Field label="Valorizzata (importo oppure OMAGGIO)">
+            <input
+              className={controlClassName}
+              value={formattaValorizzataSicurezza(stato.sicurezza.valorizzata)}
+              onChange={(e) => {
+                const valore = parseValorizzataSicurezza(e.target.value)
+                if (valore !== undefined) aggiorna({ sicurezza: { ...stato.sicurezza, valorizzata: valore } })
+              }}
+            />
+          </Field>
+        </div>
+      </Section>
+    </Section>
   )
 }
