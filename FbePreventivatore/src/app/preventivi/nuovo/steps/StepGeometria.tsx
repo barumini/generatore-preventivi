@@ -41,6 +41,8 @@ export function StepGeometria({ stato, aggiorna }: Props) {
                     </option>
                   ))}
                   {riga.piano !== '' && !(PIANI_CANONICI as readonly string[]).includes(riga.piano) && (
+                    /* Un nome arrivato dall'estrazione e non riconosciuto resta visibile
+                       e marcato: va corretto a mano, non fatto sparire. */
                     <option value={riga.piano}>{riga.piano} — nome non valido, da correggere</option>
                   )}
                 </select>
