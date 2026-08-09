@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { Loader2, Save } from 'lucide-react'
 import { eseguiCalcolo } from '@/domain/calcolo'
+import { Button } from './ui/Button'
+import { Alert } from './ui/Alert'
 import { FormStrutturato } from './nuovo/FormStrutturato'
 import { PannelloPreview } from './nuovo/PannelloPreview'
 import { inputCalcoloDaStato, type StatoForm } from './nuovo/stato-form'
@@ -61,15 +64,22 @@ export function WizardConSalvataggio({ statoIniziale, preventivoEsistente, onSal
   }
 
   return (
-    <div style={{ display: 'flex', gap: '24px' }}>
-      <div style={{ flex: 1 }}>
+    <div className="mx-auto flex max-w-[1400px] gap-6 bg-cream p-6 text-text">
+      <div className="flex flex-[1.1] flex-col">
         <FormStrutturato statoIniziale={statoIniziale} onCambiamento={setStato} />
-        <button type="button" onClick={salvaBozza} disabled={!stato || statoSalvataggio === 'in-corso'}>
-          Salva bozza
-        </button>
-        {statoSalvataggio === 'errore' && <p role="alert">Salvataggio fallito, riprova.</p>}
+        <div className="sticky bottom-0 mt-4 flex items-center gap-3 border-t border-border-warm bg-cream py-3">
+          <Button type="button" onClick={salvaBozza} disabled={!stato || statoSalvataggio === 'in-corso'}>
+            <span className="flex items-center gap-2">
+              {statoSalvataggio === 'in-corso' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Salva bozza
+            </span>
+          </Button>
+          {statoSalvataggio === 'errore' && <Alert variant="errore">Salvataggio fallito, riprova.</Alert>}
+        </div>
       </div>
-      <div style={{ flex: 1 }}>{stato && <PannelloPreview stato={stato} input={inputCalcoloDaStato(stato)} />}</div>
+      <div className="flex-1">
+        <div className="sticky top-6">{stato && <PannelloPreview stato={stato} input={inputCalcoloDaStato(stato)} />}</div>
+      </div>
     </div>
   )
 }
