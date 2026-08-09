@@ -12,7 +12,7 @@ export default function NuovoPreventivo() {
   const [salvataggio, setSalvataggio] = useState<{ id: string; numero: number } | undefined>()
 
   return (
-    <div>
+    <div className="mx-auto max-w-[1400px] px-6 pt-6">
       <ChatApertura
         onEstrazioneCompletata={(parziale) => {
           setStatoIniziale(parziale)

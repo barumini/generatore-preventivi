@@ -78,7 +78,11 @@ export function WizardConSalvataggio({ statoIniziale, preventivoEsistente, onSal
         </div>
       </div>
       <div className="flex-1">
-        <div className="sticky top-6">{stato && <PannelloPreview stato={stato} input={inputCalcoloDaStato(stato)} />}</div>
+        {/* Bounded all'altezza del viewport: senza il cap l'elemento sticky è alto
+            quanto il suo containing block e non ha corsa utile, comportandosi come static. */}
+        <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
+          {stato && <PannelloPreview stato={stato} input={inputCalcoloDaStato(stato)} />}
+        </div>
       </div>
     </div>
   )
