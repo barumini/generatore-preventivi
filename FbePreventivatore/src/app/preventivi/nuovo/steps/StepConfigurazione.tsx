@@ -41,7 +41,7 @@ export function StepConfigurazione({ stato, aggiorna }: Props) {
           type="checkbox"
           checked={stato.chiaviInManoNelTotale}
           onChange={(e) => aggiorna({ chiaviInManoNelTotale: e.target.checked })}
-          className="h-4 w-4 rounded border-border-warm text-accent focus:ring-accent/30"
+          className="h-4 w-4 rounded border-border-warm accent-accent focus:ring-accent/30"
         />
         Chiavi in mano nel totale
       </label>

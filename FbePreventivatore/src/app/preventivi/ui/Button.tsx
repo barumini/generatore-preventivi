@@ -13,9 +13,12 @@ const VARIANT_CLASSES: Record<Variant, string> = {
   ghost: 'text-text-secondary hover:text-error',
 }
 
-export function Button({ variant = 'primary', className = '', ...props }: Props) {
+// `type` ha default 'button': senza, il default nativo è 'submit' e un domani
+// dentro un <form> ogni bottone lo invierebbe. Resta sovrascrivibile dal chiamante.
+export function Button({ variant = 'primary', className = '', type = 'button', ...props }: Props) {
   return (
     <button
+      type={type}
       {...props}
       className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${VARIANT_CLASSES[variant]} ${className}`}
     />

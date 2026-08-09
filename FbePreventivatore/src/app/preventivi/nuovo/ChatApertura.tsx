@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Loader2, Sparkles } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
+import { controlClassName } from '../ui/Field'
 import { statoFormDaCampiEstratti } from './mappatura-estrazione'
 import type { StatoForm } from './stato-form'
 
@@ -47,7 +48,7 @@ export function ChatApertura({ onEstrazioneCompletata }: Props) {
         onChange={(e) => setTesto(e.target.value)}
         placeholder="Descrivi il progetto in una frase: cliente, località, superfici, pacchetto..."
         rows={3}
-        className="mb-3 w-full resize-none rounded-md border border-border-warm bg-cream px-3 py-2 text-sm text-text focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/30"
+        className={`${controlClassName} mb-3 resize-none`}
       />
       <Button onClick={invia} disabled={caricamento || testo.trim() === ''}>
         {caricamento ? (

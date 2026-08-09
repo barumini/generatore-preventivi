@@ -14,7 +14,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
 
 export function Alert({ variant, children }: Props) {
   return (
-    <p role="alert" className={`mb-2 rounded-md border px-3 py-2 text-sm ${VARIANT_CLASSES[variant]}`}>
+    <p role="alert" className={`rounded-md border px-3 py-2 text-sm ${VARIANT_CLASSES[variant]}`}>
       {children}
     </p>
   )
