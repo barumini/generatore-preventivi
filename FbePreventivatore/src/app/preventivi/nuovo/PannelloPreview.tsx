@@ -5,6 +5,7 @@ import { eseguiCalcolo, type InputCalcolo } from '@/domain/calcolo'
 import { totaleSuperficiLorde, PIANO_GARAGE } from '@/domain/geometria'
 import { generaAbacoPerCategoria } from '@/ai/abaco'
 import { verificaCoerenza } from '@/ai/coerenza'
+import { Alert } from '../ui/Alert'
 import { PaginaCaratteristiche } from '@/documento/preview/PaginaCaratteristiche'
 import { PaginaPrezzi } from '@/documento/preview/PaginaPrezzi'
 import { PaginaAbacoSerramenti } from '@/documento/preview/PaginaAbacoSerramenti'
@@ -39,11 +40,11 @@ export function PannelloPreview({ stato, input }: Props) {
   return (
     <div>
       {avvisi.length > 0 && (
-        <section aria-label="Avvisi di coerenza">
+        <section aria-label="Avvisi di coerenza" className="mb-4 space-y-2">
           {avvisi.map((avviso, i) => (
-            <p key={`${avviso.tipo}-${i}`} role="alert" data-tipo-avviso={avviso.tipo}>
-              {avviso.messaggio}
-            </p>
+            <div key={`${avviso.tipo}-${i}`} data-tipo-avviso={avviso.tipo}>
+              <Alert variant="avviso">{avviso.messaggio}</Alert>
+            </div>
           ))}
         </section>
       )}

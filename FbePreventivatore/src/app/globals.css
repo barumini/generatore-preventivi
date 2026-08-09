@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-cream: #faf6f0;
+  --color-border-warm: #e8dcc8;
+  --color-accent: #8b5e34;
+  --color-accent-hover: #6b4726;
+  --color-text: #2b2420;
+  --color-text-secondary: #6b5a3f;
+  --color-error: #b3261e;
+  --color-warning: #9a6a00;
+}
+
+/* Il preflight di Tailwind vive in `@layer base` e azzera globalmente dimensione,
+   peso e margini di titoli, paragrafi e liste. La preview A4 (`src/documento/preview/`)
+   è fuori scope e deve rendere come il documento Word esportato: print.css ristabilisce
+   solo tabelle e celle, quindi titoli e paragrafi resterebbero resettati.
+   Queste regole sono volutamente NON dentro un `@layer`: il CSS unlayered vince su
+   qualsiasi dichiarazione dentro un layer, a prescindere dalla specificità. */
+.pagina-a4 h1,
+.pagina-a4 h2,
+.pagina-a4 h3,
+.pagina-a4 h4,
+.pagina-a4 h5,
+.pagina-a4 h6 {
+  font-size: revert;
+  font-weight: revert;
+  margin-block: revert;
+}
+
+.pagina-a4 p,
+.pagina-a4 ul,
+.pagina-a4 ol {
+  margin-block: revert;
+}
+
+.pagina-a4 ul,
+.pagina-a4 ol {
+  list-style: revert;
+  padding-inline-start: revert;
+}
+
+/* Sfondo pagina del wizard: il blocco a due colonne ha il suo `bg-cream`, ma tutto
+   ciò che gli sta intorno (ChatApertura, margini oltre max-w) restava bianco. */
+body {
+  background-color: var(--color-cream);
+  color: var(--color-text);
+}
