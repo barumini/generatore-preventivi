@@ -8,6 +8,8 @@ const SchemaCampiEstratti = z.object({
     provincia: z.string().optional(),
   }),
   protocollo: z.string().optional(),
+  progettista: z.string().optional(),
+  luogo: z.string().optional(),
   superfici: z.array(z.object({ piano: z.string(), valoreLordo: z.string() })).default([]),
   tipoCopertura: z.enum(['piano', 'falde']).optional(),
   finituraEsterna: z.enum(['intonaco', 'rivestimento']).optional(),
@@ -44,6 +46,8 @@ Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
 {
   "cliente": { "nome": string, "comune"?: string, "provincia"?: string },
   "protocollo"?: string,
+  "progettista"?: string,
+  "luogo"?: string,
   "superfici": [{ "piano": string, "valoreLordo": string }],
   "tipoCopertura"?: "piano" | "falde",
   "finituraEsterna"?: "intonaco" | "rivestimento",
@@ -58,6 +62,12 @@ Esempi di normalizzazione attesa: "piano terra" → "Piano Terra"; "PT" → "Pia
 "box auto"/"autorimessa" → "Garage".
 Se un piano citato nel testo non corrisponde a nessuna di queste voci, riportalo come
 lo trovi e aggiungilo a campiMancanti: sarà corretto a mano.
+
+Se "luogo" non è specificato esplicitamente nel testo, NON aggiungerlo a campiMancanti:
+verrà dedotto automaticamente dal comune del cliente.
+
+Il testo può contenere più affermazioni scritte in momenti diversi (una conversazione
+a turni): se una stessa informazione compare più volte, usa l'ultima menzionata.
 
 Se un campo non è menzionato nel testo, ometterlo o aggiungerlo a campiMancanti. Non inventare valori.`
 

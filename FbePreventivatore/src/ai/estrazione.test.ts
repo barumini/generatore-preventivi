@@ -30,6 +30,30 @@ describe('estraiCampi', () => {
     expect(campi.campiMancanti).toContain('progettista')
   })
 
+  it('accetta progettista e luogo quando presenti nella risposta', async () => {
+    const risposta = JSON.stringify({
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      progettista: 'Mario Rossi',
+      luogo: 'Bassano del Grappa',
+      campiMancanti: [],
+    })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.progettista).toBe('Mario Rossi')
+    expect(campi.luogo).toBe('Bassano del Grappa')
+  })
+
+  it('accetta una risposta senza progettista né luogo (entrambi opzionali)', async () => {
+    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.progettista).toBeUndefined()
+    expect(campi.luogo).toBeUndefined()
+  })
+
   it('lancia un errore leggibile se il client risponde con JSON malformato', async () => {
     await expect(estraiCampi('testo qualsiasi', clienteFinto('non è json'))).rejects.toThrow(/estrazione/i)
   })
