@@ -62,6 +62,15 @@ Se questi numeri non escono, il motore è rotto. Sono test, non documentazione.
 - Le superfici nella tabella `CARATTERISTICHE FABBRICATO` sono **stringhe libere**
   (`13+14`), non numeri: va conservata la forma scritta oltre al valore.
 
+## Workflow
+
+- **Commit automatico per ogni modifica logica completata.** Non chiedere conferma per
+  ogni commit: appena una modifica coerente e verificata (test/typecheck passati) è
+  conclusa — una fix, un file nuovo, un aggiornamento di documentazione — committala
+  subito con un messaggio descrittivo, senza aspettare una richiesta esplicita. Resta
+  valido il resto del git safety protocol generale (staging mirato, niente force-push
+  o altre operazioni distruttive senza conferma esplicita).
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
