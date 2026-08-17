@@ -7,6 +7,7 @@ import { Button } from '../ui/Button'
 import { controlClassName } from '../ui/Field'
 import { statoFormDaCampiEstratti } from './mappatura-estrazione'
 import { messaggioAssistente, testoCumulativo, type Messaggio } from './conversazione-apertura'
+import type { CampiEstratti } from '@/ai/estrazione'
 import type { StatoForm } from './stato-form'
 
 interface Props {
@@ -19,6 +20,7 @@ export function ChatApertura({ onEstrazioneCompletata }: Props) {
   const [caricamento, setCaricamento] = useState(false)
 
   async function invia() {
+    if (caricamento) return
     const testoUtente = bozza.trim()
     if (testoUtente === '') return
 
@@ -33,10 +35,17 @@ export function ChatApertura({ onEstrazioneCompletata }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ testo: testoCumulativo(cronologia) }),
       })
-      if (!risposta.ok) throw new Error('Estrazione fallita')
-      const campi = await risposta.json()
+      if (!risposta.ok) {
+        const corpo = await risposta.json().catch(() => null)
+        throw new Error(corpo?.errore ?? 'Estrazione fallita')
+      }
+      const campi = (await risposta.json()) as CampiEstratti
       onEstrazioneCompletata(statoFormDaCampiEstratti(campi))
-      setMessaggi([...cronologia, { ruolo: 'assistente', testo: messaggioAssistente(campi.campiMancanti) }])
+      // Il prompt chiede al modello di non elencare "luogo" tra i campiMancanti perché
+      // si deduce dal comune (mappatura-estrazione.ts): un modello che non rispetta
+      // l'istruzione non deve comunque far ripetere all'utente un dato già risolto.
+      const mancantiVisibili = campi.campiMancanti.filter((campo) => campo !== 'luogo')
+      setMessaggi([...cronologia, { ruolo: 'assistente', testo: messaggioAssistente(mancantiVisibili) }])
     } catch (e) {
       const testoErrore = e instanceof Error ? e.message : 'Errore imprevisto'
       setMessaggi([...cronologia, { ruolo: 'assistente', testo: testoErrore, errore: true }])
@@ -80,6 +89,7 @@ export function ChatApertura({ onEstrazioneCompletata }: Props) {
             invia()
           }
         }}
+        disabled={caricamento}
         placeholder={
           messaggi.length === 0
             ? 'Descrivi il progetto in una frase: cliente, località, superfici, pacchetto...'

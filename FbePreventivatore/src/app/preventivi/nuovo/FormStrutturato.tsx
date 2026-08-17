@@ -7,12 +7,12 @@ import { StepConfigurazione } from './steps/StepConfigurazione'
 import { StepGeometria } from './steps/StepGeometria'
 import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
-import { CARATTERISTICHE_DEFAULT, type StatoForm } from './stato-form'
+import { CARATTERISTICHE_DEFAULT, OGGETTO_STANDARD, type StatoForm } from './stato-form'
 
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
   protocollo: '',
-  oggetto: '',
+  oggetto: OGGETTO_STANDARD,
   progettista: '',
   data: new Date().toISOString().slice(0, 10),
   luogo: '',
@@ -30,12 +30,13 @@ const STATO_INIZIALE: StatoForm = {
 
 interface Props {
   statoIniziale?: Partial<StatoForm>
+  aggiornamentoEsterno?: { versione: number; parziale: Partial<StatoForm> }
   onCambiamento: (stato: StatoForm) => void
 }
 
 const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Condizioni']
 
-export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
+export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
 
@@ -48,6 +49,21 @@ export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
     notificatoIniziale.current = true
     onCambiamento(stato)
   }, [stato, onCambiamento])
+
+  // Le risposte successive dell'Apertura rapida (follow-up della chat) arrivano come
+  // patch da fondere nello stato corrente, non come un nuovo statoIniziale da rimontare:
+  // altrimenti ogni follow-up azzererebbe sconti/override/totale target già inseriti a
+  // mano nei tab successivi (bug reale trovato nel review finale del piano SDD).
+  const versioneApplicata = useRef(aggiornamentoEsterno?.versione ?? 0)
+  useEffect(() => {
+    if (!aggiornamentoEsterno || aggiornamentoEsterno.versione === versioneApplicata.current) return
+    versioneApplicata.current = aggiornamentoEsterno.versione
+    setStato((precedente) => {
+      const nuovo = { ...precedente, ...aggiornamentoEsterno.parziale }
+      onCambiamento(nuovo)
+      return nuovo
+    })
+  }, [aggiornamentoEsterno, onCambiamento])
 
   function aggiorna(parziale: Partial<StatoForm>) {
     const nuovo = { ...stato, ...parziale }
