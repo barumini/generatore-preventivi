@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { statoFormDaCampiEstratti } from './mappatura-estrazione'
 import type { CampiEstratti } from '@/ai/estrazione'
 import { superficieGarage, superficieSedime } from '@/domain/geometria'
+import { OGGETTO_STANDARD } from './stato-form'
 
 describe('statoFormDaCampiEstratti', () => {
   it('mappa i campi estratti nella forma attesa da StatoForm', () => {
@@ -112,5 +113,55 @@ describe('statoFormDaCampiEstratti', () => {
     expect(superficieSedime(superfici)).toBe(134)
     expect(superficieGarage(superfici)).toBe(0)
     expect(superfici[1].piano).toBe('box auto')
+  })
+
+  it('mappa progettista quando presente', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      progettista: 'Mario Rossi',
+      campiMancanti: [],
+    }
+
+    expect(statoFormDaCampiEstratti(campi).progettista).toBe('Mario Rossi')
+  })
+
+  it('non imposta progettista quando assente, lasciandolo da compilare nel form', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: ['progettista'] }
+
+    expect(statoFormDaCampiEstratti(campi).progettista).toBeUndefined()
+  })
+
+  it('deduce luogo dal comune del cliente quando non specificato esplicitamente', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi', comune: 'Trissino' },
+      superfici: [],
+      campiMancanti: [],
+    }
+
+    expect(statoFormDaCampiEstratti(campi).luogo).toBe('Trissino')
+  })
+
+  it('usa il luogo esplicito quando presente, invece del comune', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi', comune: 'Trissino' },
+      superfici: [],
+      luogo: 'Bassano del Grappa',
+      campiMancanti: [],
+    }
+
+    expect(statoFormDaCampiEstratti(campi).luogo).toBe('Bassano del Grappa')
+  })
+
+  it('senza comune né luogo, luogo è stringa vuota', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
+
+    expect(statoFormDaCampiEstratti(campi).luogo).toBe('')
+  })
+
+  it('imposta sempre oggetto alla frase standard, indipendentemente dall\'input', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
+
+    expect(statoFormDaCampiEstratti(campi).oggetto).toBe(OGGETTO_STANDARD)
   })
 })
