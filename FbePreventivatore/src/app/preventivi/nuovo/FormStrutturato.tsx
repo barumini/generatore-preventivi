@@ -40,13 +40,11 @@ export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiam
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
 
-  // Il genitore (WizardConSalvataggio) non conosce lo stato iniziale unito: la sua
-  // preview resta vuota finché non arriva la prima aggiorna(). Riapertura di una
-  // bozza o precompilazione da AI atterrano qui senza nessun edit dell'utente.
-  const notificatoIniziale = useRef(false)
+  // Unico punto che notifica il genitore: gira dopo il render (mai durante), a ogni
+  // cambio di stato — mount incluso. Prima onCambiamento veniva chiamato anche dentro
+  // l'updater di setStato per il merge esterno, il che è "setState di un altro
+  // componente durante il render di questo" (warning React reale, non solo teorico).
   useEffect(() => {
-    if (notificatoIniziale.current) return
-    notificatoIniziale.current = true
     onCambiamento(stato)
   }, [stato, onCambiamento])
 
@@ -58,17 +56,11 @@ export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiam
   useEffect(() => {
     if (!aggiornamentoEsterno || aggiornamentoEsterno.versione === versioneApplicata.current) return
     versioneApplicata.current = aggiornamentoEsterno.versione
-    setStato((precedente) => {
-      const nuovo = { ...precedente, ...aggiornamentoEsterno.parziale }
-      onCambiamento(nuovo)
-      return nuovo
-    })
-  }, [aggiornamentoEsterno, onCambiamento])
+    setStato((precedente) => ({ ...precedente, ...aggiornamentoEsterno.parziale }))
+  }, [aggiornamentoEsterno])
 
   function aggiorna(parziale: Partial<StatoForm>) {
-    const nuovo = { ...stato, ...parziale }
-    setStato(nuovo)
-    onCambiamento(nuovo)
+    setStato((precedente) => ({ ...precedente, ...parziale }))
   }
 
   return (
