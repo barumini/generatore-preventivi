@@ -16,11 +16,12 @@ interface PreventivoEsistente {
 
 interface Props {
   statoIniziale?: Partial<StatoForm>
+  aggiornamentoEsterno?: { versione: number; parziale: Partial<StatoForm> }
   preventivoEsistente?: PreventivoEsistente
   onSalvato?: (salvataggio: PreventivoEsistente) => void
 }
 
-export function WizardConSalvataggio({ statoIniziale, preventivoEsistente, onSalvato }: Props) {
+export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, preventivoEsistente, onSalvato }: Props) {
   const [stato, setStato] = useState<StatoForm | null>(null)
   const [salvataggio, setSalvataggio] = useState<PreventivoEsistente | null>(preventivoEsistente ?? null)
   const [statoSalvataggio, setStatoSalvataggio] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
@@ -66,7 +67,7 @@ export function WizardConSalvataggio({ statoIniziale, preventivoEsistente, onSal
   return (
     <div className="mx-auto flex max-w-[1400px] gap-6 bg-cream p-6 text-text">
       <div className="flex flex-[1.1] flex-col">
-        <FormStrutturato statoIniziale={statoIniziale} onCambiamento={setStato} />
+        <FormStrutturato statoIniziale={statoIniziale} aggiornamentoEsterno={aggiornamentoEsterno} onCambiamento={setStato} />
         <div className="sticky bottom-0 mt-4 flex items-center gap-3 border-t border-border-warm bg-cream py-3">
           <Button type="button" onClick={salvaBozza} disabled={!stato || statoSalvataggio === 'in-corso'}>
             <span className="flex items-center gap-2">

@@ -46,6 +46,8 @@ export const CARATTERISTICHE_DEFAULT: CaratteristicheCostruttive = {
   tetto: 'Tetto con travi e perline in abete',
 }
 
+export const OGGETTO_STANDARD = 'Fornitura e posa in opera di casa in legno MHM'
+
 export interface StatoForm {
   cliente: { nome: string; comune: string; provincia: string }
   protocollo: string

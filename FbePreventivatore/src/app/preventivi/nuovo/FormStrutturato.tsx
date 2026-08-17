@@ -7,12 +7,12 @@ import { StepConfigurazione } from './steps/StepConfigurazione'
 import { StepGeometria } from './steps/StepGeometria'
 import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
-import { CARATTERISTICHE_DEFAULT, type StatoForm } from './stato-form'
+import { CARATTERISTICHE_DEFAULT, OGGETTO_STANDARD, type StatoForm } from './stato-form'
 
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
   protocollo: '',
-  oggetto: '',
+  oggetto: OGGETTO_STANDARD,
   progettista: '',
   data: new Date().toISOString().slice(0, 10),
   luogo: '',
@@ -30,29 +30,37 @@ const STATO_INIZIALE: StatoForm = {
 
 interface Props {
   statoIniziale?: Partial<StatoForm>
+  aggiornamentoEsterno?: { versione: number; parziale: Partial<StatoForm> }
   onCambiamento: (stato: StatoForm) => void
 }
 
 const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Condizioni']
 
-export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
+export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
 
-  // Il genitore (WizardConSalvataggio) non conosce lo stato iniziale unito: la sua
-  // preview resta vuota finché non arriva la prima aggiorna(). Riapertura di una
-  // bozza o precompilazione da AI atterrano qui senza nessun edit dell'utente.
-  const notificatoIniziale = useRef(false)
+  // Unico punto che notifica il genitore: gira dopo il render (mai durante), a ogni
+  // cambio di stato — mount incluso. Prima onCambiamento veniva chiamato anche dentro
+  // l'updater di setStato per il merge esterno, il che è "setState di un altro
+  // componente durante il render di questo" (warning React reale, non solo teorico).
   useEffect(() => {
-    if (notificatoIniziale.current) return
-    notificatoIniziale.current = true
     onCambiamento(stato)
   }, [stato, onCambiamento])
 
+  // Le risposte successive dell'Apertura rapida (follow-up della chat) arrivano come
+  // patch da fondere nello stato corrente, non come un nuovo statoIniziale da rimontare:
+  // altrimenti ogni follow-up azzererebbe sconti/override/totale target già inseriti a
+  // mano nei tab successivi (bug reale trovato nel review finale del piano SDD).
+  const versioneApplicata = useRef(aggiornamentoEsterno?.versione ?? 0)
+  useEffect(() => {
+    if (!aggiornamentoEsterno || aggiornamentoEsterno.versione === versioneApplicata.current) return
+    versioneApplicata.current = aggiornamentoEsterno.versione
+    setStato((precedente) => ({ ...precedente, ...aggiornamentoEsterno.parziale }))
+  }, [aggiornamentoEsterno])
+
   function aggiorna(parziale: Partial<StatoForm>) {
-    const nuovo = { ...stato, ...parziale }
-    setStato(nuovo)
-    onCambiamento(nuovo)
+    setStato((precedente) => ({ ...precedente, ...parziale }))
   }
 
   return (

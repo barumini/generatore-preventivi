@@ -6,22 +6,24 @@ import { ChatApertura } from './ChatApertura'
 import { WizardConSalvataggio } from '../WizardConSalvataggio'
 import type { StatoForm } from './stato-form'
 
+const STATO_INIZIALE_VUOTO: Partial<StatoForm> = {}
+
 export default function NuovoPreventivo() {
-  const [statoIniziale, setStatoIniziale] = useState<Partial<StatoForm>>({})
-  const [versioneEstrazione, setVersioneEstrazione] = useState(0)
+  const [aggiornamentoEsterno, setAggiornamentoEsterno] = useState<
+    { versione: number; parziale: Partial<StatoForm> } | undefined
+  >()
   const [salvataggio, setSalvataggio] = useState<{ id: string; numero: number } | undefined>()
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 pt-6">
       <ChatApertura
         onEstrazioneCompletata={(parziale) => {
-          setStatoIniziale(parziale)
-          setVersioneEstrazione((v) => v + 1)
+          setAggiornamentoEsterno((precedente) => ({ versione: (precedente?.versione ?? 0) + 1, parziale }))
         }}
       />
       <WizardConSalvataggio
-        key={versioneEstrazione}
-        statoIniziale={statoIniziale}
+        statoIniziale={STATO_INIZIALE_VUOTO}
+        aggiornamentoEsterno={aggiornamentoEsterno}
         preventivoEsistente={salvataggio}
         onSalvato={setSalvataggio}
       />
