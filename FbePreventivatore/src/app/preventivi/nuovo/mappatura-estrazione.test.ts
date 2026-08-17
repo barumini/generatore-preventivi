@@ -20,6 +20,40 @@ describe('statoFormDaCampiEstratti', () => {
     expect(parziale.cliente).toEqual({ nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' })
     expect(parziale.protocollo).toBe('2026059')
     expect(parziale.superfici).toEqual([{ piano: 'Piano Terra', valoreLordo: '134' }])
+    expect(parziale.caratteristiche).toMatchObject({ copertura: 'falde', finituraEsterna: 'intonaco' })
+    expect(parziale.livelli).toEqual({ struttura: 'completo', involucro: 'completo', finiture: 'impoverito' })
+  })
+
+  it('mappa tipoCopertura, finituraEsterna e pacchetto nei campi da cui il motore prezzi li legge davvero', () => {
+    // Bug reale trovato testando il wizard con LM Studio: il modello estraeva questi tre
+    // campi correttamente (non finivano in campiMancanti) ma il form restava sui default,
+    // perché prima non venivano proprio mappati — con dati errati non segnalati all'operatore.
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      tipoCopertura: 'piano',
+      finituraEsterna: 'rivestimento',
+      pacchetto: 'chiavi in mano',
+      campiMancanti: [],
+    }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.caratteristiche).toMatchObject({ copertura: 'piano', finituraEsterna: 'rivestimento' })
+    expect(parziale.livelli).toEqual({ struttura: 'completo', involucro: 'completo', finiture: 'completo' })
+  })
+
+  it('senza tipoCopertura/finituraEsterna/pacchetto estratti, usa i default e lascia livelli intoccato', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Solo Nome' },
+      superfici: [],
+      campiMancanti: ['tipoCopertura', 'finituraEsterna', 'pacchetto'],
+    }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.caratteristiche).toMatchObject({ copertura: 'falde', finituraEsterna: 'intonaco' })
+    expect(parziale.livelli).toBeUndefined()
   })
 
   it("non imposta campi non presenti nell'estrazione, lasciandoli da compilare nel form", () => {

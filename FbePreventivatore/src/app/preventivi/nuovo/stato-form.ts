@@ -26,6 +26,26 @@ export function pacchettoDaLivelli(livelli: Record<Modulo, LivelloModulo>): Pacc
   return 'Grezzo'
 }
 
+// Inversa di pacchettoDaLivelli, stessa tabella §5: usata per precompilare i livelli
+// quando il pacchetto arriva da testo libero (estrazione AI) invece che da UI.
+export function livelliDaPacchetto(pacchetto: 'grezzo' | 'grezzo avanzato' | 'chiavi in mano'): Record<Modulo, LivelloModulo> {
+  switch (pacchetto) {
+    case 'chiavi in mano':
+      return { struttura: 'completo', involucro: 'completo', finiture: 'completo' }
+    case 'grezzo avanzato':
+      return { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' }
+    case 'grezzo':
+      return { struttura: 'completo', involucro: 'impoverito', finiture: 'escluso' }
+  }
+}
+
+export const CARATTERISTICHE_DEFAULT: CaratteristicheCostruttive = {
+  copertura: 'falde',
+  manto: 'Tegole in cemento',
+  finituraEsterna: 'intonaco',
+  tetto: 'Tetto con travi e perline in abete',
+}
+
 export interface StatoForm {
   cliente: { nome: string; comune: string; provincia: string }
   protocollo: string

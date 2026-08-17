@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StepTabs } from '../ui/StepTabs'
 import { StepAnagrafica } from './steps/StepAnagrafica'
 import { StepConfigurazione } from './steps/StepConfigurazione'
 import { StepGeometria } from './steps/StepGeometria'
 import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
-import type { StatoForm } from './stato-form'
+import { CARATTERISTICHE_DEFAULT, type StatoForm } from './stato-form'
 
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
@@ -25,7 +25,7 @@ const STATO_INIZIALE: StatoForm = {
   overrides: {},
   totaleTarget: 0,
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
-  caratteristiche: { copertura: 'falde', manto: 'Tegole in cemento', finituraEsterna: 'intonaco', tetto: 'Tetto con travi e perline in abete' },
+  caratteristiche: CARATTERISTICHE_DEFAULT,
 }
 
 interface Props {
@@ -38,6 +38,16 @@ const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Con
 export function FormStrutturato({ statoIniziale, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
   const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
+
+  // Il genitore (WizardConSalvataggio) non conosce lo stato iniziale unito: la sua
+  // preview resta vuota finché non arriva la prima aggiorna(). Riapertura di una
+  // bozza o precompilazione da AI atterrano qui senza nessun edit dell'utente.
+  const notificatoIniziale = useRef(false)
+  useEffect(() => {
+    if (notificatoIniziale.current) return
+    notificatoIniziale.current = true
+    onCambiamento(stato)
+  }, [stato, onCambiamento])
 
   function aggiorna(parziale: Partial<StatoForm>) {
     const nuovo = { ...stato, ...parziale }

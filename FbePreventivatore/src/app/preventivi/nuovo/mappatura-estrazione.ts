@@ -1,7 +1,7 @@
 // src/app/preventivi/nuovo/mappatura-estrazione.ts
 import type { CampiEstratti } from '@/ai/estrazione'
 import { normalizzaNomePiano } from '@/domain/geometria'
-import type { StatoForm } from './stato-form'
+import { CARATTERISTICHE_DEFAULT, livelliDaPacchetto, type StatoForm } from './stato-form'
 
 export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoForm> {
   const parziale: Partial<StatoForm> = {
@@ -15,9 +15,17 @@ export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoFor
     // una variante non normalizzata sposterebbe i prezzi in silenzio. Un nome
     // che non si riconosce resta com'è e il form lo segnala da correggere.
     superfici: campi.superfici.map((s) => ({ ...s, piano: normalizzaNomePiano(s.piano) })),
+    // Il form si rimonta da zero a ogni estrazione (key={versioneEstrazione} in page.tsx),
+    // quindi qui è sicuro comporre l'oggetto completo invece di un default parziale.
+    caratteristiche: {
+      ...CARATTERISTICHE_DEFAULT,
+      ...(campi.tipoCopertura ? { copertura: campi.tipoCopertura } : {}),
+      ...(campi.finituraEsterna ? { finituraEsterna: campi.finituraEsterna } : {}),
+    },
   }
 
   if (campi.protocollo) parziale.protocollo = campi.protocollo
+  if (campi.pacchetto) parziale.livelli = livelliDaPacchetto(campi.pacchetto)
 
   return parziale
 }

@@ -1,6 +1,6 @@
 // src/app/preventivi/nuovo/stato-form.test.ts
 import { describe, expect, it } from 'vitest'
-import { inputCalcoloDaStato, pacchettoDaLivelli, type StatoForm } from './stato-form'
+import { inputCalcoloDaStato, livelliDaPacchetto, pacchettoDaLivelli, type StatoForm } from './stato-form'
 
 const STATO_CRIVELLARO: StatoForm = {
   cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
@@ -99,5 +99,23 @@ describe('pacchettoDaLivelli', () => {
     // Crivellaro: finiture impoverito + chiaviInManoNelTotale true, ma il documento reale
     // mostra "Grezzo avanzato" in copertina — il flag decide solo l'inclusione nel totale.
     expect(pacchettoDaLivelli(STATO_CRIVELLARO.livelli)).toBe('Grezzo avanzato')
+  })
+})
+
+describe('livelliDaPacchetto', () => {
+  it.each([
+    ['grezzo', 'Grezzo'],
+    ['grezzo avanzato', 'Grezzo avanzato'],
+    ['chiavi in mano', 'Chiavi in mano'],
+  ] as const)('%s va e torna invariato passando per pacchettoDaLivelli (tabella §5)', (pacchetto, etichettaAttesa) => {
+    expect(pacchettoDaLivelli(livelliDaPacchetto(pacchetto))).toBe(etichettaAttesa)
+  })
+
+  it('grezzo avanzato: struttura completo, involucro completo, finiture impoverito — golden case Crivellaro', () => {
+    expect(livelliDaPacchetto('grezzo avanzato')).toEqual({
+      struttura: 'completo',
+      involucro: 'completo',
+      finiture: 'impoverito',
+    })
   })
 })
