@@ -54,7 +54,17 @@ const STATO_SENZA_PLACEHOLDER: StatoForm = {
     finituraEsterna: 'intonaco',
     tetto: 'Tetto con travi e perline in abete',
   },
-  condizioni: { ...CONDIZIONI_DEFAULT, consegna: 'da pattuire', caparra: 30000, validita: '31.08.2026' },
+  condizioni: {
+    ...CONDIZIONI_DEFAULT,
+    consegna: 'da pattuire',
+    caparra: 30000,
+    validita: '31.08.2026',
+    // review finale piano export-docx-wizard (Finding 2): senza una riga optional marcata come
+    // pratica Genio Civile, costruisciBufferOfferta ora si rifiuta di esportare (nuovo
+    // guardrail) — questa fixture testa la route (200/404/422), non quel guardrail specifico
+    // (già coperto da export-docx.test.ts), quindi serve una riga marcata per non regredire.
+    optional: [{ descrizione: 'Pratica Genio Civile di test', importo: 100, praticaGenioCivile: true }],
+  },
 }
 
 function corpoBozza(stato: StatoForm) {

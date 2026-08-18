@@ -220,3 +220,55 @@ describe('esportaOfferta — placeholder di spessore non interpolati (review Tas
     )
   })
 })
+
+describe('esportaOfferta — nessuna pratica Genio Civile marcata (review finale, Finding 2)', () => {
+  it('si rifiuta di esportare se nessuna riga optional è marcata come pratica Genio Civile', () => {
+    const percorsoOutput = percorsoOutputTemporaneo()
+    const input = costruisciInputEsportazione(percorsoOutput)
+    input.condizioni.optional = []
+
+    try {
+      expect(() => esportaOfferta(input)).toThrowError(/pratica Genio Civile/)
+    } finally {
+      fs.rmSync(percorsoOutput, { force: true })
+    }
+  })
+})
+
+describe('esportaOfferta — campi obbligatori del documento firmabile mancanti (review finale, Finding 3)', () => {
+  it('si rifiuta di esportare se "consegna" è vuoto', () => {
+    const percorsoOutput = percorsoOutputTemporaneo()
+    const input = costruisciInputEsportazione(percorsoOutput)
+    input.condizioni.consegna = ''
+
+    try {
+      expect(() => esportaOfferta(input)).toThrowError(/consegna/)
+    } finally {
+      fs.rmSync(percorsoOutput, { force: true })
+    }
+  })
+
+  it('si rifiuta di esportare se "validità" è vuota', () => {
+    const percorsoOutput = percorsoOutputTemporaneo()
+    const input = costruisciInputEsportazione(percorsoOutput)
+    input.condizioni.validita = ''
+
+    try {
+      expect(() => esportaOfferta(input)).toThrowError(/validità/)
+    } finally {
+      fs.rmSync(percorsoOutput, { force: true })
+    }
+  })
+
+  it('si rifiuta di esportare se "caparra" è pari a zero', () => {
+    const percorsoOutput = percorsoOutputTemporaneo()
+    const input = costruisciInputEsportazione(percorsoOutput)
+    input.condizioni.caparra = 0
+
+    try {
+      expect(() => esportaOfferta(input)).toThrowError(/caparra/)
+    } finally {
+      fs.rmSync(percorsoOutput, { force: true })
+    }
+  })
+})

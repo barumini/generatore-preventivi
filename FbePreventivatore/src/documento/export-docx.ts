@@ -143,6 +143,37 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
   const segno = segnoArrotondamento(input.risultato.arrotondamento)
   const arrotondamentoTesto = `${segno} ${formattaImportoItaliano(Math.abs(input.risultato.arrotondamento))}`
 
+  // review finale piano export-docx-wizard (Finding 3): consegna/validità vuote e caparra a 0
+  // sono legittime come stato iniziale del wizard (CONDIZIONI_DEFAULT), ma un export con questi
+  // campi ancora così produce un documento firmabile con dati mancanti o — peggio, per la
+  // caparra — un "€ 0,00" plausibile ma sbagliato (formattaNumeroItaliano(0) = "0,00", il master
+  // ha già "€ " davanti al tag). Stessa filosofia degli altri guardrail di questo file: si
+  // rifiuta l'export invece di produrlo silenziosamente incompleto.
+  if (input.condizioni.consegna.trim() === '') {
+    throw new Error('esportaOfferta: campo "consegna" mancante — obbligatorio per un documento firmabile dal cliente.')
+  }
+  if (input.condizioni.validita.trim() === '') {
+    throw new Error('esportaOfferta: campo "validità offerta" mancante — obbligatorio per un documento firmabile dal cliente.')
+  }
+  if (input.condizioni.caparra <= 0) {
+    throw new Error('esportaOfferta: campo "caparra" mancante o pari a zero — obbligatorio per un documento firmabile dal cliente.')
+  }
+
+  // review finale piano export-docx-wizard (Finding 2): senza nessuna riga "optional" marcata
+  // come pratica Genio Civile, letteraOptional('pratica-genio-civile') si risolve in stringa
+  // vuota e la frase fissa del master ("...quotato al punto {riferimenti.praticaGenioCivile})
+  // optional).") resta visibilmente rotta ("...quotato al punto ) optional)."), senza che il
+  // nullGetter se ne accorga (il tag SI risolve, solo a una stringa vuota). Stessa filosofia
+  // degli altri guardrail: si rifiuta l'export invece di produrre prosa rotta in silenzio.
+  const letteraPraticaGenioCivile = letteraOptional('pratica-genio-civile')
+  if (letteraPraticaGenioCivile === '') {
+    throw new Error(
+      'esportaOfferta: nessuna riga "optional" è marcata come pratica Genio Civile — il testo fisso del master ' +
+        'richiede questo riferimento ({riferimenti.praticaGenioCivile}, cfr. review Task 17 Finding 2). ' +
+        'Aggiungi una riga optional con questo riferimento prima di esportare.',
+    )
+  }
+
   doc.render({
     'cliente.nome': input.cliente.nome,
     'cliente.comune': input.cliente.comune,
@@ -179,7 +210,7 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
     totaleNetto: formattaImportoItaliano(input.risultato.totaleNetto),
     optional: input.condizioni.optional.map(formattaVoceOpzionale),
     esclusioni: input.condizioni.esclusioni.map(formattaVoceOpzionale),
-    'riferimenti.praticaGenioCivile': letteraOptional('pratica-genio-civile'),
+    'riferimenti.praticaGenioCivile': letteraPraticaGenioCivile,
     'riferimenti.tracciamentoImpianti': numeroVoce('tracciamento-impianti'),
     'riferimenti.progettazioneEsecutiva': numeroVoce('progettazione-esecutiva'),
     consegna: input.condizioni.consegna,
