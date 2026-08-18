@@ -44,3 +44,44 @@ export const SAL_DEFAULT: readonly SalDefault[] = [
  * scambiato per un dato reale e finirebbe in un'offerta al cliente.
  */
 export const CONDIZIONE_DA_DEFINIRE = '— da definire'
+
+export interface SalRataForm {
+  percentuale: number
+  descrizione: string
+}
+
+export interface VoceEsclusioneForm {
+  descrizione: string
+  importo: number | string
+}
+
+export interface VoceOptionalForm extends VoceEsclusioneForm {
+  // Al più una riga alla volta nell'intera lista `optional` può averlo a true —
+  // è l'unico id con un rimando nel testo fisso del master ({riferimenti.praticaGenioCivile}).
+  // Il vincolo di esclusività si applica in StepCondizioniContrattuali, non qui.
+  praticaGenioCivile?: boolean
+}
+
+export interface CondizioniForm {
+  consegna: string
+  caparra: number
+  validita: string
+  sal: SalRataForm[]
+  optional: VoceOptionalForm[]
+  esclusioni: VoceEsclusioneForm[]
+}
+
+/**
+ * Default per il nuovo step "Condizioni contrattuali" del wizard. A differenza di
+ * `CONDIZIONE_DA_DEFINIRE` (segnaposto di sola visualizzazione), questo è un valore
+ * di STATO iniziale: consegna/caparra/validità partono vuoti/0 perché l'operatore li
+ * compili, non perché restino permanentemente un placeholder.
+ */
+export const CONDIZIONI_DEFAULT: CondizioniForm = {
+  consegna: '',
+  caparra: 0,
+  validita: '',
+  sal: SAL_DEFAULT.map((s) => ({ percentuale: s.percentuale, descrizione: s.milestone })),
+  optional: [],
+  esclusioni: [],
+}
