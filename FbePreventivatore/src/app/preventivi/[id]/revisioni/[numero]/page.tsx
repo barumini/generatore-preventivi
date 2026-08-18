@@ -3,6 +3,7 @@ import { caricaRevisione } from '@/server/preventivi-repo'
 import { deserializzaRevisione } from '@/domain/persistenza'
 import { PannelloPreview } from '@/app/preventivi/nuovo/PannelloPreview'
 import { WizardConSalvataggio } from '@/app/preventivi/WizardConSalvataggio'
+import { Alert } from '@/app/preventivi/ui/Alert'
 import type { StatoForm } from '@/app/preventivi/nuovo/stato-form'
 
 interface Props {
@@ -12,7 +13,13 @@ interface Props {
 export default async function RiapriRevisione({ params }: Props) {
   const { id, numero } = await params
   const revisione = await caricaRevisione(prisma, id, Number(numero))
-  if (!revisione) return <p>Revisione non trovata.</p>
+  if (!revisione) {
+    return (
+      <div className="mx-auto max-w-[1400px] px-6 py-6">
+        <Alert variant="errore">Revisione non trovata.</Alert>
+      </div>
+    )
+  }
 
   const { stato, input } = deserializzaRevisione<StatoForm>(
     revisione.statoForm,
@@ -25,9 +32,9 @@ export default async function RiapriRevisione({ params }: Props) {
   }
 
   return (
-    <div>
-      <p>
-        Revisione {revisione.numero} — stato: {revisione.stato} (sola lettura)
+    <div className="mx-auto max-w-[1400px] px-6 py-6">
+      <p className="mb-4 text-sm text-text-secondary">
+        Revisione {revisione.numero} — stato: <span className="font-semibold text-text">{revisione.stato}</span> (sola lettura)
       </p>
       <PannelloPreview stato={stato} input={input} />
     </div>
