@@ -3,6 +3,7 @@ import { totaleSuperficiLorde, superficieGarage, superficieSedime, numeroPianiAb
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
 import type { InputCalcolo, ParametriSconto, Sicurezza } from '@/domain/calcolo'
+import type { CondizioniForm } from '@/documento/condizioni-default'
 
 export interface CaratteristicheCostruttive {
   // 'piano' è solo descrittivo in questo giro: nel catalogo (src/domain/voci.ts) non esiste
@@ -57,6 +58,7 @@ export interface StatoForm {
   luogo: string // NUOVO — Revisione.luogo
   superfici: SuperficiePiano[]
   totaleLordoManuale?: number // sovrascrive totaleSuperficiLorde(superfici) — spec §3.9, non sempre una somma piena (es. Zapparoni)
+  totaleLordoTesto?: string // NUOVO — testo libero per InputEsportazione.superfici.totaleLorda (spec §2)
   serramenti: Serramento[]
   perimetro: number
   livelli: Record<Modulo, LivelloModulo>
@@ -66,6 +68,7 @@ export interface StatoForm {
   totaleTarget: number
   sicurezza: Sicurezza
   caratteristiche: CaratteristicheCostruttive // NUOVO
+  condizioni: CondizioniForm // NUOVO — spec §1/§3
 }
 
 export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {

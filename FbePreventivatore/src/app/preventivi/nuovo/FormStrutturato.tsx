@@ -8,6 +8,7 @@ import { StepGeometria } from './steps/StepGeometria'
 import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
 import { CARATTERISTICHE_DEFAULT, OGGETTO_STANDARD, type StatoForm } from './stato-form'
+import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
 
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
@@ -26,6 +27,7 @@ const STATO_INIZIALE: StatoForm = {
   totaleTarget: 0,
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
   caratteristiche: CARATTERISTICHE_DEFAULT,
+  condizioni: CONDIZIONI_DEFAULT,
 }
 
 interface Props {
