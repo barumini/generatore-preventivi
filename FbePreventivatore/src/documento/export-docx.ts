@@ -118,6 +118,12 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
   const zip = new PizZip(contenuto)
 
   const chiaviNonRisolte: string[] = []
+  // review Task 17 (Finding 1): il nullGetter di default (o uno che restituisce sempre '')
+  // rende un refuso nella chiave passata a render() indistinguibile da un campo vuoto
+  // legittimo — la cella si svuota in silenzio in un documento firmato dal cliente. Qui invece
+  // ogni tag semplice non risolto (part.module assente: i cicli con dato mancante sono
+  // legittimi, cfr. PLACEHOLDER.md "un dato mancante è già equivalente a lista vuota") viene
+  // registrato e fa fallire l'export con un errore leggibile.
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
@@ -127,7 +133,11 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
     },
   })
 
+  // riferimenti.* non sono mai testo fisso (vincolo 4): si ricalcolano da vociValorizzate/optional ad ogni render
   const numeroVoce = (id: string) => input.risultato.vociValorizzate.find((v) => v.id === id)?.numero ?? ''
+  // il testo fisso del master aggiunge già la ')' di chiusura dopo il tag
+  // ("...quotato al punto {riferimenti.praticaGenioCivile}) optional)."), mentre in tabella
+  // prezzi {lettera} è stampato per intero (es. "A)") — qui serve solo la lettera nuda.
   const letteraOptional = (id: string) => (input.condizioni.optional.find((v) => v.id === id)?.lettera ?? '').replace(/\)\s*$/, '')
 
   const segno = segnoArrotondamento(input.risultato.arrotondamento)
@@ -158,6 +168,8 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
     sconti: input.risultato.sconti.map((s) => ({
       percentuale: formattaPercentuale(s.percentuale),
       causale: s.causale,
+      // segno separato da uno spazio, come PLACEHOLDER.md ("- 23 700,00 €") e PaginaPrezzi.tsx:
+      // formattaImportoItaliano(-s.importoCalcolato) incollerebbe il segno al numero ("-23 700,00 €")
       importo: `- ${formattaImportoItaliano(s.importoCalcolato)}`,
     })),
     arrotondamento: arrotondamentoTesto,
@@ -171,7 +183,7 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
     'riferimenti.tracciamentoImpianti': numeroVoce('tracciamento-impianti'),
     'riferimenti.progettazioneEsecutiva': numeroVoce('progettazione-esecutiva'),
     consegna: input.condizioni.consegna,
-    caparra: formattaNumeroItaliano(input.condizioni.caparra),
+    caparra: formattaNumeroItaliano(input.condizioni.caparra), // il master ha già "€ " davanti al placeholder
     salPrimi: input.condizioni.salPrimi.map((s) => ({ percentuale: formattaPercentuale(s.percentuale), descrizione: s.descrizione })),
     salSuccessivi: input.condizioni.salSuccessivi.map((s) => ({ percentuale: formattaPercentuale(s.percentuale), descrizione: s.descrizione })),
     validita: input.condizioni.validita,
