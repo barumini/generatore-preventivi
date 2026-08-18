@@ -128,3 +128,19 @@ export function superficieSedime(superfici: SuperficiePiano[]): number {
   const pianoTerra = superfici.find((s) => s.piano === PIANO_TERRA)
   return pianoTerra ? risolviValoreLordo(pianoTerra.valoreLordo) : 0
 }
+
+/**
+ * Auto-suggerimento per `totaleLordoTesto` (spec §2, form): unisce i piani non
+ * vuoti nell'ordine del form con '+' — stesso separatore che `risolviValoreLordo`
+ * già sa interpretare — e aggiunge '= totale'. Resta un SUGGERIMENTO: il chiamante
+ * (StepGeometria) lo usa come placeholder editabile, mai come valore imposto.
+ */
+export function suggerisciTotaleLordoTesto(superfici: SuperficiePiano[], totaleLordoManuale?: number): string {
+  const totale = totaleLordoManuale ?? totaleSuperficiLorde(superfici)
+  const pianiValorizzati = superfici
+    .filter((s) => s.piano !== PIANO_GARAGE && s.valoreLordo.trim() !== '')
+    .map((s) => s.valoreLordo)
+
+  if (pianiValorizzati.length === 0) return `= ${totale}`
+  return `${pianiValorizzati.join('+')}= ${totale}`
+}

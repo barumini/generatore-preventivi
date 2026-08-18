@@ -5,6 +5,7 @@ import {
   DETRAZIONI_DEFAULT,
   risolviValoreLordo,
   totaleSuperficiLorde,
+  suggerisciTotaleLordoTesto,
   superficieGarage,
   numeroPianiAbitativi,
   superficieSedime,
@@ -158,5 +159,24 @@ describe('normalizzaNomePiano', () => {
     const normalizzato = grezzo.map((s) => ({ ...s, piano: normalizzaNomePiano(s.piano) }))
     expect(superficieSedime(normalizzato)).toBe(134)
     expect(numeroPianiAbitativi(normalizzato)).toBe(1)
+  })
+})
+
+describe('suggerisciTotaleLordoTesto', () => {
+  it('unisce i piani non vuoti (Garage escluso) con "+" e aggiunge "= totale" — golden case Crivellaro', () => {
+    expect(suggerisciTotaleLordoTesto(SUPERFICI_CRIVELLARO)).toBe('134+13+14= 161')
+  })
+
+  it('usa totaleLordoManuale al posto della somma calcolata, quando presente', () => {
+    expect(suggerisciTotaleLordoTesto(SUPERFICI_CRIVELLARO, 310)).toBe('134+13+14= 310')
+  })
+
+  it('salta le righe con valoreLordo vuoto', () => {
+    const superfici = [...SUPERFICI_CRIVELLARO, { piano: 'Piano Primo', valoreLordo: '' }]
+    expect(suggerisciTotaleLordoTesto(superfici)).toBe('134+13+14= 161')
+  })
+
+  it('con nessun piano valorizzato produce solo "= totale"', () => {
+    expect(suggerisciTotaleLordoTesto([{ piano: 'Piano Terra', valoreLordo: '' }])).toBe('= 0')
   })
 })
