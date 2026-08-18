@@ -7,6 +7,7 @@ import { Button } from './ui/Button'
 import { Alert } from './ui/Alert'
 import { FormStrutturato } from './nuovo/FormStrutturato'
 import { PannelloPreview } from './nuovo/PannelloPreview'
+import { PulsanteGeneraDocumento } from './ui/PulsanteGeneraDocumento'
 import { inputCalcoloDaStato, type StatoForm } from './nuovo/stato-form'
 
 interface PreventivoEsistente {
@@ -76,6 +77,7 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
             </span>
           </Button>
           {statoSalvataggio === 'errore' && <Alert variant="errore">Salvataggio fallito, riprova.</Alert>}
+          {salvataggio && <PulsanteGeneraDocumento preventivoId={salvataggio.id} numero={salvataggio.numero} />}
         </div>
       </div>
       <div className="flex-1">

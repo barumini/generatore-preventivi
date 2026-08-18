@@ -4,6 +4,7 @@ import { deserializzaRevisione } from '@/domain/persistenza'
 import { PannelloPreview } from '@/app/preventivi/nuovo/PannelloPreview'
 import { WizardConSalvataggio } from '@/app/preventivi/WizardConSalvataggio'
 import { Alert } from '@/app/preventivi/ui/Alert'
+import { PulsanteGeneraDocumento } from '@/app/preventivi/ui/PulsanteGeneraDocumento'
 import type { StatoForm } from '@/app/preventivi/nuovo/stato-form'
 
 interface Props {
@@ -33,9 +34,12 @@ export default async function RiapriRevisione({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-6">
-      <p className="mb-4 text-sm text-text-secondary">
-        Revisione {revisione.numero} — stato: <span className="font-semibold text-text">{revisione.stato}</span> (sola lettura)
-      </p>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-text-secondary">
+          Revisione {revisione.numero} — stato: <span className="font-semibold text-text">{revisione.stato}</span> (sola lettura)
+        </p>
+        <PulsanteGeneraDocumento preventivoId={id} numero={revisione.numero} />
+      </div>
       <PannelloPreview stato={stato} input={input} />
     </div>
   )
