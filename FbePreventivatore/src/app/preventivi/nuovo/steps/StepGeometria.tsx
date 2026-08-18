@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react'
 import {
   totaleSuperficiLorde,
+  suggerisciTotaleLordoTesto,
   PIANI_CANONICI,
   CATEGORIE_SERRAMENTO,
   type CategoriaSerramento,
@@ -86,6 +87,17 @@ export function StepGeometria({ stato, aggiorna }: Props) {
               value={stato.totaleLordoManuale ?? ''}
               placeholder={String(totaleSuperficiLorde(stato.superfici))}
               onChange={(e) => aggiorna({ totaleLordoManuale: e.target.value === '' ? undefined : Number(e.target.value) })}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-2">
+          <Field label="Totale superfici lorde (testo per il documento, spec §2 — resta editabile)">
+            <input
+              className={controlClassName}
+              value={stato.totaleLordoTesto ?? ''}
+              placeholder={suggerisciTotaleLordoTesto(stato.superfici, stato.totaleLordoManuale)}
+              onChange={(e) => aggiorna({ totaleLordoTesto: e.target.value === '' ? undefined : e.target.value })}
             />
           </Field>
         </div>
