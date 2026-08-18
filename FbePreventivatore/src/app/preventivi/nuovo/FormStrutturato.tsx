@@ -7,6 +7,7 @@ import { StepConfigurazione } from './steps/StepConfigurazione'
 import { StepGeometria } from './steps/StepGeometria'
 import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
+import { StepCondizioniContrattuali } from './steps/StepCondizioniContrattuali'
 import { CARATTERISTICHE_DEFAULT, OGGETTO_STANDARD, type StatoForm } from './stato-form'
 import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
 
@@ -36,7 +37,7 @@ interface Props {
   onCambiamento: (stato: StatoForm) => void
 }
 
-const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Condizioni']
+const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Condizioni', 'Condizioni contrattuali']
 
 export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
@@ -73,6 +74,7 @@ export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiam
       {step === 2 && <StepGeometria stato={stato} aggiorna={aggiorna} />}
       {step === 3 && <StepPrezzi stato={stato} aggiorna={aggiorna} />}
       {step === 4 && <StepCondizioni stato={stato} aggiorna={aggiorna} />}
+      {step === 5 && <StepCondizioniContrattuali stato={stato} aggiorna={aggiorna} />}
     </div>
   )
 }
