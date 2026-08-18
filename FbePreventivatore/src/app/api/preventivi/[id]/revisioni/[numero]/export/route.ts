@@ -10,12 +10,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const revisione = await caricaRevisione(prisma, id, Number(numero))
   if (!revisione) return Response.json({ errore: 'Revisione non trovata' }, { status: 404 })
 
-  const { stato } = deserializzaRevisione<StatoForm>(revisione.statoForm, revisione.inputCalcolo, revisione.risultatoCalcolo)
+  const { stato, input, risultato } = deserializzaRevisione<StatoForm>(revisione.statoForm, revisione.inputCalcolo, revisione.risultatoCalcolo)
 
   try {
-    const input = costruisciInputEsportazione(stato, { numero: revisione.numero, protocollo: revisione.preventivo.protocollo })
-    const buffer = costruisciBufferOfferta(input)
-    const nomeFile = `${revisione.preventivo.protocollo}-rev${input.revisione}.docx`
+    const inputEsportazione = costruisciInputEsportazione(
+      stato,
+      { numero: revisione.numero, protocollo: revisione.preventivo.protocollo },
+      { input, risultato },
+    )
+    const buffer = costruisciBufferOfferta(inputEsportazione)
+    const nomeFile = `${revisione.preventivo.protocollo}-rev${inputEsportazione.revisione}.docx`
 
     return new Response(new Uint8Array(buffer), {
       status: 200,

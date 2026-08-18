@@ -1,8 +1,8 @@
 // src/documento/costruisci-input-esportazione.ts
 import path from 'node:path'
-import { eseguiCalcolo } from '@/domain/calcolo'
+import type { InputCalcolo, RisultatoCalcolo } from '@/domain/calcolo'
 import { generaAbacoPerCategoria } from '@/ai/abaco'
-import { inputCalcoloDaStato, pacchettoDaLivelli, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
+import { pacchettoDaLivelli, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
 import { suggerisciTotaleLordoTesto } from '@/domain/geometria'
 import { formattaDataItaliana } from './formatta-data-italiana'
 import type { InputEsportazione, SuperficiOfferta, CondizioniOfferta, VoceOpzionale } from './export-docx'
@@ -55,21 +55,24 @@ function costruisciCondizioni(stato: StatoForm): CondizioniOfferta {
  * Mapping puro StatoForm -> InputEsportazione (nessun I/O: percorsoOutput resta assente,
  * il chiamante HTTP scrive la risposta direttamente dal Buffer di costruisciBufferOfferta).
  * `revisioneMeta` vive nel record Prisma Revisione/Preventivo, non in StatoForm.
+ *
+ * Il calcolo (`calcolo.input`/`calcolo.risultato`) NON viene ricalcolato qui: arriva già
+ * pronto dal chiamante, che per una revisione già salvata deve passare lo snapshot congelato
+ * letto via `deserializzaRevisione` (CLAUDE.md vincolo 6 — la revisione congela il listino,
+ * non basta un riferimento al listino "corrente").
  */
 export function costruisciInputEsportazione(
   stato: StatoForm,
   revisioneMeta: { numero: number; protocollo: string },
+  calcolo: { input: InputCalcolo; risultato: RisultatoCalcolo },
 ): InputEsportazione {
-  const input = inputCalcoloDaStato(stato)
-  const risultato = eseguiCalcolo(input)
-
   return {
     cliente: stato.cliente,
     protocollo: revisioneMeta.protocollo,
     revisione: String(revisioneMeta.numero - 1).padStart(2, '0'),
     dataOfferta: formattaDataItaliana(stato.data, stato.luogo),
-    risultato,
-    annoListino: input.listino.anno,
+    risultato: calcolo.risultato,
+    annoListino: calcolo.input.listino.anno,
     caratteristiche: {
       tetto: stato.caratteristiche.tetto,
       mantoCopertura: stato.caratteristiche.manto,

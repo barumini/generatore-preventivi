@@ -64,9 +64,18 @@ const STATO_CRIVELLARO: StatoForm = {
   condizioni: CONDIZIONI_CRIVELLARO,
 }
 
+// Simula ciò che una revisione già salvata restituirebbe da deserializzaRevisione: il calcolo
+// va fatto una sola volta e passato come snapshot congelato, mai ricalcolato per test (CLAUDE.md
+// vincolo 6). Le varianti di STATO_CRIVELLARO usate più sotto (statoConTesto, statoConPiuVoci)
+// non toccano geometria/prezzi/overrides — solo condizioni/totaleLordoTesto — quindi lo stesso
+// calcolo congelato resta valido per tutte.
+const INPUT_CALCOLO_CRIVELLARO = inputCalcoloDaStato(STATO_CRIVELLARO)
+const RISULTATO_CRIVELLARO = eseguiCalcolo(INPUT_CALCOLO_CRIVELLARO)
+const CALCOLO_CRIVELLARO = { input: INPUT_CALCOLO_CRIVELLARO, risultato: RISULTATO_CRIVELLARO }
+
 describe('costruisciInputEsportazione — golden case Crivellaro', () => {
   it('mappa cliente/protocollo/revisione/dataOfferta/annoListino', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.cliente).toEqual({ nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' })
     expect(input.protocollo).toBe('2026059')
     expect(input.revisione).toBe('00') // prima revisione salvata, numero: 1 -> '00'
@@ -75,12 +84,12 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
   })
 
   it('la revisione si formatta come numero-1 su due cifre', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 3, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 3, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.revisione).toBe('02')
   })
 
   it('mappa le caratteristiche, incluso il pacchetto derivato dai livelli', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.caratteristiche).toEqual({
       tetto: 'Tetto con travi e perline in abete',
       mantoCopertura: 'Tegole in cemento',
@@ -90,7 +99,7 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
   })
 
   it('ricalcola totaleLorda al volo (rete di sicurezza) quando totaleLordoTesto non è mai stato toccato', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.superfici).toEqual({
       totaleLorda: '134+13+14= 161',
       pianoTerra: '134',
@@ -104,12 +113,12 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
 
   it('usa totaleLordoTesto verbatim quando è stato valorizzato, invece di ricalcolarlo', () => {
     const statoConTesto: StatoForm = { ...STATO_CRIVELLARO, totaleLordoTesto: '134+13+14 (vedi planimetria)= 161' }
-    const input = costruisciInputEsportazione(statoConTesto, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(statoConTesto, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.superfici.totaleLorda).toBe('134+13+14 (vedi planimetria)= 161')
   })
 
   it('mappa condizioni: SAL divisi slice(0,3)/slice(3), optional/esclusioni con lettera di posizione', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.condizioni.consegna).toBe('da pattuire')
     expect(input.condizioni.caparra).toBe(30000)
     expect(input.condizioni.validita).toBe('31.08.2026')
@@ -150,7 +159,7 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
         ],
       },
     }
-    const input = costruisciInputEsportazione(statoConPiuVoci, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(statoConPiuVoci, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.condizioni.optional.map((v) => v.lettera)).toEqual(['A)', 'B)', 'C)'])
     expect(input.condizioni.optional.find((v) => v.descrizione === 'Seconda')?.id).toBe('pratica-genio-civile')
     expect(input.condizioni.optional.find((v) => v.descrizione === 'Prima')?.id).toBe('')
@@ -158,18 +167,18 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
   })
 
   it('mappa abaco chiamando generaAbacoPerCategoria sui serramenti dello stato', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.abaco).toEqual(generaAbacoPerCategoria(STATO_CRIVELLARO.serramenti))
   })
 
   it('risolve percorsoMaster nel repository, nessuna configurazione esterna', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.percorsoMaster).toBe(path.join(process.cwd(), 'template', 'Offerta MHM master.docx'))
   })
 
   it('il risultato riproduce i totali del golden case CLAUDE.md — 237 000 di listino, 190 900 di parziale, 300 000 di totale', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
-    expect(input.risultato).toEqual(eseguiCalcolo(inputCalcoloDaStato(STATO_CRIVELLARO)))
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
+    expect(input.risultato).toBe(RISULTATO_CRIVELLARO)
     expect(input.risultato.listinoTotale).toBe(237000)
     expect(input.risultato.sconti.map((s) => s.importoCalcolato)).toEqual([23700, 21330])
     expect(input.risultato.parziale).toBe(190900)
@@ -177,7 +186,7 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
   })
 
   it('non passa consentiPlaceholderNonRisolti — il golden case Crivellaro ha placeholder di spessore non interpolati e deve bloccarsi in costruisciBufferOfferta, non essere silenziato qui', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' })
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
     expect(input.consentiPlaceholderNonRisolti).toBeUndefined()
   })
 })
