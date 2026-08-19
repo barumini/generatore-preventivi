@@ -1,6 +1,7 @@
 import type { RisultatoCalcolo } from '@/domain/calcolo'
 import { formattaImportoItaliano } from './formattazione'
 import { righeVoci, segnoArrotondamento as calcolaSegnoArrotondamento, formattaPercentuale } from '../tabella-prezzi'
+import { DescrizioneVoce } from './DescrizioneVoce'
 
 interface Props {
   risultato: RisultatoCalcolo
@@ -21,7 +22,7 @@ export function PaginaPrezzi({ risultato, annoListino }: Props) {
           {vociGrezzo.map((v) => (
             <tr key={v.id} data-provenienza={v.provenienza}>
               <td>{v.numero}</td>
-              <td>{v.descrizione}</td>
+              <td><DescrizioneVoce descrizione={v.descrizione} /></td>
               <td className="importo">{formattaImportoItaliano(v.importo)}</td>
             </tr>
           ))}
@@ -39,7 +40,7 @@ export function PaginaPrezzi({ risultato, annoListino }: Props) {
           {vociPostSconto.map((v) => (
             <tr key={v.id} data-provenienza={v.provenienza}>
               <td>{v.numero}</td>
-              <td>{v.descrizione}</td>
+              <td><DescrizioneVoce descrizione={v.descrizione} /></td>
               <td className="importo">{formattaImportoItaliano(v.importo)}</td>
             </tr>
           ))}

@@ -24,6 +24,10 @@
   white-space: nowrap;
 }
 
+.pagina-a4 .placeholder-non-interpolato {
+  color: #9a9a9a;
+}
+
 @media print {
   .pagina-a4 {
     box-shadow: none;
