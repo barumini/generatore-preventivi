@@ -1,5 +1,5 @@
 import { totaleSuperficiLorde, type SuperficiePiano } from '@/domain/geometria'
-import { sogliaArrotondamentoSuperata, type RisultatoCalcolo } from '@/domain/calcolo'
+import { sogliaArrotondamentoSuperata, rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo } from '@/domain/calcolo'
 
 export interface Avviso {
   tipo:
@@ -8,6 +8,7 @@ export interface Avviso {
     | 'sezione-da-definire'
     | 'arrotondamento-eccessivo'
     | 'riferimento-voce-inesistente'
+    | 'spessore-non-interpolato'
   messaggio: string
 }
 
@@ -40,6 +41,14 @@ export function verificaCoerenza(input: InputVerificaCoerenza): Avviso[] {
     avvisi.push({
       tipo: 'placeholder-non-sostituito',
       messaggio: 'È presente un placeholder di protocollo non sostituito in copertina',
+    })
+  }
+
+  const placeholderSpessore = rilevaPlaceholderSpessoreNonInterpolati(input.risultato.vociValorizzate)
+  if (placeholderSpessore.length > 0) {
+    avvisi.push({
+      tipo: 'spessore-non-interpolato',
+      messaggio: `Spessori non compilati nelle descrizioni: ${[...new Set(placeholderSpessore)].join(', ')} — completa Configurazione prima di esportare`,
     })
   }
 

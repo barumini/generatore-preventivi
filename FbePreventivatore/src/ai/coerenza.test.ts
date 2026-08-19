@@ -34,7 +34,10 @@ const SUPERFICI_COERENTI: SuperficiePiano[] = [
 
 describe('verificaCoerenza', () => {
   it('non segnala nulla su un caso pienamente coerente', () => {
-    const risultato = eseguiCalcolo(INPUT_BASE)
+    const risultato = eseguiCalcolo({
+      ...INPUT_BASE,
+      spessori: { spessoreEsterno: '205', spessoreInterno: '160', spessoreCoibente: '200', spessoreCappotto: '140' },
+    })
     const avvisi = verificaCoerenza({
       superfici: SUPERFICI_COERENTI,
       totaleLordoDichiarato: 161,
@@ -125,5 +128,41 @@ describe('verificaCoerenza', () => {
     const trovato = avvisi.find((a) => a.tipo === 'riferimento-voce-inesistente')
     expect(trovato).toBeDefined()
     expect(trovato?.messaggio).toContain('9')
+  })
+})
+
+describe('verificaCoerenza — spessori non interpolati', () => {
+  it('segnala i placeholder di spessore residui nelle descrizioni voce', () => {
+    const risultato = eseguiCalcolo(INPUT_BASE) // nessun `spessori`: pareti-mhm/copertura-falda/cappotto restano con {{...}}
+    const avvisi = verificaCoerenza({
+      superfici: SUPERFICI_COERENTI,
+      totaleLordoDichiarato: 161,
+      risultato,
+      protocolloPlaceholderPresente: false,
+      sezioniDaDefinire: [],
+      riferimentiTestuali: [],
+    })
+
+    const avviso = avvisi.find((a) => a.tipo === 'spessore-non-interpolato')
+    expect(avviso).toBeDefined()
+    expect(avviso!.messaggio).toContain('{{spessoreEsterno}}')
+    expect(avviso!.messaggio).toContain('{{spessoreCappotto}}')
+  })
+
+  it('non segnala nulla quando tutti gli spessori sono compilati', () => {
+    const risultato = eseguiCalcolo({
+      ...INPUT_BASE,
+      spessori: { spessoreEsterno: '205', spessoreInterno: '160', spessoreCoibente: '200', spessoreCappotto: '140' },
+    })
+    const avvisi = verificaCoerenza({
+      superfici: SUPERFICI_COERENTI,
+      totaleLordoDichiarato: 161,
+      risultato,
+      protocolloPlaceholderPresente: false,
+      sezioniDaDefinire: [],
+      riferimentiTestuali: [],
+    })
+
+    expect(avvisi.find((a) => a.tipo === 'spessore-non-interpolato')).toBeUndefined()
   })
 })
