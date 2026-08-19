@@ -65,12 +65,17 @@ export interface InputEsportazione {
   percorsoOutput?: string
   /**
    * Opt-in esplicito, di default assente/false. Alcune `descrizioneTemplate` del catalogo
-   * (`src/domain/voci.ts`) contengono placeholder testuali a doppia graffa mai interpolati da
-   * nessun meccanismo esistente (es. `{{spessoreEsterno}}`) — vedi
-   * `rilevaPlaceholderSpessoreNonInterpolati` sotto e `template/PLACEHOLDER.md`. Senza questo
-   * flag `esportaOfferta` si blocca per non produrre in silenzio un documento con un residuo di
-   * sviluppo dentro una cella che il cliente firma. Il vero fix (nuovi campi di dominio +
-   * interpolazione + raccolta dati nel wizard) è un follow-up dichiarato, non risolto qui.
+   * (`src/domain/voci.ts`) contengono placeholder testuali a doppia graffa (es.
+   * `{{spessoreEsterno}}`) che vengono interpolati con i valori raccolti nello step
+   * "Configurazione" del wizard (`spessoreEsterno`, `spessoreInterno`, `spessoreCoibente`,
+   * `spessoreCappotto` — vedi `interpolaPlaceholder` in `src/domain/calcolo.ts`). Se uno di
+   * questi campi resta vuoto il token non viene sostituito, e senza questo flag
+   * `esportaOfferta` si blocca per non produrre in silenzio un documento con un residuo di
+   * sviluppo dentro una cella che il cliente firma — vedi
+   * `rilevaPlaceholderSpessoreNonInterpolati` sotto e `template/PLACEHOLDER.md`. Questo flag
+   * serve solo a bypassare il blocco in test o in una preview interna in cui lo spessore è
+   * deliberatamente non ancora compilato: non va mai usato per un documento destinato a un
+   * cliente reale, il vero rimedio è compilare il campo nel wizard.
    */
   consentiPlaceholderNonRisolti?: boolean
 }
@@ -90,8 +95,9 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
   if (placeholderSpessore.length > 0 && !input.consentiPlaceholderNonRisolti) {
     throw new Error(
       `esportaOfferta: descrizioni con placeholder di spessore non interpolati: ${[...new Set(placeholderSpessore)].join(', ')}. ` +
-        `Questo documento non è pronto per un cliente reale (nessun meccanismo di interpolazione, cfr. template/PLACEHOLDER.md). ` +
-        `Passa consentiPlaceholderNonRisolti: true solo se accetti consapevolmente il residuo.`,
+        `Compila i campi spessore corrispondenti nello step "Configurazione" del wizard (spessoreEsterno, spessoreInterno, ` +
+        `spessoreCoibente, spessoreCappotto — cfr. template/PLACEHOLDER.md) e questo documento non è pronto per un cliente reale finché non lo fai. ` +
+        `Passa consentiPlaceholderNonRisolti: true solo per un giro di test/dev in cui lasci deliberatamente uno spessore in bianco.`,
     )
   }
 

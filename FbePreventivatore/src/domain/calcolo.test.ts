@@ -221,6 +221,10 @@ describe('interpolaPlaceholder', () => {
   it('non tocca una stringa senza placeholder', () => {
     expect(interpolaPlaceholder('Trave alla base in larice', { spessoreEsterno: '205' })).toBe('Trave alla base in larice')
   })
+
+  it('inserisce il valore ripulito dagli spazi superflui, non il valore grezzo', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', { spessoreEsterno: '  205  ' })).toBe('sp. mm 205')
+  })
 })
 
 describe('segmentaPlaceholder', () => {

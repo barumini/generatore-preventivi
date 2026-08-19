@@ -97,11 +97,12 @@ const PATTERN_PLACEHOLDER_DOPPIA_GRAFFA = /\{\{[^{}]+\}\}/g
 
 /**
  * Cerca, nelle descrizioni delle voci di catalogo, placeholder a doppia graffa (es.
- * `{{spessoreEsterno}}`) che nessun meccanismo del progetto interpola oggi — non tag
- * docxtemplater (quelli sono a graffa singola), ma testo letterale rimasto nel dato di
- * dominio. Esportata anche per il test: la review di Task 17 chiede che l'insieme esatto dei
- * token rilevati sia verificato, così una correzione parziale in futuro fa fallire un test
- * invece di passare inosservata.
+ * `{{spessoreEsterno}}`) rimasti non interpolati perché il campo spessore corrispondente è
+ * stato lasciato vuoto nello step "Configurazione" del wizard — non tag docxtemplater (quelli
+ * sono a graffa singola), ma testo letterale rimasto nel dato di dominio dopo il passaggio da
+ * `interpolaPlaceholder`. Esportata anche per il test: la review di Task 17 chiede che
+ * l'insieme esatto dei token rilevati sia verificato, così una correzione parziale in futuro
+ * fa fallire un test invece di passare inosservata.
  */
 export function rilevaPlaceholderSpessoreNonInterpolati(voci: VoceValorizzata[]): string[] {
   const trovati: string[] = []
@@ -124,7 +125,7 @@ export function interpolaPlaceholder(template: string, valori: Record<string, st
   return template.replace(PATTERN_PLACEHOLDER_DOPPIA_GRAFFA, (token) => {
     const chiave = token.slice(2, -2)
     const valore = valori[chiave]
-    return valore && valore.trim() !== '' ? valore : token
+    return valore && valore.trim() !== '' ? valore.trim() : token
   })
 }
 

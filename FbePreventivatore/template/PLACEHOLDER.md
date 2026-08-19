@@ -234,28 +234,40 @@ schermo. Tutti i valori sono output di `generaAbacoSerramenti()`
 | `{abacoSerramenti}` | 1 | `generaAbacoSerramenti(tutti)` — elenco completo, riga dei monoblocchi Hella (pag. 20) |
 | `{abaco.portoncini}` | 2 | `generaAbacoSerramenti(portoncini, { prefisso: 'n. {n} portoncini di ingresso dim. standard {dim}' })` |
 
-## ⚠️ Placeholder di spessore non interpolati nelle descrizioni (pag. 5)
+## ⚠️ Placeholder di spessore nelle descrizioni (pag. 5)
 
 Tre `descrizioneTemplate` del catalogo voci (`src/domain/voci.ts`, id `pareti-mhm`,
 `copertura-falda`, `cappotto`) contengono placeholder testuali a **doppia** graffa
 (`{{spessoreEsterno}}`, `{{spessoreInterno}}`, `{{spessoreCoibente}}`,
-`{{spessoreCappotto}}` — 4 in totale) che **nessun meccanismo del progetto interpola
-oggi**: non sono tag docxtemplater (quelli sono a graffa singola) e finiscono
-letteralmente nella colonna "Descrizione" della tabella prezzi. Lo stesso testo
-compare già, tale e quale, nella preview React (`src/documento/preview/PaginaPrezzi.tsx`)
-— non è un difetto silenzioso lato UI, un operatore lo vede prima di esportare — ma
-**non è un documento pronto per un cliente reale**.
+`{{spessoreCappotto}}` — 4 in totale). Non sono tag docxtemplater (quelli sono a
+graffa singola): sono testo letterale nel dato di dominio, interpolato con i valori
+raccolti nello step "Configurazione" del wizard (`spessoreEsterno`, `spessoreInterno`,
+`spessoreCoibente`, `spessoreCappotto` — vedi
+`src/app/preventivi/nuovo/steps/StepConfigurazione.tsx`).
 
-`esportaOfferta()` (`src/documento/export-docx.ts`) si blocca per default se rileva
-questi token nelle descrizioni delle voci incluse, e lancia un errore invece di
-scrivere il `.docx`. Per esportare comunque (solo se si accetta consapevolmente il
-residuo, es. per un giro di test interno) va passato l'opt-in esplicito
+L'interpolazione è gestita da `interpolaPlaceholder` in `src/domain/calcolo.ts`: se il
+campo corrispondente è compilato, il token viene sostituito con il valore (ripulito
+dagli spazi superflui) prima della generazione del `.docx`; se il campo è lasciato
+vuoto, il token resta intatto — non viene mai sostituito con una stringa vuota, che
+produrrebbe una descrizione senza numero e senza più nessun `{{...}}` da rilevare.
+`segmentaPlaceholder` spezza la descrizione in segmenti di testo normale e
+segmenti-placeholder nello stesso file, usati dalla preview React
+(`src/documento/preview/DescrizioneVoce.tsx`, montata da `PaginaPrezzi.tsx`) per
+evidenziare in grigio solo il token ancora non interpolato — un operatore lo vede
+prima di esportare. Lo stesso rilevamento alimenta anche l'avviso di coerenza
+`spessore-non-interpolato` (`src/ai/coerenza.ts`), che segnala gli spessori mancanti e
+invita a completare lo step Configurazione.
+
+`esportaOfferta()` (`src/documento/export-docx.ts`) si blocca comunque per default se,
+dopo l'interpolazione, restano token non risolti nelle descrizioni delle voci incluse,
+e lancia un errore invece di scrivere il `.docx` — un campo spessore lasciato in
+bianco nel wizard resta quindi un residuo bloccante, non un difetto silenzioso. Per
+esportare comunque (solo per un giro di test/dev in cui si lascia deliberatamente uno
+spessore non compilato) va passato l'opt-in esplicito
 `consentiPlaceholderNonRisolti: true` su `InputEsportazione`. **Non usare
-`consentiPlaceholderNonRisolti: true` con un cliente reale finché il meccanismo di
-interpolazione non esiste**: risolvere il problema per davvero richiede nuovi campi
-di dominio (gli spessori per voce), un meccanismo di interpolazione nella
-`descrizioneTemplate` e la raccolta di questi dati nel wizard — un follow-up
-dichiarato, non ancora fatto.
+`consentiPlaceholderNonRisolti: true` con un cliente reale**: il rimedio corretto è
+sempre compilare il campo spessore mancante nello step "Configurazione", non bypassare
+il blocco.
 
 ## Cosa NON è stato reso variabile (e perché)
 
