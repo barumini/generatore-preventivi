@@ -4,6 +4,8 @@ import {
   calcolaParziale,
   risolviArrotondamento,
   sogliaArrotondamentoSuperata,
+  interpolaPlaceholder,
+  segmentaPlaceholder,
   type ParametriSconto,
 } from './calcolo'
 import { eseguiCalcolo, type InputCalcolo } from './calcolo'
@@ -142,5 +144,72 @@ describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
     expect(risultato.sicurezza.valorizzata).toBe('OMAGGIO')
     // 190 900 (parziale) + 89 100 (chiavi in mano) + 20 000 (garage) + 0 (sicurezza) = 300 000
     expect(risultato.totaleNetto).toBe(300000)
+  })
+})
+
+describe('interpolaPlaceholder', () => {
+  it('sostituisce un token con il valore corrispondente', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', { spessoreEsterno: '205' })).toBe('sp. mm 205')
+  })
+
+  it('lascia intatto un token il cui valore è assente', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', {})).toBe('sp. mm {{spessoreEsterno}}')
+  })
+
+  it('lascia intatto un token il cui valore è una stringa vuota o solo spazi', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', { spessoreEsterno: '   ' })).toBe('sp. mm {{spessoreEsterno}}')
+  })
+
+  it('lascia intatto ogni token quando valori è undefined', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', undefined)).toBe('sp. mm {{spessoreEsterno}}')
+  })
+
+  it('sostituisce più token distinti nella stessa stringa', () => {
+    const risultato = interpolaPlaceholder('esterne sp. mm {{spessoreEsterno}} ed interne sp. mm {{spessoreInterno}}', {
+      spessoreEsterno: '205',
+      spessoreInterno: '160',
+    })
+    expect(risultato).toBe('esterne sp. mm 205 ed interne sp. mm 160')
+  })
+
+  it('accetta un valore composito, senza interpretarlo', () => {
+    expect(interpolaPlaceholder('sp. mm {{spessoreEsterno}}', { spessoreEsterno: '205-160' })).toBe('sp. mm 205-160')
+  })
+
+  it('non tocca una stringa senza placeholder', () => {
+    expect(interpolaPlaceholder('Trave alla base in larice', { spessoreEsterno: '205' })).toBe('Trave alla base in larice')
+  })
+})
+
+describe('segmentaPlaceholder', () => {
+  it('produce un solo segmento non-placeholder per una stringa senza token', () => {
+    expect(segmentaPlaceholder('Trave alla base in larice')).toEqual([
+      { testo: 'Trave alla base in larice', placeholder: false },
+    ])
+  })
+
+  it('separa testo e placeholder preservando ordine e contenuto', () => {
+    const segmenti = segmentaPlaceholder('sp. mm {{spessoreEsterno}} fine')
+    expect(segmenti).toEqual([
+      { testo: 'sp. mm ', placeholder: false },
+      { testo: '{{spessoreEsterno}}', placeholder: true },
+      { testo: ' fine', placeholder: false },
+    ])
+  })
+
+  it('gestisce più placeholder nella stessa stringa', () => {
+    const segmenti = segmentaPlaceholder('esterne sp. mm {{spessoreEsterno}} ed interne sp. mm {{spessoreInterno}}')
+    expect(segmenti.filter((s) => s.placeholder).map((s) => s.testo)).toEqual([
+      '{{spessoreEsterno}}',
+      '{{spessoreInterno}}',
+    ])
+  })
+
+  it('non produce un segmento vuoto finale quando la stringa termina con un placeholder', () => {
+    const segmenti = segmentaPlaceholder('sp. mm {{spessoreEsterno}}')
+    expect(segmenti).toEqual([
+      { testo: 'sp. mm ', placeholder: false },
+      { testo: '{{spessoreEsterno}}', placeholder: true },
+    ])
   })
 })

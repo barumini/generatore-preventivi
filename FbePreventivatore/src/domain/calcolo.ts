@@ -108,6 +108,48 @@ export function rilevaPlaceholderSpessoreNonInterpolati(voci: VoceValorizzata[])
   return trovati
 }
 
+/**
+ * Sostituisce ogni `{{chiave}}` presente nel template con `valori[chiave]`, solo se il
+ * valore esiste e non è vuoto (dopo trim). Un campo lasciato in bianco nel wizard deve
+ * continuare a far scattare `rilevaPlaceholderSpessoreNonInterpolati` più a valle — quindi
+ * qui il token va lasciato intatto, non sostituito con una stringa vuota che produrrebbe una
+ * descrizione senza numero ma senza più nessun `{{...}}` da rilevare.
+ */
+export function interpolaPlaceholder(template: string, valori: Record<string, string> | undefined): string {
+  if (!valori) return template
+  return template.replace(PATTERN_PLACEHOLDER_DOPPIA_GRAFFA, (token) => {
+    const chiave = token.slice(2, -2)
+    const valore = valori[chiave]
+    return valore && valore.trim() !== '' ? valore : token
+  })
+}
+
+export interface SegmentoDescrizione {
+  testo: string
+  placeholder: boolean
+}
+
+/**
+ * Spezza una descrizione voce in segmenti di testo normale e segmenti-placeholder, nello
+ * stesso ordine del testo originale — usato dalla preview per colorare in grigio solo il
+ * token residuo (src/documento/preview/DescrizioneVoce.tsx), senza toccare il resto della
+ * frase.
+ */
+export function segmentaPlaceholder(descrizione: string): SegmentoDescrizione[] {
+  const segmenti: SegmentoDescrizione[] = []
+  let ultimoIndice = 0
+  for (const match of descrizione.matchAll(PATTERN_PLACEHOLDER_DOPPIA_GRAFFA)) {
+    const indice = match.index ?? 0
+    if (indice > ultimoIndice) segmenti.push({ testo: descrizione.slice(ultimoIndice, indice), placeholder: false })
+    segmenti.push({ testo: match[0], placeholder: true })
+    ultimoIndice = indice + match[0].length
+  }
+  if (ultimoIndice < descrizione.length || segmenti.length === 0) {
+    segmenti.push({ testo: descrizione.slice(ultimoIndice), placeholder: false })
+  }
+  return segmenti
+}
+
 function sommaNumerica(voci: VoceValorizzata[]): number {
   return arrotondaCentesimi(voci.reduce((somma, v) => somma + (typeof v.importo === 'number' ? v.importo : 0), 0))
 }
