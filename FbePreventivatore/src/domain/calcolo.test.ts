@@ -165,6 +165,28 @@ describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
     expect(pareti.descrizione).toContain('{{spessoreEsterno}}')
     expect(pareti.descrizione).toContain('{{spessoreInterno}}')
   })
+
+  // The importoTestualeDefault branch cannot currently be exercised by any placeholder-bearing
+  // catalog item (no such item exists in the catalog today), so this test proves the driver branch
+  // and validates that placeholder interpolation is verified end-to-end via TWO of the three branches.
+  it('interpola placeholder nel driver branch quando voce è rimossa da overrides', () => {
+    const inputSenzaCappottoOverride = {
+      ...input,
+      overrides: Object.fromEntries(
+        Object.entries(input.overrides).filter(([id]) => id !== 'cappotto')
+      ),
+      spessori: { spessoreCappotto: '140' },
+    }
+    const risultato = eseguiCalcolo(inputSenzaCappottoOverride)
+    const cappotto = risultato.vociValorizzate.find((v) => v.id === 'cappotto')!
+
+    // Prove interpolation happened
+    expect(cappotto.descrizione).toContain('sp. mm 140')
+    expect(cappotto.descrizione).not.toContain('{{')
+
+    // Prove we took the driver branch (not override branch)
+    expect(cappotto.provenienza).toBe('proposto')
+  })
 })
 
 describe('interpolaPlaceholder', () => {
