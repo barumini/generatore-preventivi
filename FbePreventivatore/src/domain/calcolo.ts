@@ -77,6 +77,10 @@ export interface InputCalcolo {
   sconti: ParametriSconto[]
   sicurezza: Sicurezza
   arrotondamento: number | { risolviPerTotale: number }
+  // Valori per interpolare i placeholder {{chiave}} nelle descrizioni voce (src/domain/voci.ts,
+  // id pareti-mhm/copertura-falda/cappotto). Assente o senza una chiave = quel token resta
+  // {{...}} nella descrizione finale, e il guardrail export lo blocca — vedi interpolaPlaceholder.
+  spessori?: Record<string, string>
 }
 
 export interface RisultatoCalcolo {
@@ -170,7 +174,7 @@ export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
       vociValorizzate.push({
         numero,
         id: voce.id,
-        descrizione: voce.descrizioneTemplate,
+        descrizione: interpolaPlaceholder(voce.descrizioneTemplate, input.spessori),
         gruppo: voce.gruppo,
         importo,
         provenienza: 'manuale',
@@ -182,7 +186,7 @@ export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
       vociValorizzate.push({
         numero,
         id: voce.id,
-        descrizione: voce.descrizioneTemplate,
+        descrizione: interpolaPlaceholder(voce.descrizioneTemplate, input.spessori),
         gruppo: voce.gruppo,
         importo: voce.importoTestualeDefault,
         provenienza: 'proposto',
@@ -196,7 +200,7 @@ export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
     vociValorizzate.push({
       numero,
       id: voce.id,
-      descrizione: voce.descrizioneTemplate,
+      descrizione: interpolaPlaceholder(voce.descrizioneTemplate, input.spessori),
       gruppo: voce.gruppo,
       importo,
       provenienza: 'proposto',

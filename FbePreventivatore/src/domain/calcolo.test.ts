@@ -145,6 +145,26 @@ describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
     // 190 900 (parziale) + 89 100 (chiavi in mano) + 20 000 (garage) + 0 (sicurezza) = 300 000
     expect(risultato.totaleNetto).toBe(300000)
   })
+
+  it('interpola i placeholder di spessore quando input.spessori è fornito', () => {
+    const risultato = eseguiCalcolo({
+      ...input,
+      spessori: { spessoreEsterno: '205', spessoreInterno: '160', spessoreCoibente: '200', spessoreCappotto: '140' },
+    })
+    const pareti = risultato.vociValorizzate.find((v) => v.id === 'pareti-mhm')!
+    const cappotto = risultato.vociValorizzate.find((v) => v.id === 'cappotto')!
+    expect(pareti.descrizione).toContain('sp. mm 205')
+    expect(pareti.descrizione).toContain('sp. mm 160')
+    expect(pareti.descrizione).not.toContain('{{')
+    expect(cappotto.descrizione).toContain('sp. mm 140')
+  })
+
+  it('senza input.spessori, lascia i placeholder di spessore intatti (comportamento invariato)', () => {
+    const risultato = eseguiCalcolo(input)
+    const pareti = risultato.vociValorizzate.find((v) => v.id === 'pareti-mhm')!
+    expect(pareti.descrizione).toContain('{{spessoreEsterno}}')
+    expect(pareti.descrizione).toContain('{{spessoreInterno}}')
+  })
 })
 
 describe('interpolaPlaceholder', () => {
