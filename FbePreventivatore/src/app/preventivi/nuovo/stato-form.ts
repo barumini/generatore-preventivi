@@ -13,6 +13,15 @@ export interface CaratteristicheCostruttive {
   manto: string
   finituraEsterna: 'intonaco' | 'rivestimento'
   tetto: string
+  // Spessori delle stratigrafie citati nelle descrizioni voce (src/domain/voci.ts, id
+  // pareti-mhm/copertura-falda/cappotto). Stringa libera, non un numero: nei documenti reali
+  // sono spesso compositi ("60+40", "205-160", "160 (80+60+20)" — spec §9.3 del design
+  // principale). Vuoto di default: eseguiCalcolo lascia il placeholder {{...}} intatto finché
+  // non sono compilati, e il guardrail export blocca finché resta un placeholder residuo.
+  spessoreEsterno: string
+  spessoreInterno: string
+  spessoreCoibente: string
+  spessoreCappotto: string
 }
 
 export type Pacchetto = 'Grezzo' | 'Grezzo avanzato' | 'Chiavi in mano'
@@ -45,6 +54,10 @@ export const CARATTERISTICHE_DEFAULT: CaratteristicheCostruttive = {
   manto: 'Tegole in cemento',
   finituraEsterna: 'intonaco',
   tetto: 'Tetto con travi e perline in abete',
+  spessoreEsterno: '',
+  spessoreInterno: '',
+  spessoreCoibente: '',
+  spessoreCappotto: '',
 }
 
 export const OGGETTO_STANDARD = 'Fornitura e posa in opera di casa in legno MHM'
@@ -94,5 +107,11 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
     sconti: stato.sconti,
     sicurezza: stato.sicurezza,
     arrotondamento: { risolviPerTotale: stato.totaleTarget },
+    spessori: {
+      spessoreEsterno: stato.caratteristiche.spessoreEsterno,
+      spessoreInterno: stato.caratteristiche.spessoreInterno,
+      spessoreCoibente: stato.caratteristiche.spessoreCoibente,
+      spessoreCappotto: stato.caratteristiche.spessoreCappotto,
+    },
   }
 }

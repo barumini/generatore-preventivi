@@ -28,6 +28,10 @@ const STATO_CRIVELLARO: StatoForm = {
     manto: 'Tegole in cemento',
     finituraEsterna: 'intonaco',
     tetto: 'Tetto con travi e perline in abete',
+    spessoreEsterno: '',
+    spessoreInterno: '',
+    spessoreCoibente: '',
+    spessoreCappotto: '',
   },
   condizioni: CONDIZIONI_DEFAULT,
 }
@@ -77,6 +81,19 @@ describe('inputCalcoloDaStato', () => {
     }
     const input = inputCalcoloDaStato(statoConSicurezza)
     expect(input.sicurezza).toEqual({ costoDichiarato: 3500, valorizzata: 1800 })
+  })
+
+  it('mappa gli spessori delle caratteristiche in input.spessori', () => {
+    const input = inputCalcoloDaStato({
+      ...STATO_CRIVELLARO,
+      caratteristiche: { ...STATO_CRIVELLARO.caratteristiche, spessoreEsterno: '205', spessoreCappotto: '140' },
+    })
+    expect(input.spessori).toEqual({
+      spessoreEsterno: '205',
+      spessoreInterno: '',
+      spessoreCoibente: '',
+      spessoreCappotto: '140',
+    })
   })
 })
 

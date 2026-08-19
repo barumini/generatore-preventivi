@@ -53,6 +53,10 @@ const STATO_SENZA_PLACEHOLDER: StatoForm = {
     manto: 'Tegole in cemento',
     finituraEsterna: 'intonaco',
     tetto: 'Tetto con travi e perline in abete',
+    spessoreEsterno: '',
+    spessoreInterno: '',
+    spessoreCoibente: '',
+    spessoreCappotto: '',
   },
   condizioni: {
     ...CONDIZIONI_DEFAULT,
