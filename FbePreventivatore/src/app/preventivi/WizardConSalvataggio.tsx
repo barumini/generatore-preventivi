@@ -27,8 +27,8 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
   const [salvataggio, setSalvataggio] = useState<PreventivoEsistente | null>(preventivoEsistente ?? null)
   const [statoSalvataggio, setStatoSalvataggio] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
 
-  async function salvaBozza() {
-    if (!stato) return
+  async function salvaBozza(): Promise<boolean> {
+    if (!stato) return false
     setStatoSalvataggio('in-corso')
     const input = inputCalcoloDaStato(stato)
     const risultato = eseguiCalcolo(input)
@@ -59,9 +59,11 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
         onSalvato?.(nuovoSalvataggio)
       }
       setStatoSalvataggio('inattivo')
+      return true
     } catch (errore) {
       console.error('Salvataggio bozza fallito:', errore)
       setStatoSalvataggio('errore')
+      return false
     }
   }
 
@@ -77,7 +79,13 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
             </span>
           </Button>
           {statoSalvataggio === 'errore' && <Alert variant="errore">Salvataggio fallito, riprova.</Alert>}
-          {salvataggio && <PulsanteGeneraDocumento preventivoId={salvataggio.id} numero={salvataggio.numero} />}
+          {salvataggio && (
+            <PulsanteGeneraDocumento
+              preventivoId={salvataggio.id}
+              numero={salvataggio.numero}
+              primaDiGenerare={salvaBozza}
+            />
+          )}
         </div>
       </div>
       <div className="flex-1">

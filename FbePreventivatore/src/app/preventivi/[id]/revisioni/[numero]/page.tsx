@@ -38,7 +38,7 @@ export default async function RiapriRevisione({ params }: Props) {
         <p className="text-sm text-text-secondary">
           Revisione {revisione.numero} — stato: <span className="font-semibold text-text">{revisione.stato}</span> (sola lettura)
         </p>
-        <PulsanteGeneraDocumento preventivoId={id} numero={revisione.numero} />
+        <PulsanteGeneraDocumento preventivoId={id} numero={revisione.numero} primaDiGenerare={async () => true} />
       </div>
       <PannelloPreview stato={stato} input={input} />
     </div>

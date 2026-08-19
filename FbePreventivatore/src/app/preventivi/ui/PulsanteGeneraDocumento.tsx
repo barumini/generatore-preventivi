@@ -8,6 +8,7 @@ import { Alert } from './Alert'
 interface Props {
   preventivoId: string
   numero: number
+  primaDiGenerare: () => Promise<boolean>
 }
 
 function nomeFileDaContentDisposition(header: string | null): string | null {
@@ -16,13 +17,18 @@ function nomeFileDaContentDisposition(header: string | null): string | null {
   return match ? match[1] : null
 }
 
-export function PulsanteGeneraDocumento({ preventivoId, numero }: Props) {
+export function PulsanteGeneraDocumento({ preventivoId, numero, primaDiGenerare }: Props) {
   const [stato, setStato] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
   const [messaggioErrore, setMessaggioErrore] = useState('')
 
   async function generaDocumento() {
     setStato('in-corso')
     try {
+      const salvataggioRiuscito = await primaDiGenerare()
+      if (!salvataggioRiuscito) {
+        throw new Error('Salvataggio delle modifiche fallito: il documento non è stato generato.')
+      }
+
       const risposta = await fetch(`/api/preventivi/${preventivoId}/revisioni/${numero}/export`, { method: 'POST' })
       if (!risposta.ok) {
         const corpo = await risposta.json().catch(() => ({ errore: `Errore ${risposta.status}` }))
