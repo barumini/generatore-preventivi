@@ -26,6 +26,7 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
   const [stato, setStato] = useState<StatoForm | null>(null)
   const [salvataggio, setSalvataggio] = useState<PreventivoEsistente | null>(preventivoEsistente ?? null)
   const [statoSalvataggio, setStatoSalvataggio] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
+  const [messaggioErroreSalvataggio, setMessaggioErroreSalvataggio] = useState('')
 
   async function salvaBozza(): Promise<boolean> {
     if (!stato) return false
@@ -49,10 +50,16 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
           method: 'PUT',
           body: JSON.stringify(corpo),
         })
-        if (!risposta.ok) throw new Error(`Salvataggio fallito (${risposta.status}): ${await risposta.text().catch(() => '')}`)
+        if (!risposta.ok) {
+          const corpoErrore = await risposta.json().catch(() => ({ errore: `Errore ${risposta.status}` }))
+          throw new Error(corpoErrore.errore ?? `Errore ${risposta.status}`)
+        }
       } else {
         const risposta = await fetch('/api/preventivi', { method: 'POST', body: JSON.stringify(corpo) })
-        if (!risposta.ok) throw new Error(`Salvataggio fallito (${risposta.status}): ${await risposta.text().catch(() => '')}`)
+        if (!risposta.ok) {
+          const corpoErrore = await risposta.json().catch(() => ({ errore: `Errore ${risposta.status}` }))
+          throw new Error(corpoErrore.errore ?? `Errore ${risposta.status}`)
+        }
         const preventivo = await risposta.json()
         const nuovoSalvataggio = { id: preventivo.id, numero: preventivo.revisioni[0].numero }
         setSalvataggio(nuovoSalvataggio)
@@ -62,6 +69,7 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
       return true
     } catch (errore) {
       console.error('Salvataggio bozza fallito:', errore)
+      setMessaggioErroreSalvataggio(errore instanceof Error ? errore.message : 'Errore sconosciuto')
       setStatoSalvataggio('errore')
       return false
     }
@@ -78,7 +86,7 @@ export function WizardConSalvataggio({ statoIniziale, aggiornamentoEsterno, prev
               Salva bozza
             </span>
           </Button>
-          {statoSalvataggio === 'errore' && <Alert variant="errore">Salvataggio fallito, riprova.</Alert>}
+          {statoSalvataggio === 'errore' && <Alert variant="errore">{messaggioErroreSalvataggio}</Alert>}
           {salvataggio && (
             <PulsanteGeneraDocumento
               preventivoId={salvataggio.id}
