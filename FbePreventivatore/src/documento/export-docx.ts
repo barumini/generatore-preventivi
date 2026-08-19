@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import type { RisultatoCalcolo, VoceValorizzata } from '@/domain/calcolo'
+import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo, type VoceValorizzata } from '@/domain/calcolo'
 import type { AbacoPerCategoria } from '@/ai/abaco'
 import { formattaImportoItaliano } from './preview/formattazione'
 import { righeVoci, segnoArrotondamento, formattaPercentuale } from './tabella-prezzi'
@@ -81,25 +81,6 @@ function formattaNumeroItaliano(valore: number): string {
 
 function formattaVoceOpzionale(v: VoceOpzionale) {
   return { lettera: v.lettera, descrizione: v.descrizione, importo: formattaImportoItaliano(v.importo) }
-}
-
-const PATTERN_PLACEHOLDER_DOPPIA_GRAFFA = /\{\{[^{}]+\}\}/g
-
-/**
- * Cerca, nelle descrizioni delle voci di catalogo, placeholder a doppia graffa (es.
- * `{{spessoreEsterno}}`) che nessun meccanismo del progetto interpola oggi — non tag
- * docxtemplater (quelli sono a graffa singola), ma testo letterale rimasto nel dato di
- * dominio. Esportata anche per il test: la review di Task 17 chiede che l'insieme esatto dei
- * token rilevati sia verificato, così una correzione parziale in futuro fa fallire un test
- * invece di passare inosservata.
- */
-export function rilevaPlaceholderSpessoreNonInterpolati(voci: VoceValorizzata[]): string[] {
-  const trovati: string[] = []
-  for (const v of voci) {
-    const match = v.descrizione.match(PATTERN_PLACEHOLDER_DOPPIA_GRAFFA)
-    if (match) trovati.push(...match)
-  }
-  return trovati
 }
 
 export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
