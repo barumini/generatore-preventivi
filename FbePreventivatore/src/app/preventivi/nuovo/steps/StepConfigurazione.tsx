@@ -87,6 +87,38 @@ export function StepConfigurazione({ stato, aggiorna }: Props) {
             onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, tetto: e.target.value } })}
           />
         </Field>
+        <Field label="Spessore pareti esterne (mm)">
+          <input
+            className={controlClassName}
+            value={stato.caratteristiche.spessoreEsterno}
+            onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, spessoreEsterno: e.target.value } })}
+            placeholder="es. 205 o 60+40"
+          />
+        </Field>
+        <Field label="Spessore pareti interne (mm)">
+          <input
+            className={controlClassName}
+            value={stato.caratteristiche.spessoreInterno}
+            onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, spessoreInterno: e.target.value } })}
+            placeholder="es. 160"
+          />
+        </Field>
+        <Field label="Spessore coibente falda (mm)">
+          <input
+            className={controlClassName}
+            value={stato.caratteristiche.spessoreCoibente}
+            onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, spessoreCoibente: e.target.value } })}
+            placeholder="es. 200"
+          />
+        </Field>
+        <Field label="Spessore cappotto (mm)">
+          <input
+            className={controlClassName}
+            value={stato.caratteristiche.spessoreCappotto}
+            onChange={(e) => aggiorna({ caratteristiche: { ...stato.caratteristiche, spessoreCappotto: e.target.value } })}
+            placeholder="es. 140"
+          />
+        </Field>
       </div>
     </Section>
   )
