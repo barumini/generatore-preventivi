@@ -51,7 +51,35 @@ applicato alle superfici (CLAUDE.md vincolo di formato).
   pattern UI di "Manto di copertura" / "Tetto (descrizione)", con un placeholder d'esempio
   (`es. 205 o 60+40`) per segnalare che il formato composito è accettato.
 
-## 3. Avviso visibile quando un campo fondamentale manca
+## 3. Evidenziazione visiva del placeholder residuo in anteprima
+
+Nell'anteprima React (`src/documento/preview/PaginaPrezzi.tsx`), l'unico punto dove un
+placeholder `{{...}}` può comparire è la colonna descrizione delle voci (righe voci
+grezzo e post-sconto, oggi `<td>{v.descrizione}</td>` in entrambi i casi). Quando presente,
+il token va reso in grigio per distinguerlo a colpo d'occhio dal testo reale caricato
+dall'utente.
+
+- Nuovo helper puro in `src/domain/calcolo.ts`:
+  `segmentaPlaceholder(descrizione: string): { testo: string; placeholder: boolean }[]`,
+  stesso regex di `rilevaPlaceholderSpessoreNonInterpolati` — spezza la stringa in segmenti
+  di testo normale e segmenti-placeholder.
+- Nuovo componente `DescrizioneVoce` in `src/documento/preview/` che mappa i segmenti in
+  `<span>`, applicando la classe `placeholder-non-interpolato` solo ai segmenti-placeholder.
+- `PaginaPrezzi.tsx` sostituisce entrambi i `<td>{v.descrizione}</td>` con
+  `<td><DescrizioneVoce descrizione={v.descrizione} /></td>` — un solo componente per i due
+  punti, nessuna duplicazione di logica di split.
+- Nuova regola in `src/documento/preview/print.css`:
+  `.pagina-a4 .placeholder-non-interpolato { color: #9a9a9a; }` — un grigio neutro dedicato,
+  distinto sia da `--color-text` (quasi nero) sia da `--color-text-secondary` (marrone caldo,
+  già usato per altro testo editoriale) per non essere confuso con contenuto legittimo.
+- Ambito solo anteprima: nel `.docx` esportato questo caso non si presenta mai, perché il
+  guardrail in `export-docx.ts` blocca l'export finché il placeholder resta non risolto.
+- Se in futuro un placeholder a doppia graffa comparirà in un campo diverso dalla
+  descrizione voce, andrà applicato lo stesso trattamento lì; oggi non esiste alcun altro
+  campo che possa contenerne (verificato: `v.descrizione` in `PaginaPrezzi.tsx` è l'unico
+  punto di rendering di una `descrizioneTemplate` in tutte le pagine di anteprima).
+
+## 4. Avviso visibile quando un campo fondamentale manca
 
 Riuso del meccanismo di avvisi già esistente (`src/ai/coerenza.ts` → `verificaCoerenza`),
 già renderizzato come banner `Alert` in cima a `PannelloPreview.tsx` — usato sia nel wizard
@@ -67,7 +95,7 @@ d'inserimento copre entrambi i percorsi, nessuna duplicazione.
   livello modulo è già gestito da `vociIncluse` a monte, dentro `eseguiCalcolo`): nessun
   falso allarme per una voce non applicabile a quel pacchetto.
 
-## 4. Estrazione AI dalla frase iniziale (opzionale in ingresso)
+## 5. Estrazione AI dalla frase iniziale (opzionale in ingresso)
 
 - `SchemaCampiEstratti` (`src/ai/estrazione.ts`) guadagna 4 campi opzionali:
   `spessoreEsterno`, `spessoreInterno`, `spessoreCoibente`, `spessoreCappotto`
@@ -106,6 +134,13 @@ d'inserimento copre entrambi i percorsi, nessuna duplicazione.
 - `src/documento/export-docx.test.ts`: i test esistenti sul guardrail (righe ~198-219)
   restano validi verificando il nuovo import; aggiungere un caso con `spessori` completo in
   ingresso che produce un `.docx` senza errore (nessun placeholder residuo).
+- `src/domain/calcolo.ts` (nuovo test): `segmentaPlaceholder` produce un solo segmento non-
+  placeholder per una stringa senza token; per una stringa con uno o più `{{...}}` produce
+  l'esatta sequenza di segmenti testo/placeholder attesa, preservando l'ordine e il testo
+  circostante.
+- `src/documento/preview/DescrizioneVoce.test.tsx` (nuovo): il componente applica la classe
+  `placeholder-non-interpolato` solo ai segmenti placeholder e nessuna classe al testo
+  normale; con una descrizione priva di placeholder il rendering è testo semplice.
 - `src/ai/coerenza.ts` (test esistente, da estendere): nuovo caso che verifica l'avviso
   `'spessore-non-interpolato'` quando `risultato.vociValorizzate` contiene descrizioni con
   `{{...}}` residuo, e la sua assenza quando tutte le voci incluse sono già interpolate.
