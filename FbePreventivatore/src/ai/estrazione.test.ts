@@ -63,6 +63,25 @@ describe('estraiCampi', () => {
     const rispostaIncompleta = JSON.stringify({ cliente: { comune: 'Trissino' } })
     await expect(estraiCampi('testo qualsiasi', clienteFinto(rispostaIncompleta))).rejects.toThrow()
   })
+
+  it('accetta gli spessori come testo libero, anche composito', async () => {
+    const risposta = JSON.stringify({
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      spessoreEsterno: '205-160',
+      spessoreInterno: '160',
+      spessoreCoibente: '200',
+      spessoreCappotto: '60+40',
+      campiMancanti: [],
+    })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.spessoreEsterno).toBe('205-160')
+    expect(campi.spessoreInterno).toBe('160')
+    expect(campi.spessoreCoibente).toBe('200')
+    expect(campi.spessoreCappotto).toBe('60+40')
+  })
 })
 
 describe('PROMPT_SISTEMA', () => {

@@ -21,6 +21,10 @@ export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoFor
       ...CARATTERISTICHE_DEFAULT,
       ...(campi.tipoCopertura ? { copertura: campi.tipoCopertura } : {}),
       ...(campi.finituraEsterna ? { finituraEsterna: campi.finituraEsterna } : {}),
+      ...(campi.spessoreEsterno ? { spessoreEsterno: campi.spessoreEsterno } : {}),
+      ...(campi.spessoreInterno ? { spessoreInterno: campi.spessoreInterno } : {}),
+      ...(campi.spessoreCoibente ? { spessoreCoibente: campi.spessoreCoibente } : {}),
+      ...(campi.spessoreCappotto ? { spessoreCappotto: campi.spessoreCappotto } : {}),
     },
     // Quasi sempre la stessa frase per ogni preventivo MHM: mai richiesta via AI/dialogo,
     // resta comunque modificabile a mano nel tab Anagrafica.

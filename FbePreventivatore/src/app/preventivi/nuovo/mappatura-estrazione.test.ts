@@ -164,4 +164,31 @@ describe('statoFormDaCampiEstratti', () => {
 
     expect(statoFormDaCampiEstratti(campi).oggetto).toBe(OGGETTO_STANDARD)
   })
+
+  it('mappa gli spessori estratti quando presenti', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      spessoreEsterno: '205-160',
+      spessoreCappotto: '60+40',
+      campiMancanti: [],
+    }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.caratteristiche).toMatchObject({ spessoreEsterno: '205-160', spessoreCappotto: '60+40' })
+  })
+
+  it('senza spessori estratti, usa i default vuoti', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.caratteristiche).toMatchObject({
+      spessoreEsterno: '',
+      spessoreInterno: '',
+      spessoreCoibente: '',
+      spessoreCappotto: '',
+    })
+  })
 })

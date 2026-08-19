@@ -14,6 +14,10 @@ const SchemaCampiEstratti = z.object({
   tipoCopertura: z.enum(['piano', 'falde']).optional(),
   finituraEsterna: z.enum(['intonaco', 'rivestimento']).optional(),
   pacchetto: z.enum(['grezzo', 'grezzo avanzato', 'chiavi in mano']).optional(),
+  spessoreEsterno: z.string().optional(),
+  spessoreInterno: z.string().optional(),
+  spessoreCoibente: z.string().optional(),
+  spessoreCappotto: z.string().optional(),
   campiMancanti: z.array(z.string()).default([]),
 })
 
@@ -52,6 +56,10 @@ Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
   "tipoCopertura"?: "piano" | "falde",
   "finituraEsterna"?: "intonaco" | "rivestimento",
   "pacchetto"?: "grezzo" | "grezzo avanzato" | "chiavi in mano",
+  "spessoreEsterno"?: string,
+  "spessoreInterno"?: string,
+  "spessoreCoibente"?: string,
+  "spessoreCappotto"?: string,
   "campiMancanti": string[]
 }
 Il campo "piano" di ogni superficie deve usare ESATTAMENTE una di queste stringhe,
@@ -62,6 +70,10 @@ Esempi di normalizzazione attesa: "piano terra" → "Piano Terra"; "PT" → "Pia
 "box auto"/"autorimessa" → "Garage".
 Se un piano citato nel testo non corrisponde a nessuna di queste voci, riportalo come
 lo trovi e aggiungilo a campiMancanti: sarà corretto a mano.
+
+Gli spessori (spessoreEsterno, spessoreInterno, spessoreCoibente, spessoreCappotto) sono
+testo libero in millimetri, anche composito (es. "60+40", "205-160"): riportali esattamente
+come scritti dal cliente, senza normalizzarli né inventarli.
 
 Se "luogo" non è specificato esplicitamente nel testo, NON aggiungerlo a campiMancanti:
 verrà dedotto automaticamente dal comune del cliente.
