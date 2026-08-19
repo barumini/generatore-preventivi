@@ -107,6 +107,21 @@ function costruisciInputEsportazione(percorsoOutput: string): InputEsportazione 
   }
 }
 
+// Stesso golden case Crivellaro, ma con gli spessori compilati: l'export deve riuscire senza
+// il residuo di sviluppo e SENZA il ricorso a `consentiPlaceholderNonRisolti` (Task 3/4 del
+// fix ai placeholder di spessore non interpolati).
+function costruisciInputEsportazioneConSpessoriCompilati(percorsoOutput: string): InputEsportazione {
+  const risultatoConSpessori = eseguiCalcolo({
+    ...INPUT_CRIVELLARO,
+    spessori: { spessoreEsterno: '205', spessoreInterno: '160', spessoreCoibente: '200', spessoreCappotto: '140' },
+  })
+  return {
+    ...costruisciInputEsportazione(percorsoOutput),
+    risultato: risultatoConSpessori,
+    consentiPlaceholderNonRisolti: undefined,
+  }
+}
+
 function percorsoOutputTemporaneo(): string {
   return path.join(os.tmpdir(), `export-docx-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.docx`)
 }
@@ -218,6 +233,27 @@ describe('esportaOfferta — placeholder di spessore non interpolati (review Tas
     expect(new Set(trovati)).toEqual(
       new Set(['{{spessoreEsterno}}', '{{spessoreInterno}}', '{{spessoreCoibente}}', '{{spessoreCappotto}}']),
     )
+  })
+})
+
+describe('esportaOfferta — spessori compilati (fix follow-up ai placeholder)', () => {
+  it('esporta senza errore e senza consentiPlaceholderNonRisolti quando tutti gli spessori sono forniti', () => {
+    const percorsoOutput = percorsoOutputTemporaneo()
+    const input = costruisciInputEsportazioneConSpessoriCompilati(percorsoOutput)
+
+    try {
+      expect(() => esportaOfferta(input)).not.toThrow()
+
+      const documentoXml = new PizZip(fs.readFileSync(percorsoOutput)).file('word/document.xml')!.asText()
+      expect(documentoXml).toContain('sp. mm 205')
+      expect(documentoXml).toContain('sp. mm 140')
+      expect(documentoXml).not.toContain('{{spessoreEsterno}}')
+      expect(documentoXml).not.toContain('{{spessoreInterno}}')
+      expect(documentoXml).not.toContain('{{spessoreCoibente}}')
+      expect(documentoXml).not.toContain('{{spessoreCappotto}}')
+    } finally {
+      fs.rmSync(percorsoOutput, { force: true })
+    }
   })
 })
 
