@@ -4,6 +4,7 @@ import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
 import type { InputCalcolo, ParametriSconto, Sicurezza } from '@/domain/calcolo'
 import type { CondizioniForm } from '@/documento/condizioni-default'
+import type { Parete, VoceGeometricaLibera } from '@/domain/importazione-excel'
 
 export interface CaratteristicheCostruttive {
   // 'piano' è solo descrittivo in questo giro: nel catalogo (src/domain/voci.ts) non esiste
@@ -74,6 +75,14 @@ export interface StatoForm {
   totaleLordoTesto?: string // NUOVO — testo libero per InputEsportazione.superfici.totaleLorda (spec §2)
   serramenti: Serramento[]
   perimetro: number
+  // Dati grezzi dell'import Excel (v2, "Conteggi pulito.xlsx"): non entrano in
+  // inputCalcoloDaStato, il motore di calcolo non li usa come driver di prezzo (nessuna
+  // voce del catalogo è priced su pareti/falde/travi singole). Restano informativi,
+  // mostrati in sola lettura nel wizard — coerente con la scelta di conservare la forma
+  // scritta invece di interpretarla (stessa logica delle superfici a stringa libera).
+  pareti?: Parete[]
+  falde?: VoceGeometricaLibera[]
+  travi?: VoceGeometricaLibera[]
   livelli: Record<Modulo, LivelloModulo>
   chiaviInManoNelTotale: boolean
   sconti: ParametriSconto[]
