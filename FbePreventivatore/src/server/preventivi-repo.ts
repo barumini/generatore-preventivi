@@ -133,12 +133,13 @@ export async function elencaPreventivi(db: PrismaClient) {
     id: p.id,
     protocollo: p.protocollo,
     cliente: p.cliente,
+    createdAt: p.createdAt,
     ultimaRevisione: p.revisioni[0]
       ? {
           numero: p.revisioni[0].numero,
           stato: p.revisioni[0].stato,
           data: p.revisioni[0].data,
-          documentoGenerato: p.revisioni[0].documentoGeneratoAt !== null,
+          documentoGeneratoAt: p.revisioni[0].documentoGeneratoAt,
         }
       : null,
   }))

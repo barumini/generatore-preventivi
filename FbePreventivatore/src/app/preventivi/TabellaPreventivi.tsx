@@ -12,7 +12,20 @@ interface RigaPreventivo {
   id: string
   protocollo: string
   cliente: { nome: string }
-  ultimaRevisione: { numero: number; stato: string; documentoGenerato: boolean } | null
+  createdAt: string | Date
+  ultimaRevisione: { numero: number; stato: string; documentoGeneratoAt: string | Date | null } | null
+}
+
+const FORMATO_DATA_ORA = new Intl.DateTimeFormat('it-IT', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+function formattaDataOra(valore: string | Date): string {
+  return FORMATO_DATA_ORA.format(new Date(valore))
 }
 
 export function TabellaPreventivi({ preventivi }: { preventivi: RigaPreventivo[] }) {
@@ -105,8 +118,10 @@ export function TabellaPreventivi({ preventivi }: { preventivi: RigaPreventivo[]
               </th>
               <th className="px-4 py-2.5">Cliente</th>
               <th className="px-4 py-2.5">Protocollo</th>
+              <th className="px-4 py-2.5">Creato il</th>
               <th className="px-4 py-2.5">Ultima revisione</th>
               <th className="px-4 py-2.5">Stato</th>
+              <th className="px-4 py-2.5">Report generato</th>
               <th className="px-4 py-2.5"></th>
               <th className="px-4 py-2.5"></th>
             </tr>
@@ -124,8 +139,12 @@ export function TabellaPreventivi({ preventivi }: { preventivi: RigaPreventivo[]
                 </td>
                 <td className="px-4 py-2.5 text-text">{p.cliente.nome}</td>
                 <td className="px-4 py-2.5 text-text-secondary">{p.protocollo}</td>
+                <td className="px-4 py-2.5 text-text-secondary">{formattaDataOra(p.createdAt)}</td>
                 <td className="px-4 py-2.5 text-text-secondary">{p.ultimaRevisione?.numero ?? '—'}</td>
                 <td className="px-4 py-2.5 text-text-secondary">{p.ultimaRevisione?.stato ?? '—'}</td>
+                <td className="px-4 py-2.5 text-text-secondary">
+                  {p.ultimaRevisione?.documentoGeneratoAt ? formattaDataOra(p.ultimaRevisione.documentoGeneratoAt) : '—'}
+                </td>
                 <td className="px-4 py-2.5">
                   {p.ultimaRevisione && (
                     <Link
@@ -137,7 +156,7 @@ export function TabellaPreventivi({ preventivi }: { preventivi: RigaPreventivo[]
                   )}
                 </td>
                 <td className="px-4 py-2.5">
-                  {p.ultimaRevisione?.documentoGenerato && (
+                  {p.ultimaRevisione?.documentoGeneratoAt && (
                     <button
                       type="button"
                       onClick={() => scaricaDocumento(p)}

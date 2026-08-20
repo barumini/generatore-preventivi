@@ -157,20 +157,27 @@ describe('elencaPreventivi', () => {
     expect(elenco[0].ultimaRevisione?.numero).toBe(2)
   })
 
-  it('segnala documentoGenerato false finché nessuna esportazione è mai riuscita', async () => {
+  it('espone documentoGeneratoAt null finché nessuna esportazione è mai riuscita', async () => {
     await creaPreventivoConBozza(db, DATI_BASE)
     const elenco = await elencaPreventivi(db)
-    expect(elenco[0].ultimaRevisione?.documentoGenerato).toBe(false)
+    expect(elenco[0].ultimaRevisione?.documentoGeneratoAt).toBeNull()
   })
 
-  it('segnala documentoGenerato true dopo che documentoGeneratoAt è stato valorizzato', async () => {
+  it('espone documentoGeneratoAt dopo che è stato valorizzato', async () => {
     const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    const generatoIl = new Date('2026-08-20T07:58:00.000Z')
     await db.revisione.update({
       where: { preventivoId_numero: { preventivoId: preventivo.id, numero: 1 } },
-      data: { documentoGeneratoAt: new Date() },
+      data: { documentoGeneratoAt: generatoIl },
     })
     const elenco = await elencaPreventivi(db)
-    expect(elenco[0].ultimaRevisione?.documentoGenerato).toBe(true)
+    expect(elenco[0].ultimaRevisione?.documentoGeneratoAt).toEqual(generatoIl)
+  })
+
+  it('espone la data di creazione del preventivo', async () => {
+    await creaPreventivoConBozza(db, DATI_BASE)
+    const elenco = await elencaPreventivi(db)
+    expect(elenco[0].createdAt).toBeInstanceOf(Date)
   })
 })
 
