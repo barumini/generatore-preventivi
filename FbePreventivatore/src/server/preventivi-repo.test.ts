@@ -6,6 +6,7 @@ import {
   aggiungiRevisione,
   aggiornaBozza,
   elencaPreventivi,
+  eliminaPreventivi,
   caricaRevisione,
   RisorsaNonTrovata,
 } from './preventivi-repo'
@@ -154,5 +155,45 @@ describe('elencaPreventivi', () => {
     const elenco = await elencaPreventivi(db)
     expect(elenco).toHaveLength(1)
     expect(elenco[0].ultimaRevisione?.numero).toBe(2)
+  })
+
+  it('segnala documentoGenerato false finché nessuna esportazione è mai riuscita', async () => {
+    await creaPreventivoConBozza(db, DATI_BASE)
+    const elenco = await elencaPreventivi(db)
+    expect(elenco[0].ultimaRevisione?.documentoGenerato).toBe(false)
+  })
+
+  it('segnala documentoGenerato true dopo che documentoGeneratoAt è stato valorizzato', async () => {
+    const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    await db.revisione.update({
+      where: { preventivoId_numero: { preventivoId: preventivo.id, numero: 1 } },
+      data: { documentoGeneratoAt: new Date() },
+    })
+    const elenco = await elencaPreventivi(db)
+    expect(elenco[0].ultimaRevisione?.documentoGenerato).toBe(true)
+  })
+})
+
+describe('eliminaPreventivi', () => {
+  it('cancella il preventivo e tutte le sue revisioni', async () => {
+    const preventivo = await creaPreventivoConBozza(db, DATI_BASE)
+    await aggiungiRevisione(db, preventivo.id, DATI_BASE)
+
+    await eliminaPreventivi(db, [preventivo.id])
+
+    expect(await elencaPreventivi(db)).toHaveLength(0)
+    expect(await db.revisione.findMany({ where: { preventivoId: preventivo.id } })).toHaveLength(0)
+  })
+
+  it('cancella più preventivi in una sola chiamata senza toccare gli altri', async () => {
+    const uno = await creaPreventivoConBozza(db, DATI_BASE)
+    const due = await creaPreventivoConBozza(db, { ...DATI_BASE, protocollo: '2026060' })
+    const tre = await creaPreventivoConBozza(db, { ...DATI_BASE, protocollo: '2026061' })
+
+    await eliminaPreventivi(db, [uno.id, due.id])
+
+    const elenco = await elencaPreventivi(db)
+    expect(elenco).toHaveLength(1)
+    expect(elenco[0].id).toBe(tre.id)
   })
 })

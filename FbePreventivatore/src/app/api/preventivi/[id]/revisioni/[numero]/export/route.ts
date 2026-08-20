@@ -21,6 +21,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const buffer = costruisciBufferOfferta(inputEsportazione)
     const nomeFile = `${revisione.preventivo.protocollo}-rev${inputEsportazione.revisione}.docx`
 
+    await prisma.revisione.update({
+      where: { preventivoId_numero: { preventivoId: id, numero: revisione.numero } },
+      data: { documentoGeneratoAt: new Date() },
+    })
+
     return new Response(new Uint8Array(buffer), {
       status: 200,
       headers: {

@@ -134,9 +134,21 @@ export async function elencaPreventivi(db: PrismaClient) {
     protocollo: p.protocollo,
     cliente: p.cliente,
     ultimaRevisione: p.revisioni[0]
-      ? { numero: p.revisioni[0].numero, stato: p.revisioni[0].stato, data: p.revisioni[0].data }
+      ? {
+          numero: p.revisioni[0].numero,
+          stato: p.revisioni[0].stato,
+          data: p.revisioni[0].data,
+          documentoGenerato: p.revisioni[0].documentoGeneratoAt !== null,
+        }
       : null,
   }))
+}
+
+export async function eliminaPreventivi(db: PrismaClient, ids: string[]) {
+  await db.$transaction([
+    db.revisione.deleteMany({ where: { preventivoId: { in: ids } } }),
+    db.preventivo.deleteMany({ where: { id: { in: ids } } }),
+  ])
 }
 
 export async function caricaRevisione(db: PrismaClient, preventivoId: string, numero: number) {

@@ -46,5 +46,9 @@ model Revisione {
   inputCalcolo     String
   risultatoCalcolo String
 
+  // Valorizzato alla prima esportazione .docx riuscita — non un riferimento al file
+  // (mai persistito), serve solo a mostrare il pulsante di download nell'elenco.
+  documentoGeneratoAt DateTime?
+
   @@unique([preventivoId, numero])
 }

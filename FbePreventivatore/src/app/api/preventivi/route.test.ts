@@ -4,7 +4,7 @@ import { applicaMigrazioni, creaClientDiTest } from '@/server/test-db'
 vi.mock('@/server/prisma', () => ({ prisma: creaClientDiTest() }))
 
 const { prisma: db } = await import('@/server/prisma')
-const { POST, GET } = await import('./route')
+const { POST, GET, DELETE } = await import('./route')
 
 beforeAll(async () => {
   await applicaMigrazioni(db)
@@ -51,5 +51,29 @@ describe('GET /api/preventivi', () => {
     const corpo = await risposta.json()
     expect(corpo).toHaveLength(1)
     expect(corpo[0].protocollo).toBe('2026059')
+  })
+})
+
+describe('DELETE /api/preventivi', () => {
+  it('cancella i preventivi indicati e risponde 204', async () => {
+    const creato = await POST(
+      new Request('http://localhost/api/preventivi', { method: 'POST', body: JSON.stringify(CORPO_BASE) }),
+    )
+    const { id } = await creato.json()
+
+    const risposta = await DELETE(
+      new Request('http://localhost/api/preventivi', { method: 'DELETE', body: JSON.stringify({ ids: [id] }) }),
+    )
+    expect(risposta.status).toBe(204)
+
+    const elenco = await (await GET()).json()
+    expect(elenco).toHaveLength(0)
+  })
+
+  it('risponde 400 se ids non è un array di stringhe non vuoto', async () => {
+    const risposta = await DELETE(
+      new Request('http://localhost/api/preventivi', { method: 'DELETE', body: JSON.stringify({ ids: [] }) }),
+    )
+    expect(risposta.status).toBe(400)
   })
 })

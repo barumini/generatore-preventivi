@@ -4,17 +4,12 @@ import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { Button } from './Button'
 import { Alert } from './Alert'
+import { scaricaDocumentoDaRisposta } from './scarica-blob'
 
 interface Props {
   preventivoId: string
   numero: number
   primaDiGenerare: () => Promise<boolean>
-}
-
-function nomeFileDaContentDisposition(header: string | null): string | null {
-  if (!header) return null
-  const match = header.match(/filename="([^"]+)"/)
-  return match ? match[1] : null
 }
 
 export function PulsanteGeneraDocumento({ preventivoId, numero, primaDiGenerare }: Props) {
@@ -30,18 +25,7 @@ export function PulsanteGeneraDocumento({ preventivoId, numero, primaDiGenerare 
       }
 
       const risposta = await fetch(`/api/preventivi/${preventivoId}/revisioni/${numero}/export`, { method: 'POST' })
-      if (!risposta.ok) {
-        const corpo = await risposta.json().catch(() => ({ errore: `Errore ${risposta.status}` }))
-        throw new Error(corpo.errore ?? `Errore ${risposta.status}`)
-      }
-
-      const blob = await risposta.blob()
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = nomeFileDaContentDisposition(risposta.headers.get('Content-Disposition')) ?? 'offerta.docx'
-      link.click()
-      URL.revokeObjectURL(url)
+      await scaricaDocumentoDaRisposta(risposta, 'offerta.docx')
 
       setStato('inattivo')
     } catch (errore) {

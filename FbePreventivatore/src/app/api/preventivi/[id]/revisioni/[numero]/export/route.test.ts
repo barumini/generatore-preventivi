@@ -100,6 +100,17 @@ describe('POST /api/preventivi/[id]/revisioni/[numero]/export', () => {
     expect(buffer.length).toBeGreaterThan(0)
   })
 
+  it('valorizza documentoGeneratoAt sulla revisione dopo un export riuscito', async () => {
+    const preventivo = await creaPreventivoConBozza(db, corpoBozza(STATO_SENZA_PLACEHOLDER))
+    await POST(new Request('http://localhost', { method: 'POST' }), {
+      params: Promise.resolve({ id: preventivo.id, numero: '1' }),
+    })
+    const revisione = await db.revisione.findUnique({
+      where: { preventivoId_numero: { preventivoId: preventivo.id, numero: 1 } },
+    })
+    expect(revisione?.documentoGeneratoAt).not.toBeNull()
+  })
+
   it('risponde 404 se la revisione non esiste', async () => {
     const preventivo = await creaPreventivoConBozza(db, corpoBozza(STATO_SENZA_PLACEHOLDER))
     const risposta = await POST(new Request('http://localhost', { method: 'POST' }), {
