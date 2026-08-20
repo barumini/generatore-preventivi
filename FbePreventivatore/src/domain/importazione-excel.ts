@@ -33,12 +33,17 @@ export interface RisultatoImportazioneExcel {
 const COL = { N: 2, PIANO: 3, TIPOLOGIA: 4, B: 6, H: 7 } as const
 const COL_PARETI = { N: 2, TIPO: 3, B: 4, H: 5, SP: 6 } as const
 const COL_FALDE = { N: 2, ETICHETTA: 3, NOTAZIONE: 5 } as const
-const COL_TRAVI = { ETICHETTA: 3, NOTAZIONE: 6 } as const
+const COL_TRAVI = { ETICHETTA: 2, NOTAZIONE: 5 } as const
 const COL_COPERTURA_TOTALE_LORDA = 11
 const COL_COPERTURA_TOTALE_NETTA = 16
 
 function testoCella(cella: Cella): string {
-  return cella === null || cella === undefined ? '' : String(cella).trim()
+  if (cella === null || cella === undefined) return ''
+  // Una cella numerica "pura" (es. Grondaia: 45,6 ml, senza notazione composta) può essere
+  // salvata con rumore in virgola mobile (45.599999999999994): non è la forma scritta
+  // dall'operatore, è un artefatto del formato file, quindi qui va ripulito.
+  if (typeof cella === 'number') return String(Math.round(cella * 100) / 100)
+  return String(cella).trim()
 }
 
 function numeroCella(cella: Cella): number | null {

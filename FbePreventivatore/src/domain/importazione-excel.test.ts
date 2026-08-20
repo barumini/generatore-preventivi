@@ -40,12 +40,12 @@ const RIGHE_CRIVELLARO: Riga[] = [
   rigaVuota(),
   [, , 'TRAVI'],
   rigaVuota(),
-  [, , , 'Colmo', , , '16,5x0,2x0,32'],
-  [, , , 'Colmo', , , '6,3x0,2x0,33'],
-  [, , , 'Pilastri ex', , , '(2)2,7+4,15+(4)2,6+3,8x0,2x0,20'],
-  [, , , 'Travi ex', , , '(2)3,2+(2)6x0,2x0,24'],
-  [, , , 'Pilastri int', , , '0,2x0,2'],
-  [, , , 'travi interne', , , '1,6x0,2x0,24'],
+  [, , 'Colmo', , , '16,5x0,2x0,32'],
+  [, , 'Colmo', , , '6,3x0,2x0,33'],
+  [, , 'Pilastri ex', , , '(2)2,7+4,15+(4)2,6+3,8x0,2x0,20'],
+  [, , 'Travi ex', , , '(2)3,2+(2)6x0,2x0,24'],
+  [, , 'Pilastri int', , , '0,2x0,2'],
+  [, , 'travi interne', , , '1,6x0,2x0,24'],
   rigaVuota(),
   [, , 'PARETI'],
   rigaVuota(),
@@ -128,6 +128,16 @@ describe('importaConteggiExcel — COPERTURA e TRAVI (notazione libera)', () => 
   it('conserva etichetta e notazione delle voci di copertura senza tentare di calcolarle', () => {
     const risultato = importaConteggiExcel(RIGHE_CRIVELLARO)
     expect(risultato.falde).toContainEqual({ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' })
+    expect(risultato.falde).toContainEqual({ etichetta: 'Grondaia', notazione: '45.6' })
+  })
+
+  it('arrotonda a 2 decimali il rumore in virgola mobile di una cella numerica (es. 45,6 salvato come 45.599999999999994)', () => {
+    const righe: Riga[] = [
+      [, , 'COPERTURA'],
+      rigaVuota(),
+      [, , 1, 'Grondaia', , 45.599999999999994],
+    ]
+    const risultato = importaConteggiExcel(righe)
     expect(risultato.falde).toContainEqual({ etichetta: 'Grondaia', notazione: '45.6' })
   })
 

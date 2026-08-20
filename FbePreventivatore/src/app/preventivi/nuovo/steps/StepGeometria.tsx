@@ -192,6 +192,59 @@ export function StepGeometria({ stato, aggiorna }: Props) {
           </span>
         </Button>
       </Section>
+
+      <DatiImportatiExcel stato={stato} />
+    </Section>
+  )
+}
+
+// Pareti/falde/travi arrivano solo dall'import Excel (v2): il motore di calcolo non li usa
+// come driver di prezzo (nessuna voce del catalogo è priced su di essi), quindi restano
+// di sola lettura — non c'è uno stato da modificare, solo dati di riferimento da consultare.
+function DatiImportatiExcel({ stato }: { stato: StatoForm }) {
+  const haPareti = (stato.pareti?.length ?? 0) > 0
+  const haFalde = (stato.falde?.length ?? 0) > 0
+  const haTravi = (stato.travi?.length ?? 0) > 0
+  if (!haPareti && !haFalde && !haTravi) return null
+
+  return (
+    <Section title="Dati tecnici importati dall'Excel (di riferimento, non prezzati)">
+      {haPareti && (
+        <div className="mb-3">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Pareti</p>
+          <ul className="text-sm text-text-secondary">
+            {stato.pareti!.map((parete) => (
+              <li key={parete.n}>
+                n. {parete.n} · {parete.tipo === 'E' ? 'esterna' : 'interna'} · {parete.b}×{parete.h} m · sp. {parete.spessore} mm
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {haFalde && (
+        <div className="mb-3">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Copertura</p>
+          <ul className="text-sm text-text-secondary">
+            {stato.falde!.map((voce, i) => (
+              <li key={i}>
+                {voce.etichetta}: {voce.notazione}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {haTravi && (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Travi</p>
+          <ul className="text-sm text-text-secondary">
+            {stato.travi!.map((voce, i) => (
+              <li key={i}>
+                {voce.etichetta}: {voce.notazione}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Section>
   )
 }
