@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { ChatApertura } from './ChatApertura'
 import { WizardConSalvataggio } from '../WizardConSalvataggio'
+import { Breadcrumb } from '../ui/Breadcrumb'
 import type { StatoForm } from './stato-form'
 
 const STATO_INIZIALE_VUOTO: Partial<StatoForm> = {}
@@ -16,6 +17,9 @@ export default function NuovoPreventivo() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 pt-6">
+      <Breadcrumb
+        voci={[{ label: 'Home', href: '/' }, { label: 'Preventivi', href: '/preventivi' }, { label: 'Nuovo preventivo' }]}
+      />
       <ChatApertura
         onEstrazioneCompletata={(parziale) => {
           setAggiornamentoEsterno((precedente) => ({ versione: (precedente?.versione ?? 0) + 1, parziale }))
