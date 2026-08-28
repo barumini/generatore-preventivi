@@ -120,9 +120,12 @@ inventa dati non dichiarati).
 
 ### 3.2 Compilazione manuale (o completamento dopo l'estrazione AI)
 
-Compila (o verifica, se hai usato la chat sopra) lo `StatoForm` con questi valori
-(identici a `STATO_CRIVELLARO` in
-[`stato-form.test.ts`](../src/app/preventivi/nuovo/stato-form.test.ts)):
+Compila (o verifica, se hai usato la chat sopra) lo `StatoForm`, step per step. **Lo step
+4 "Prezzi" è quello che fa quadrare i totali: senza gli override digitati lì, il motore
+propone i valori del listino parametrico (leggermente diversi, non tondi) e il totale
+target resta 0** — è la causa più probabile se i tuoi totali non coincidono con la stima.
+
+**1. Anagrafica**
 
 | Campo | Valore |
 |---|---|
@@ -131,25 +134,76 @@ Compila (o verifica, se hai usato la chat sopra) lo `StatoForm` con questi valor
 | Oggetto | Fornitura e posa in opera di casa in legno MHM |
 | Data | 2026-08-07 |
 | Luogo | Trissino |
-| Superfici | Piano Terra: `134` · Portico: `13+14` · Garage: `41` (totale lordo 161 mq, superficie sedime 134 mq da Piano Terra) |
-| Serramenti | almeno 1 voce: porta di ingresso, PT, b=1, h=2.2 (portoncino) |
-| Perimetro | 60 |
+
+**2. Configurazione** (struttura/involucro/finiture e copertura sono già i default corretti — verificali comunque)
+
+| Campo | Valore |
+|---|---|
 | Livelli | struttura completo · involucro completo · finiture impoverito → pacchetto **"Grezzo avanzato"** |
-| Chiavi in mano nel totale | Sì (non cambia il pacchetto: resta "Grezzo avanzato", il flag decide solo l'inclusione nel totale) |
-| Sconti | 10% causale "sconto cliente" — **inserisci un secondo 10%** ("sconto conferma") per riprodurre la cascata del golden case |
-| Totale target | 300000 (guida l'arrotondamento automatico) |
+| Chiavi in mano nel totale | Sì (checkbox — non cambia il pacchetto: resta "Grezzo avanzato", decide solo l'inclusione nel totale) |
+| Copertura / manto / finitura esterna / tetto | A falde · Tegole in cemento · Intonaco · "Tetto con travi e perline in abete" |
+| Spessori | esterno 205 · interno 160 · coibente 200 · cappotto 140 (mm) |
+
+**3. Geometria**
+
+| Campo | Valore |
+|---|---|
+| Superfici | Piano Terra: `134` · Portico: `13+14` · Garage: `41` (totale lordo 161 mq, sedime 134 mq) |
+| Perimetro | 60 |
+| Serramenti | tutti e 11, non solo il portoncino — vedi `SERRAMENTI_CRIVELLARO` in [`geometria.test.ts`](../src/domain/geometria.test.ts): 1 portoncino (1×2.2), 9 finestre/portafinestra di dimensioni varie, per un totale di **30,50 mq lordi / 15,89 mq netti** (le mq nette sono calcolate dalle detrazioni standard 0,60×0,30, non serve inserirle a mano) |
+
+**4. Prezzi — override voci di listino (il passaggio critico)**
+
+Ogni voce del catalogo ha un campo "proposto dal listino"; il golden case usa valori
+**digitati**, non quelli proposti. Inserisci esattamente questi (da `INPUT_CRIVELLARO` in
+[`calcolo.test.ts`](../src/domain/calcolo.test.ts)):
+
+| id voce | Override |
+|---|---:|
+| `pareti-mhm` | 96100 |
+| `trave-larice` | 5800 |
+| `copertura-falda` | 63600 |
+| `cappotto` | 20300 |
+| `cartongesso-q2` | 15500 |
+| `assistenza-cartongessisti` | 2200 |
+| `infissi-pvc` | 19300 |
+| `monoblocchi` | 10200 |
+| `progettazione-esecutiva` | 4000 |
+| `opere-chiavi-in-mano` | 89100 |
+| `garage` | 20000 |
+
+(`tracciamento-impianti` e `pareti-telaio` restano testuali "comprese", nessun override;
+`solaio-interpiano` è escluso perché Crivellaro è monopiano.)
+
+Poi imposta:
+
+| Campo | Valore |
+|---|---|
+| Totale target | 300000 |
 | Sicurezza | costo dichiarato 2000, valorizzata `OMAGGIO` |
-| Copertura | falde, manto Tegole in cemento, finitura esterna intonaco, tetto con travi e perline in abete |
-| Spessori | lasciali vuoti (nel golden case restano placeholder non risolti — è atteso) |
 
-Verifica nel pannello preview / nel documento generato:
+**5. Condizioni**
 
-1. `Listino 2026` = **237 000,00**
-2. Dopo i due sconti a cascata → **191 970,00**
-3. Con l'arrotondamento risolto sul totale target → `PARZIALE` = **190 900,00**
-4. `TOTALE` finale (parziale + chiavi in mano + garage, sicurezza OMAGGIO non pesa) = **300 000,00**
-5. Numerazione voci calcolata al render (non hard-coded) e importi con formato italiano
-   (`96 100,00 €`, spazio migliaia + virgola decimale)
+| Campo | Valore |
+|---|---|
+| Sconti | riga 1: 10% "sconto cliente" · riga 2: 10% "per conferme entro il 30.06.2026" (l'ordine conta: il secondo si applica al residuo del primo) |
+
+Verifica nel pannello preview / nel documento generato (valori confermati via test
+manuale in browser):
+
+1. `Listino 2026` = **237 000,00 €**
+2. `SCONTO RISERVATO: 10% sconto cliente` = **− 23 700,00 €** → `SCONTO RISERVATO: 10% per
+   conferme entro il 30.06.2026` = **− 21 330,00 €**
+3. `Arrotondamento` = **− 1 070,00 €**
+4. `PARZIALE AL GREZZO AVANZATO` = **190 900,00 €**
+5. `Stima opere chiavi in mano` = 89 100,00 € · `Garage` = 20 000,00 € · sicurezza OMAGGIO
+   non pesa
+6. `TOTALE AL NETTO` = **300 000,00 €**
+
+Se salti lo step Prezzi (nessun override, totale target a 0), osserverai invece: Listino
+≈ 237 031,75 € (proposto dal listino, non tondo), un arrotondamento enorme e negativo che
+cerca comunque di risolvere verso il totale target di 0, un `PARZIALE` negativo e un
+`TOTALE AL NETTO` di 0,00 € — sintomo diretto dello step 4 saltato.
 
 Se generi il documento Word, verifica che contenga `Crivellaro Mariano` e `300 000,00`
 (vedi asserzioni in
