@@ -68,8 +68,60 @@ Nota sugli sconti: sono **a cascata**, non additivi (10%+10% = 19%, non 20%).
 npm run dev
 ```
 
-Poi apri `http://localhost:3000/preventivi/nuovo` e compila lo `StatoForm` con questi
-valori (identici a `STATO_CRIVELLARO` in
+Poi apri `http://localhost:3000/preventivi/nuovo`.
+
+### 3.1 Precompilazione via AI — chat "Apertura rapida"
+
+Prima di compilare i campi a mano, puoi usare il riquadro "Apertura rapida" in cima alla
+pagina: invia un testo libero e `POST /api/estrazione` lo trasforma nei campi dello
+`StatoForm` tramite un modello locale (schema e prompt di sistema in
+[`src/ai/estrazione.ts`](../src/ai/estrazione.ts)).
+
+**Prerequisito**: LM Studio in esecuzione in locale con il server attivo (Impostazioni >
+Local Server > Start Server) e la variabile d'ambiente `LM_STUDIO_MODEL` impostata al nome
+esatto del modello caricato (`LM_STUDIO_BASE_URL` opzionale, default
+`http://localhost:1234/v1`). Senza queste due condizioni la chiamata fallisce con un errore
+leggibile invece di bloccarsi in silenzio.
+
+L'estrazione copre **solo** questi campi dello `StatoForm` (schema `CampiEstratti`):
+cliente (nome/comune/provincia), protocollo, progettista, luogo, superfici per piano,
+tipo di copertura, finitura esterna, pacchetto, i 4 spessori. **Non estrae**: perimetro,
+serramenti, sconti, totale target, sicurezza, manto, tipo di tetto — questi restano da
+compilare a mano dopo l'estrazione, in tutti i casi.
+
+Incolla questo testo nella chat per far compilare all'AI il massimo di campi possibile in
+un colpo solo (i valori seguono il golden case Crivellaro; spessori e progettista sono
+aggiunti qui — nel golden case reale restano vuoti/non assegnati — solo per verificare che
+l'estrazione copra l'intero schema):
+
+```
+Preventivo per il cliente Crivellaro Mariano, comune di Trissino, provincia VI.
+Protocollo 2026059. Progettista: arch. Paolo Bianchi. Luogo del cantiere: Trissino.
+Superfici: Piano Terra 134 mq, Portico 13+14 mq, Garage 41 mq.
+Copertura a falde, finitura esterna a intonaco. Pacchetto grezzo avanzato.
+Spessori: esterno 205 mm, interno 160 mm, coibente 200 mm, cappotto 140 mm.
+```
+
+Verifica dopo l'invio:
+
+- il form si precompila con tutti i campi sopra, i nomi piano normalizzati esattamente in
+  `Piano Terra` / `Portico` / `Garage` (i nomi devono coincidere carattere per carattere
+  con quelli in [`geometria.ts`](../src/domain/geometria.ts) — `PIANI_CANONICI` — altrimenti
+  il piano resta non riconosciuto e va corretto a mano)
+- il pacchetto "grezzo avanzato" imposta `livelli` = struttura completo, involucro
+  completo, finiture impoverito (vedi `livelliDaPacchetto`)
+- il messaggio dell'assistente non elenca campi mancanti (a parte eventualmente `luogo`,
+  che va comunque ignorato: si deduce dal comune anche se il modello lo segnala)
+
+Per testare il percorso "campo mancante", rimuovi una frase (es. togli "Protocollo
+2026059") e verifica che l'assistente segnali `protocollo` tra i campi da completare a
+mano, senza inventare un valore (vincolo CLAUDE.md §7 — l'AI non decide mai importi né
+inventa dati non dichiarati).
+
+### 3.2 Compilazione manuale (o completamento dopo l'estrazione AI)
+
+Compila (o verifica, se hai usato la chat sopra) lo `StatoForm` con questi valori
+(identici a `STATO_CRIVELLARO` in
 [`stato-form.test.ts`](../src/app/preventivi/nuovo/stato-form.test.ts)):
 
 | Campo | Valore |
