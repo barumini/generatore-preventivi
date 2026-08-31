@@ -144,6 +144,19 @@ Compila (o verifica, se hai usato la chat sopra) lo `StatoForm`, step per step. 
 propone i valori del listino parametrico (leggermente diversi, non tondi) e il totale
 target resta 0** — è la causa più probabile se i tuoi totali non coincidono con la stima.
 
+**Checklist prima di leggere i totali in preview** — questi 5 punti restano vuoti/di
+default senza dare nessun errore bloccante (solo l'avviso generico "l'arrotondamento
+supera il 2% del Listino"), e sono la causa più comune di totali sbagliati:
+
+- [ ] Step 3 Geometria → **Serramenti**: 11 righe compilate, nessuna rimasta alla riga di
+      default `0×0` (vedi tabella sotto)
+- [ ] Step 2 Configurazione → checkbox **"Chiavi in mano nel totale"** spuntata (di
+      default è deselezionata)
+- [ ] Step 4 Prezzi → tutti e **11 gli override** digitati, nessun campo lasciato vuoto
+      (vuoto = il motore usa il valore proposto dal listino, non quello del golden case)
+- [ ] Step 4 Prezzi → **Totale target** = `300000` (di default è `0`)
+- [ ] Step 5 Condizioni → **2 righe di sconto** aggiunte (di default la lista è vuota)
+
 **1. Anagrafica**
 
 | Campo | Valore |
@@ -169,7 +182,32 @@ target resta 0** — è la causa più probabile se i tuoi totali non coincidono 
 |---|---|
 | Superfici | Piano Terra: `134` · Portico: `13+14` · Garage: `41` (totale lordo 161 mq, sedime 134 mq) |
 | Perimetro | 60 |
-| Serramenti | tutti e 11, non solo il portoncino — vedi `SERRAMENTI_CRIVELLARO` in [`geometria.test.ts`](../src/domain/geometria.test.ts): 1 portoncino (1×2.2), 9 finestre/portafinestra di dimensioni varie, per un totale di **30,50 mq lordi / 15,89 mq netti** (le mq nette sono calcolate dalle detrazioni standard 0,60×0,30, non serve inserirle a mano) |
+
+**Serramenti — tutti e 11, non solo il portoncino** (da `SERRAMENTI_CRIVELLARO` in
+[`geometria.test.ts`](../src/domain/geometria.test.ts)). Il form aggiunge una riga vuota
+(Piano/Tipologia liberi, Categoria dal menu, Base/Altezza in metri) per ogni "Aggiungi
+serramento": va cliccato 10 volte in più per arrivare a 11 righe, poi compilato riga per
+riga in quest'ordine:
+
+| n. | Piano | Tipologia | Categoria | Base (m) | Altezza (m) |
+|---|---|---|---|---:|---:|
+| 1 | PT | porta di ingresso | `portoncino` | 1.0 | 2.2 |
+| 2 | PT | finestra | `finestra-battente` | 2.0 | 1.8 |
+| 3 | PT | finestra | `finestra-battente` | 0.9 | 2.2 |
+| 4 | PT | finestra | `finestra-battente` | 0.9 | 1.2 |
+| 5 | PT | doppia finestra | `finestra-battente` | 0.9 | 1.2 |
+| 6 | PT | finestra | `finestra-battente` | 0.9 | 1.2 |
+| 7 | PT | finestra | `finestra-battente` | 0.9 | 1.2 |
+| 8 | PT | finestra | `finestra-battente` | 2.6 | 2.2 |
+| 9 | PT | finestra | `finestra-battente` | 2.8 | 2.2 |
+| 10 | PT | portafinestra | `portafinestra-battente` | 2.2 | 2.2 |
+| 11 | PT | finestra | `finestra-battente` | 0.8 | 2.1 |
+
+Il "Piano" qui è testo libero (non il menu a tendina delle Superfici): usa l'abbreviazione
+`PT`, coerente con lo stato interno (`stato-form.test.ts`). Con queste 11 righe il totale
+deve risultare **30,50 mq lordi / 15,89 mq netti** (le mq nette sono calcolate in automatico
+dalle detrazioni standard 0,60×0,30, non serve inserirle a mano) — se il totale non torna,
+controlla che nessuna riga sia rimasta a 0×0 (riga di default non compilata).
 
 Nella stessa pagina, sotto Serramenti, ci sono le sezioni **Pareti / Copertura / Travi**:
 facoltative, non entrano nel calcolo del prezzo (vedi Note in fondo), ma se vuoi
