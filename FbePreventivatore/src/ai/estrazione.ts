@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PIANI_CANONICI } from '@/domain/geometria'
+import { CATEGORIE_SERRAMENTO, PIANI_CANONICI } from '@/domain/geometria'
 
 const SchemaParete = z.object({
   n: z.number(),
@@ -7,6 +7,15 @@ const SchemaParete = z.object({
   b: z.number(),
   h: z.number(),
   spessore: z.number(),
+})
+
+const SchemaSerramento = z.object({
+  n: z.number(),
+  piano: z.string(),
+  tipologia: z.string(),
+  categoria: z.enum(CATEGORIE_SERRAMENTO),
+  b: z.number(),
+  h: z.number(),
 })
 
 const SchemaVoceLibera = z.object({
@@ -34,6 +43,7 @@ const SchemaCampiEstratti = z.object({
   pareti: z.array(SchemaParete).optional(),
   falde: z.array(SchemaVoceLibera).optional(),
   travi: z.array(SchemaVoceLibera).optional(),
+  serramenti: z.array(SchemaSerramento).optional(),
   campiMancanti: z.array(z.string()).default([]),
 })
 
@@ -79,6 +89,7 @@ Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
   "pareti"?: [{ "n": number, "tipo": "I" | "E", "b": number, "h": number, "spessore": number }],
   "falde"?: [{ "etichetta": string, "notazione": string }],
   "travi"?: [{ "etichetta": string, "notazione": string }],
+  "serramenti"?: [{ "n": number, "piano": string, "tipologia": string, "categoria": ${CATEGORIE_SERRAMENTO.map((c) => `"${c}"`).join(' | ')}, "b": number, "h": number }],
   "campiMancanti": string[]
 }
 Il campo "piano" di ogni superficie deve usare ESATTAMENTE una di queste stringhe,
@@ -105,6 +116,16 @@ parete (non inventare il valore mancante). Per falde e travi riporta etichetta e
 esattamente come li descrive il cliente, anche in forma discorsiva: la notazione non va mai
 interpretata o convertita in numero. Se il testo non menziona pareti/falde/travi, ometti i
 campi corrispondenti.
+
+Per ogni serramento (finestra, portafinestra, portoncino, vetrata fissa, infisso scorrevole)
+citato nel testo servono numero progressivo, piano, tipologia (descrizione libera, es.
+"finestra", "porta di ingresso"), categoria, base e altezza in metri: se anche uno solo di
+questi manca per un serramento citato, ometti quel serramento (non inventare il valore
+mancante). La categoria va scelta tra quelle ammesse in base alla descrizione: "porta
+di ingresso"/"portoncino" → "portoncino"; "portafinestra" → "portafinestra-battente";
+"finestra"/"doppia finestra" senza altre precisazioni → "finestra-battente"; "vetrata
+fissa"/"fisso" → "fisso-vetrata"; "scorrevole"/"alzante scorrevole" → "alzante-scorrevole".
+Se il testo non menziona serramenti, ometti il campo.
 
 Il testo può contenere più affermazioni scritte in momenti diversi (una conversazione
 a turni): se una stessa informazione compare più volte, usa l'ultima menzionata.

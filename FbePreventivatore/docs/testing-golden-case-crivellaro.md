@@ -38,7 +38,7 @@ npm test -- src/app/preventivi/nuovo/stato-form.test.ts
 npm test -- src/documento/costruisci-input-esportazione.test.ts
 npm test -- src/documento/export-docx.test.ts
 
-# Primo sistema — estrazione AI e mappatura di pareti/falde/travi (chat "Apertura rapida")
+# Primo sistema — estrazione AI e mappatura di pareti/falde/travi/serramenti (chat "Apertura rapida")
 npm test -- src/ai/estrazione.test.ts
 npm test -- src/app/preventivi/nuovo/mappatura-estrazione.test.ts
 
@@ -49,10 +49,10 @@ npm test -- src/domain/importazione-excel.test.ts
 Tutti questi test usano dati fedeli al caso Crivellaro (costanti `STATO_CRIVELLARO` /
 `INPUT_CRIVELLARO` / `RIGHE_CRIVELLARO`) e verificano esattamente i numeri della sezione
 successiva. `estrazione.test.ts` e `mappatura-estrazione.test.ts` coprono in particolare il
-round-trip di pareti/falde/travi (testo libero → `CampiEstratti` → `StatoForm`) con gli
-stessi valori usati nell'esempio manuale del §3.1.
+round-trip di pareti/falde/travi/serramenti (testo libero → `CampiEstratti` → `StatoForm`)
+con gli stessi valori usati nell'esempio manuale del §3.1.
 
-Suite completa: 26 file, 230 test, tutti verdi (`npm test`, verificato 2026-08-31).
+Suite completa: 26 file, 235 test, tutti verdi (`npm test`, verificato 2026-08-31).
 
 ---
 
@@ -95,11 +95,13 @@ leggibile invece di bloccarsi in silenzio.
 
 L'estrazione copre questi campi dello `StatoForm` (schema `CampiEstratti`):
 cliente (nome/comune/provincia), protocollo, progettista, luogo, superfici per piano,
-tipo di copertura, finitura esterna, pacchetto, i 4 spessori, e — dal commit `89b4aa6` —
-pareti (tipo I/E, base, altezza, spessore) e falde/travi (etichetta + notazione testuale,
-mai interpretata come numero). **Non estrae**: perimetro, serramenti, sconti, totale
-target, sicurezza, manto, tipo di tetto — questi restano da compilare a mano dopo
-l'estrazione, in tutti i casi.
+tipo di copertura, finitura esterna, pacchetto, i 4 spessori, pareti (tipo I/E, base,
+altezza, spessore) e falde/travi (etichetta + notazione testuale, mai interpretata come
+numero) dal commit `89b4aa6`, e — da questo fix — serramenti (piano, tipologia, categoria,
+base e altezza in metri): per ognuno di questi ultimi tre gruppi, un elemento citato ma
+incompleto (manca anche un solo campo obbligatorio) viene omesso invece di essere
+inventato. **Non estrae**: perimetro, sconti, totale target, sicurezza, manto, tipo di
+tetto — questi restano da compilare a mano dopo l'estrazione, in tutti i casi.
 
 Incolla questo testo nella chat per far compilare all'AI il massimo di campi possibile in
 un colpo solo (i valori seguono il golden case Crivellaro; spessori e progettista sono
@@ -136,6 +138,13 @@ aggiungi ad esempio: *"Ha una parete esterna di base 12,5 m, altezza 2,7 m, spes
 "Pareti" con tipo Esterna/12.5/2.7/20, e una riga in "Copertura" con la notazione
 riportata testualmente (l'etichetta esatta può variare leggermente, es. "falda" invece di
 "Una falda": è testo libero, non normalizzato).
+
+Per testare i serramenti via chat, aggiungi ad esempio: *"Al piano terra c'è una porta di
+ingresso di base 1 m e altezza 2,2 m, e una finestra di base 2 m e altezza 1,8 m."* —
+atteso: due righe in "Serramenti", categoria `portoncino` e `finestra-battente`
+rispettivamente. Se ometti l'altezza di una delle due (es. "una finestra al piano terra,
+base 2 m"), quella riga non compare affatto (né con un valore inventato né a 0×0):
+l'operatore la aggiunge a mano.
 
 ### 3.2 Compilazione manuale (o completamento dopo l'estrazione AI)
 

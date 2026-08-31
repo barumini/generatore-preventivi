@@ -91,6 +91,44 @@ describe('estraiCampi', () => {
     expect(campi.travi).toBeUndefined()
   })
 
+  it('accetta serramenti quando presenti nella risposta', async () => {
+    const risposta = JSON.stringify({
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      serramenti: [
+        { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
+        { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
+      ],
+      campiMancanti: [],
+    })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.serramenti).toEqual([
+      { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
+      { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
+    ])
+  })
+
+  it('accetta una risposta senza serramenti (opzionale)', async () => {
+    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.serramenti).toBeUndefined()
+  })
+
+  it('rifiuta un serramento con categoria non tra quelle ammesse', async () => {
+    const risposta = JSON.stringify({
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      serramenti: [{ n: 1, piano: 'PT', tipologia: 'oblò', categoria: 'oblo-rotondo', b: 0.5, h: 0.5 }],
+      campiMancanti: [],
+    })
+
+    await expect(estraiCampi('testo qualsiasi', clienteFinto(risposta))).rejects.toThrow()
+  })
+
   it('accetta gli spessori come testo libero, anche composito', async () => {
     const risposta = JSON.stringify({
       cliente: { nome: 'Rossi' },

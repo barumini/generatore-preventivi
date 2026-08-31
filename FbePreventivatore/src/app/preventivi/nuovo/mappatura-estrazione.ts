@@ -41,6 +41,7 @@ export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoFor
   if (campi.pareti) parziale.pareti = campi.pareti
   if (campi.falde) parziale.falde = campi.falde
   if (campi.travi) parziale.travi = campi.travi
+  if (campi.serramenti) parziale.serramenti = campi.serramenti
 
   return parziale
 }

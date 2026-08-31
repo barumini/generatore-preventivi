@@ -206,6 +206,27 @@ describe('statoFormDaCampiEstratti', () => {
     expect(parziale.travi).toBeUndefined()
   })
 
+  it('mappa serramenti quando presenti', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      serramenti: [{ n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 }],
+      campiMancanti: [],
+    }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.serramenti).toEqual([
+      { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
+    ])
+  })
+
+  it('non imposta serramenti quando assenti, lasciando intoccati quelli già nel form', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
+
+    expect(statoFormDaCampiEstratti(campi).serramenti).toBeUndefined()
+  })
+
   it('senza spessori estratti, usa i default vuoti', () => {
     const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
 
