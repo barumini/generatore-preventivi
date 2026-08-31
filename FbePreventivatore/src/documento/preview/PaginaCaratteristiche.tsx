@@ -35,8 +35,8 @@ export function PaginaCaratteristiche({
       <h3>CARATTERISTICHE FABBRICATO</h3>
       <table>
         <tbody>
-          {superfici.map((s) => (
-            <tr key={s.piano}>
+          {superfici.map((s, i) => (
+            <tr key={i}>
               <td>{s.piano}</td>
               <td>Sup. lorda</td>
               <td className="importo">{s.valoreLordo}</td>
