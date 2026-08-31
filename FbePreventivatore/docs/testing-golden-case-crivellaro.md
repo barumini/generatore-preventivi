@@ -7,12 +7,14 @@ Il progetto ha due punti di ingresso per creare un preventivo, entrambi basati s
 stesso motore (`src/domain/calcolo.ts`) e sullo stesso `StatoForm`:
 
 - **Primo sistema** — wizard manuale, route [`/preventivi/nuovo`](../src/app/preventivi/nuovo/page.tsx).
-  L'utente compila i campi (o li estrae via chat AI) e il motore calcola i totali.
+  L'utente compila i campi (o li estrae via chat AI) e il motore calcola i totali. Include
+  anche pareti/copertura/travi come sezioni editabili (dati tecnici di riferimento, non
+  prezzati — aggiunti nel commit `89b4aa6`), inseribili a mano o via chat AI.
 - **Secondo sistema** — import Excel, route [`/preventivi/nuovo-v2`](../src/app/preventivi/nuovo-v2/page.tsx).
   Carica il foglio conteggi FBE (`Conteggi pulito.xlsx`), ne estrae automaticamente
-  **solo i serramenti** (più pareti/falde/travi come dati informativi non prezzati) e li
-  inietta nello stesso wizard: il resto (cliente, superfici, sconti, prezzi) va comunque
-  compilato a mano per arrivare al totale finale.
+  serramenti, pareti, falde e travi e li inietta nello stesso wizard (solo i serramenti
+  entrano nel prezzo): il resto (cliente, superfici, sconti, prezzi) va comunque compilato
+  a mano per arrivare al totale finale.
 
 ---
 
@@ -83,11 +85,13 @@ esatto del modello caricato (`LM_STUDIO_BASE_URL` opzionale, default
 `http://localhost:1234/v1`). Senza queste due condizioni la chiamata fallisce con un errore
 leggibile invece di bloccarsi in silenzio.
 
-L'estrazione copre **solo** questi campi dello `StatoForm` (schema `CampiEstratti`):
+L'estrazione copre questi campi dello `StatoForm` (schema `CampiEstratti`):
 cliente (nome/comune/provincia), protocollo, progettista, luogo, superfici per piano,
-tipo di copertura, finitura esterna, pacchetto, i 4 spessori. **Non estrae**: perimetro,
-serramenti, sconti, totale target, sicurezza, manto, tipo di tetto — questi restano da
-compilare a mano dopo l'estrazione, in tutti i casi.
+tipo di copertura, finitura esterna, pacchetto, i 4 spessori, e — dal commit `89b4aa6` —
+pareti (tipo I/E, base, altezza, spessore) e falde/travi (etichetta + notazione testuale,
+mai interpretata come numero). **Non estrae**: perimetro, serramenti, sconti, totale
+target, sicurezza, manto, tipo di tetto — questi restano da compilare a mano dopo
+l'estrazione, in tutti i casi.
 
 Incolla questo testo nella chat per far compilare all'AI il massimo di campi possibile in
 un colpo solo (i valori seguono il golden case Crivellaro; spessori e progettista sono
@@ -117,6 +121,13 @@ Per testare il percorso "campo mancante", rimuovi una frase (es. togli "Protocol
 2026059") e verifica che l'assistente segnali `protocollo` tra i campi da completare a
 mano, senza inventare un valore (vincolo CLAUDE.md §7 — l'AI non decide mai importi né
 inventa dati non dichiarati).
+
+Per testare pareti/copertura via chat (verificato con un modello reale su LM Studio),
+aggiungi ad esempio: *"Ha una parete esterna di base 12,5 m, altezza 2,7 m, spessore
+20 mm. La copertura ha una falda con notazione 5,8x16,5 x17,1."* — atteso: una riga in
+"Pareti" con tipo Esterna/12.5/2.7/20, e una riga in "Copertura" con la notazione
+riportata testualmente (l'etichetta esatta può variare leggermente, es. "falda" invece di
+"Una falda": è testo libero, non normalizzato).
 
 ### 3.2 Compilazione manuale (o completamento dopo l'estrazione AI)
 
@@ -151,6 +162,37 @@ target resta 0** — è la causa più probabile se i tuoi totali non coincidono 
 | Superfici | Piano Terra: `134` · Portico: `13+14` · Garage: `41` (totale lordo 161 mq, sedime 134 mq) |
 | Perimetro | 60 |
 | Serramenti | tutti e 11, non solo il portoncino — vedi `SERRAMENTI_CRIVELLARO` in [`geometria.test.ts`](../src/domain/geometria.test.ts): 1 portoncino (1×2.2), 9 finestre/portafinestra di dimensioni varie, per un totale di **30,50 mq lordi / 15,89 mq netti** (le mq nette sono calcolate dalle detrazioni standard 0,60×0,30, non serve inserirle a mano) |
+
+Nella stessa pagina, sotto Serramenti, ci sono le sezioni **Pareti / Copertura / Travi**:
+facoltative, non entrano nel calcolo del prezzo (vedi Note in fondo), ma se vuoi
+riprodurre fedelmente il golden case Excel (stessi dati di `RIGHE_CRIVELLARO` in
+[`importazione-excel.test.ts`](../src/domain/importazione-excel.test.ts)) usa questi
+valori:
+
+*Pareti* (tipo, base×altezza m, spessore mm):
+
+| n. | Tipo | Base | Altezza | Spessore |
+|---|---|---:|---:|---:|
+| 1 | Esterna | 12.5 | 2.7 | 20 |
+| 2 | Esterna | 10 | 3.4 | 20 |
+| 3 | Esterna | 12.5 | 2.7 | 20 |
+| 4 | Esterna | 10 | 3.4 | 20 |
+| 5 | Interna | 5.3 | 3.75 | 16 |
+
+*Copertura* (etichetta / notazione libera, mai interpretata come numero):
+
+`Una falda` / `5,8x16,5 x17,1` · `Una falda` / `5,8x16,5` · `Una falda` / `4,9x6,3` ·
+`Una falda` / `4,9x6,3` · `Pluviali` / `(8)3+(4)2,9` · `Grondaia` / `45,6` ·
+`Scossalina` / `33+9,8`
+
+*Travi* (etichetta / notazione):
+
+`Colmo` / `16,5x0,2x0,32` · `Colmo` / `6,3x0,2x0,33` ·
+`Pilastri ex` / `(2)2,7+4,15+(4)2,6+3,8x0,2x0,20` · `Travi ex` / `(2)3,2+(2)6x0,2x0,24` ·
+`Pilastri int` / `0,2x0,2` · `travi interne` / `1,6x0,2x0,24`
+
+Verificato in browser: con questi dati aggiunti i totali restano identici (237 000 /
+190 900 / 300 000) — confermano che pareti/falde/travi non influenzano il prezzo.
 
 **4. Prezzi — override voci di listino (il passaggio critico)**
 
@@ -230,9 +272,11 @@ File sorgente: [`Documentazione addestramento/Conteggi pulito.xlsx`](../Document
 4. Verifica il subset geometrico del golden case:
    - somma `b × h` dei serramenti importati = **30,50 mq lordi**
    - mq netti dichiarati nel foglio (colonna a fianco) = **15,89 mq netti**
-5. A questo punto il wizard sottostante si popola con i serramenti/pareti importati.
-   Completa manualmente cliente, superfici, sconti, sicurezza, totale target come nella
-   sezione 3 per arrivare agli stessi totali finali (237 000 / 190 900 / 300 000).
+5. A questo punto il wizard sottostante si popola con serramenti/pareti/falde/travi
+   importati — sono editabili anche da qui (stesse sezioni descritte al punto 3, non più
+   sola lettura). Completa manualmente cliente, superfici, sconti, sicurezza, totale
+   target come nella sezione 3 per arrivare agli stessi totali finali
+   (237 000 / 190 900 / 300 000).
 
 ### Caso di errore utile da provare
 
@@ -246,9 +290,9 @@ File sorgente: [`Documentazione addestramento/Conteggi pulito.xlsx`](../Document
 
 ## Note
 
-- Pareti, falde e travi importati dal secondo sistema sono **solo informativi**: non
-  entrano nel calcolo del prezzo (spec §3.6). Solo i serramenti alimentano la geometria
-  prezzata.
+- Pareti, falde e travi sono **solo informativi**: non entrano mai nel calcolo del prezzo
+  (spec §3.6), indipendentemente da come arrivano nel form (import Excel, chat AI o
+  digitati a mano nel primo sistema). Solo i serramenti alimentano la geometria prezzata.
 - Entrambi i sistemi convergono sullo stesso `StatoForm` e sullo stesso motore di
   calcolo: se il primo sistema passa i suoi test ma il secondo produce numeri diversi a
   parità di dati, il bug è nella mappatura di import (`mappatura-importazione.ts` /
