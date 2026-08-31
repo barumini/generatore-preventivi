@@ -38,13 +38,21 @@ npm test -- src/app/preventivi/nuovo/stato-form.test.ts
 npm test -- src/documento/costruisci-input-esportazione.test.ts
 npm test -- src/documento/export-docx.test.ts
 
+# Primo sistema — estrazione AI e mappatura di pareti/falde/travi (chat "Apertura rapida")
+npm test -- src/ai/estrazione.test.ts
+npm test -- src/app/preventivi/nuovo/mappatura-estrazione.test.ts
+
 # Secondo sistema — parsing del foglio Excel
 npm test -- src/domain/importazione-excel.test.ts
 ```
 
 Tutti questi test usano dati fedeli al caso Crivellaro (costanti `STATO_CRIVELLARO` /
 `INPUT_CRIVELLARO` / `RIGHE_CRIVELLARO`) e verificano esattamente i numeri della sezione
-successiva.
+successiva. `estrazione.test.ts` e `mappatura-estrazione.test.ts` coprono in particolare il
+round-trip di pareti/falde/travi (testo libero → `CampiEstratti` → `StatoForm`) con gli
+stessi valori usati nell'esempio manuale del §3.1.
+
+Suite completa: 26 file, 230 test, tutti verdi (`npm test`, verificato 2026-08-31).
 
 ---
 
