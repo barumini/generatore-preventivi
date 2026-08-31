@@ -264,7 +264,9 @@ File sorgente: [`Documentazione addestramento/Conteggi pulito.xlsx`](../Document
    - **11 serramenti** importati (porta di ingresso, finestre, portafinestra — categorie
      mappate automaticamente: "finestra"/"doppia finestra" → `finestra-battente`,
      "portafinestra" → `portafinestra-battente`, "porta..." → `portoncino`)
-   - **5 pareti** (4 esterne + 1 interna, con spessore)
+   - **14 pareti** (4 esterne + 10 interne, con spessore) — il file reale ha più righe
+     pareti della subset `RIGHE_CRIVELLARO` usata nel test unitario (5 righe, 4 esterne +
+     1 interna): non è un mismatch, il test copre solo un sottoinsieme
    - **7 voci copertura** e **6 voci travi** (dati informativi, notazione libera
      preservata così com'è, es. `5,8x16,5 x17,1` — non entrano nel prezzo)
    - **nessun avviso** "non coincide" tra mq lordi ricalcolati dai serramenti e quelli
@@ -276,7 +278,10 @@ File sorgente: [`Documentazione addestramento/Conteggi pulito.xlsx`](../Document
    importati — sono editabili anche da qui (stesse sezioni descritte al punto 3, non più
    sola lettura). Completa manualmente cliente, superfici, sconti, sicurezza, totale
    target come nella sezione 3 per arrivare agli stessi totali finali
-   (237 000 / 190 900 / 300 000).
+   (237 000 / 190 900 / 300 000). **Non dimenticare la checkbox "Chiavi in mano nel
+   totale" in Configurazione** (§3.2 punto 2): di default è deselezionata, e senza di
+   essa il `PARZIALE` risulta 280 000,00 € invece di 190 900,00 € (manca la riga "Stima
+   opere chiavi in mano" da 89 100,00 €) — verificato manualmente in browser.
 
 ### Caso di errore utile da provare
 
