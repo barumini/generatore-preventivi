@@ -179,6 +179,33 @@ describe('statoFormDaCampiEstratti', () => {
     expect(parziale.caratteristiche).toMatchObject({ spessoreEsterno: '205-160', spessoreCappotto: '60+40' })
   })
 
+  it('mappa pareti, falde e travi quando presenti', () => {
+    const campi: CampiEstratti = {
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      pareti: [{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }],
+      falde: [{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }],
+      travi: [{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }],
+      campiMancanti: [],
+    }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.pareti).toEqual([{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }])
+    expect(parziale.falde).toEqual([{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }])
+    expect(parziale.travi).toEqual([{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }])
+  })
+
+  it('non imposta pareti/falde/travi quando assenti, lasciando intoccati quelli già nel form', () => {
+    const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
+
+    const parziale = statoFormDaCampiEstratti(campi)
+
+    expect(parziale.pareti).toBeUndefined()
+    expect(parziale.falde).toBeUndefined()
+    expect(parziale.travi).toBeUndefined()
+  })
+
   it('senza spessori estratti, usa i default vuoti', () => {
     const campi: CampiEstratti = { cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] }
 

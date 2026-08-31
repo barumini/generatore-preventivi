@@ -1,6 +1,19 @@
 import { z } from 'zod'
 import { PIANI_CANONICI } from '@/domain/geometria'
 
+const SchemaParete = z.object({
+  n: z.number(),
+  tipo: z.enum(['I', 'E']),
+  b: z.number(),
+  h: z.number(),
+  spessore: z.number(),
+})
+
+const SchemaVoceLibera = z.object({
+  etichetta: z.string(),
+  notazione: z.string(),
+})
+
 const SchemaCampiEstratti = z.object({
   cliente: z.object({
     nome: z.string(),
@@ -18,6 +31,9 @@ const SchemaCampiEstratti = z.object({
   spessoreInterno: z.string().optional(),
   spessoreCoibente: z.string().optional(),
   spessoreCappotto: z.string().optional(),
+  pareti: z.array(SchemaParete).optional(),
+  falde: z.array(SchemaVoceLibera).optional(),
+  travi: z.array(SchemaVoceLibera).optional(),
   campiMancanti: z.array(z.string()).default([]),
 })
 
@@ -60,6 +76,9 @@ Rispondi SOLO con un oggetto JSON con questa forma, senza markdown:
   "spessoreInterno"?: string,
   "spessoreCoibente"?: string,
   "spessoreCappotto"?: string,
+  "pareti"?: [{ "n": number, "tipo": "I" | "E", "b": number, "h": number, "spessore": number }],
+  "falde"?: [{ "etichetta": string, "notazione": string }],
+  "travi"?: [{ "etichetta": string, "notazione": string }],
   "campiMancanti": string[]
 }
 Il campo "piano" di ogni superficie deve usare ESATTAMENTE una di queste stringhe,
@@ -77,6 +96,15 @@ come scritti dal cliente, senza normalizzarli né inventarli.
 
 Se "luogo" non è specificato esplicitamente nel testo, NON aggiungerlo a campiMancanti:
 verrà dedotto automaticamente dal comune del cliente.
+
+Pareti, falde (copertura) e travi sono dati tecnici di riferimento, mai driver di prezzo:
+se il testo li descrive, riportali così come li trovi, senza inventare né normalizzare un
+formato. Per ogni parete servono numero, tipo ("I" interna o "E" esterna), base, altezza e
+spessore in mm: se anche uno solo di questi manca per una parete citata, ometti quella
+parete (non inventare il valore mancante). Per falde e travi riporta etichetta e notazione
+esattamente come li descrive il cliente, anche in forma discorsiva: la notazione non va mai
+interpretata o convertita in numero. Se il testo non menziona pareti/falde/travi, ometti i
+campi corrispondenti.
 
 Il testo può contenere più affermazioni scritte in momenti diversi (una conversazione
 a turni): se una stessa informazione compare più volte, usa l'ultima menzionata.

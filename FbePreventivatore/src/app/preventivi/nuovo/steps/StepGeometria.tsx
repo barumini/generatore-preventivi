@@ -8,6 +8,7 @@ import {
   type Serramento,
   type SuperficiePiano,
 } from '@/domain/geometria'
+import type { Parete, VoceGeometricaLibera } from '@/domain/importazione-excel'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
 import { Button } from '../../ui/Button'
@@ -193,58 +194,140 @@ export function StepGeometria({ stato, aggiorna }: Props) {
         </Button>
       </Section>
 
-      <DatiImportatiExcel stato={stato} />
+      <Section title="Pareti (dati tecnici di riferimento, non prezzati)">
+        {(stato.pareti ?? []).map((riga, i) => (
+          <div key={i} className="mb-2 grid grid-cols-5 items-end gap-2">
+            <Field label="Tipo">
+              <select
+                className={controlClassName}
+                value={riga.tipo}
+                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { tipo: e.target.value as Parete['tipo'] }) })}
+              >
+                <option value="E">Esterna (E)</option>
+                <option value="I">Interna (I)</option>
+              </select>
+            </Field>
+            <Field label="Base (m)">
+              <input
+                type="number"
+                className={controlClassName}
+                value={riga.b}
+                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { b: Number(e.target.value) }) })}
+              />
+            </Field>
+            <Field label="Altezza (m)">
+              <input
+                type="number"
+                className={controlClassName}
+                value={riga.h}
+                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { h: Number(e.target.value) }) })}
+              />
+            </Field>
+            <Field label="Spessore (mm)">
+              <input
+                type="number"
+                className={controlClassName}
+                value={riga.spessore}
+                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { spessore: Number(e.target.value) }) })}
+              />
+            </Field>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Rimuovi parete"
+              onClick={() => aggiorna({ pareti: rimuoviRiga(stato.pareti ?? [], i) })}
+              className="mb-3"
+            >
+              <Trash2 size={16} />
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            aggiorna({
+              pareti: [
+                ...(stato.pareti ?? []),
+                { n: (stato.pareti?.length ?? 0) + 1, tipo: 'E', b: 0, h: 0, spessore: 0 } satisfies Parete,
+              ],
+            })
+          }
+        >
+          <span className="flex items-center gap-1.5">
+            <Plus size={14} /> Aggiungi parete
+          </span>
+        </Button>
+      </Section>
+
+      <SezioneVociLibere
+        titolo="Copertura (dati tecnici di riferimento, non prezzati)"
+        etichettaAggiungi="Aggiungi voce copertura"
+        voci={stato.falde}
+        onCambia={(falde) => aggiorna({ falde })}
+      />
+
+      <SezioneVociLibere
+        titolo="Travi (dati tecnici di riferimento, non prezzati)"
+        etichettaAggiungi="Aggiungi voce trave"
+        voci={stato.travi}
+        onCambia={(travi) => aggiorna({ travi })}
+      />
     </Section>
   )
 }
 
-// Pareti/falde/travi arrivano solo dall'import Excel (v2): il motore di calcolo non li usa
-// come driver di prezzo (nessuna voce del catalogo è priced su di essi), quindi restano
-// di sola lettura — non c'è uno stato da modificare, solo dati di riferimento da consultare.
-function DatiImportatiExcel({ stato }: { stato: StatoForm }) {
-  const haPareti = (stato.pareti?.length ?? 0) > 0
-  const haFalde = (stato.falde?.length ?? 0) > 0
-  const haTravi = (stato.travi?.length ?? 0) > 0
-  if (!haPareti && !haFalde && !haTravi) return null
-
+// Falde e travi condividono la stessa forma libera (etichetta + notazione, mai
+// interpretata come numero — stessa scelta di importazione-excel.ts): un solo componente
+// per entrambe le sezioni, che siano arrivate dall'import Excel, dalla chat AI o digitate.
+function SezioneVociLibere({
+  titolo,
+  etichettaAggiungi,
+  voci,
+  onCambia,
+}: {
+  titolo: string
+  etichettaAggiungi: string
+  voci: VoceGeometricaLibera[] | undefined
+  onCambia: (voci: VoceGeometricaLibera[]) => void
+}) {
+  const righe = voci ?? []
   return (
-    <Section title="Dati tecnici importati dall'Excel (di riferimento, non prezzati)">
-      {haPareti && (
-        <div className="mb-3">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Pareti</p>
-          <ul className="text-sm text-text-secondary">
-            {stato.pareti!.map((parete) => (
-              <li key={parete.n}>
-                n. {parete.n} · {parete.tipo === 'E' ? 'esterna' : 'interna'} · {parete.b}×{parete.h} m · sp. {parete.spessore} mm
-              </li>
-            ))}
-          </ul>
+    <Section title={titolo}>
+      {righe.map((riga, i) => (
+        <div key={i} className="mb-2 flex items-end gap-2">
+          <div className="flex-1">
+            <Field label="Etichetta">
+              <input
+                className={controlClassName}
+                value={riga.etichetta}
+                onChange={(e) => onCambia(aggiornaRiga(righe, i, { etichetta: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <div className="flex-1">
+            <Field label="Notazione">
+              <input
+                className={controlClassName}
+                value={riga.notazione}
+                onChange={(e) => onCambia(aggiornaRiga(righe, i, { notazione: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <Button type="button" variant="ghost" aria-label="Rimuovi voce" onClick={() => onCambia(rimuoviRiga(righe, i))} className="mb-3">
+            <Trash2 size={16} />
+          </Button>
         </div>
-      )}
-      {haFalde && (
-        <div className="mb-3">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Copertura</p>
-          <ul className="text-sm text-text-secondary">
-            {stato.falde!.map((voce, i) => (
-              <li key={i}>
-                {voce.etichetta}: {voce.notazione}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {haTravi && (
-        <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">Travi</p>
-          <ul className="text-sm text-text-secondary">
-            {stato.travi!.map((voce, i) => (
-              <li key={i}>
-                {voce.etichetta}: {voce.notazione}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      ))}
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => onCambia([...righe, { etichetta: '', notazione: '' } satisfies VoceGeometricaLibera])}
+      >
+        <span className="flex items-center gap-1.5">
+          <Plus size={14} /> {etichettaAggiungi}
+        </span>
+      </Button>
     </Section>
   )
 }

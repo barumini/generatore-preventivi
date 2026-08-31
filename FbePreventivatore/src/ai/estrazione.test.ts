@@ -64,6 +64,33 @@ describe('estraiCampi', () => {
     await expect(estraiCampi('testo qualsiasi', clienteFinto(rispostaIncompleta))).rejects.toThrow()
   })
 
+  it('accetta pareti, falde e travi quando presenti nella risposta', async () => {
+    const risposta = JSON.stringify({
+      cliente: { nome: 'Rossi' },
+      superfici: [],
+      pareti: [{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }],
+      falde: [{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }],
+      travi: [{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }],
+      campiMancanti: [],
+    })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.pareti).toEqual([{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }])
+    expect(campi.falde).toEqual([{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }])
+    expect(campi.travi).toEqual([{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }])
+  })
+
+  it('accetta una risposta senza pareti/falde/travi (tutti opzionali)', async () => {
+    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
+
+    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+
+    expect(campi.pareti).toBeUndefined()
+    expect(campi.falde).toBeUndefined()
+    expect(campi.travi).toBeUndefined()
+  })
+
   it('accetta gli spessori come testo libero, anche composito', async () => {
     const risposta = JSON.stringify({
       cliente: { nome: 'Rossi' },

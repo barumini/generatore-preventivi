@@ -38,6 +38,9 @@ export function statoFormDaCampiEstratti(campi: CampiEstratti): Partial<StatoFor
   if (campi.protocollo) parziale.protocollo = campi.protocollo
   if (campi.progettista) parziale.progettista = campi.progettista
   if (campi.pacchetto) parziale.livelli = livelliDaPacchetto(campi.pacchetto)
+  if (campi.pareti) parziale.pareti = campi.pareti
+  if (campi.falde) parziale.falde = campi.falde
+  if (campi.travi) parziale.travi = campi.travi
 
   return parziale
 }
