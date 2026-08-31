@@ -3,7 +3,11 @@ import Link from 'next/link'
 export default function Home() {
   return (
     <div className="mx-auto flex min-h-screen max-w-[1400px] flex-col items-center px-6 py-12">
-      <h1 className="mb-10 text-2xl font-bold text-text">FBE Preventivatore</h1>
+      <div className="mb-10 flex items-center gap-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-fbe.webp" alt="FBE Woodliving" className="h-14 w-auto" />
+        <h1 className="text-2xl font-bold text-text">FBE Preventivatore</h1>
+      </div>
 
       <section className="w-full max-w-2xl rounded-xl border border-accent/30 bg-accent/5 p-6">
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-accent">

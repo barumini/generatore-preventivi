@@ -9,7 +9,11 @@ export default async function ElencoPreventivi() {
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-6">
       <Breadcrumb voci={[{ label: 'Home', href: '/' }, { label: 'Preventivi' }]} />
-      <h1 className="mb-4 text-lg font-bold text-text">Preventivi</h1>
+      <div className="mb-4 flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-fbe.webp" alt="FBE Woodliving" className="h-10 w-auto" />
+        <h1 className="text-lg font-bold text-text">Preventivi</h1>
+      </div>
       <TabellaPreventivi preventivi={preventivi} />
     </div>
   )
