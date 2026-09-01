@@ -183,7 +183,7 @@ Correggere un valore a mano lo marca `manuale` e la UI lo evidenzia.
 | `cartongesso` | Cartongesso interno | (mq `107.04.01` × 22 + mq `107.04.01` × 5 + `M:001.005`) / 2 |
 | `assistenza-cartongessisti` | Assistenza ai cartongessisti | mq `107.04.01` × 5 |
 | `infissi` | Infissi esterni in PVC | Σmq (`109.04.02`,`.03`,`.04`,`.05`,`.06`) × 500 + Σnr (`109.04.07`…`.11`) × 100 + nr `109.04.07` × 4000 |
-| `monoblocchi` | Monoblocchi Hella | Σ totali `109.04.12` + `109.04.13` + `109.04.14` |
+| `monoblocchi` | Monoblocchi Hella | Σ totali `109.04.12` + `109.04.13` + `109.04.14` — proposta di partenza, nasce `manuale` (v. nota sotto) |
 | `consulenza-esecutiva` | Consulenza progettazione esecutiva | 4.000,00 fisso |
 | `tracciamento-impianti` | Tracciamento impianto idrosanitario | `compresa`, non modificabile |
 | `pareti-telaio` | Pareti non strutturali a telaio | `compresa`, non modificabile |
@@ -208,7 +208,10 @@ Note sulle regole, dove il testo FBE era ambiguo e la lettura è stata fissata:
   con le altre quattro tariffe del gruppo.
 - **Portoncini.** Il conteggio è la quantità di `109.04.07`, non il suo importo.
 - **Monoblocchi.** Si sommano i **totali in euro** delle tre tariffe, non le quantità.
-  È l'unica regola che il riscontro sulle offerte reali non conferma (§6).
+  È l'unica regola che il riscontro sulle offerte reali non conferma: il totale-tariffa
+  include un moltiplicatore tecnico Primus per i serramenti scorrevoli larghi che non ha
+  riscontro in offerta, e la causa profonda non è deducibile dal computo (§6, "Scarti
+  aperti"). La voce nasce `provenienza: 'manuale'`.
 - **Copertura, quali quantità.** Vanno sommate **tutte** le occorrenze di `104.02.000`,
   non solo la voce `COPERTURA A FALDA`: in Crivellaro la stessa tariffa porta anche
   sporto, tettoie e portico.
@@ -367,11 +370,35 @@ includeva nella trave anche la posa cordolo `104.01.024` (10.104,24 + 4.401,36 =
 
 ### Scarti aperti
 
-- **Monoblocchi.** Sbagliano in direzioni opposte nei due casi (+750 Crivellaro, −1.295
-  Dacroce), quindi non è una regola mancante: nessuna combinazione delle tariffe
-  `109.04.12/13/14` produce entrambi i valori. Ipotesi più probabile: aggiustamento
-  commerciale in fase di offerta. La regola resta quella dichiarata; lo scarto finisce
-  nella riconciliazione sulle pareti.
+- **Monoblocchi — causa individuata, regola non recuperabile dal computo.** I totali
+  delle tariffe `109.04.12/13/14` sbagliano in direzioni opposte nei due casi (+9,8% su
+  Dacroce, −7,4% su Crivellaro). La causa: la voce `109.04.13` applica un **moltiplicatore
+  tecnico interno** alla quantità dell'alzante scorrevole (`109.04.11`) — 1,70 su Dacroce,
+  1,25 su Crivellaro — che pesa i serramenti scorrevoli larghi con più di un monoblocco.
+  Primus lo applica in automatico; l'offerta commerciale non lo riflette in alcuna riga
+  leggibile dal riepilogo.
+
+  Sostituendo il totale-tariffa con il conteggio **grezzo** dei pezzi di montaggio
+  (`109.04.07`…`.11`, quantità intere non pesate) l'errore scende molto: con due prezzi
+  per tipologia (finestra / porta-tipo) risolti sulle due offerte, il fit è esatto su
+  Crivellaro e a −0,8% su Dacroce — ma è un sistema a due incognite risolto su due soli
+  casi: si adatta sempre esattamente, quindi da solo non prova che la regola sia quella.
+
+  Il vero ostacolo emerge dall'abaco dei monoblocchi (elenco per dimensione, presente in
+  entrambe le offerte): il numero di pezzi fisicamente installati è 12 su Dacroce e 11 su
+  Crivellaro. Su Dacroce coincide esattamente con «pezzi di montaggio meno i due
+  portoncini» (14 − 2 = 12): il portoncino blindato lì non riceve un monoblocco proprio.
+  Su Crivellaro invece il conteggio combacia solo **includendo** il portoncino (11, non
+  11 − 1 = 10). Se il portoncino riceva o no un proprio monoblocco Hella è quindi una
+  scelta di cantiere caso per caso — non è nelle quantità del computo, che sono identiche
+  nella forma in entrambi i casi.
+
+  **Conclusione per l'implementazione:** questa è l'unica voce del master su dieci dove i
+  dati del computo non determinano il numero commerciale. La regola resta quella
+  dichiarata (Σ totali `109.04.12/13/14`) come proposta di partenza, ma la voce nasce con
+  `provenienza: 'manuale'` invece che `'calcolato'` — l'unica eccezione alla tabella delle
+  regole — e l'interfaccia lo segnala esplicitamente come valore da rivedere, non da
+  fidarsi.
 - **Solaio Dacroce.** L'offerta riporta 16.900 contro i 15.240,96 di `M:001.002`
   (+1.659,04). Non verificabile: Crivellaro non ha solaio. Se emergerà un terzo computo
   con solaio, va ricontrollato prima di considerare la regola stabile.
