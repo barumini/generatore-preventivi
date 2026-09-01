@@ -1,0 +1,306 @@
+# Conteggi da computo metrico
+
+## Problema
+
+Oggi il preventivatore ricava gli importi delle voci dal listino parametrico
+(`src/domain/listino.ts`) a partire dalla geometria digitata nel wizard. Esiste però un
+secondo percorso, oggi interamente manuale: quando l'ufficio tecnico ha già prodotto il
+**computo metrico Primus** del progetto, gli importi dell'offerta si ricavano da quello,
+applicando una decina di regole di conversione fissate da FBE.
+
+Il foglio `Documentazione addestramento/x IA/Conteggi Master.xlsx` è la struttura di
+arrivo: elenca le voci che compaiono sempre nell'offerta, con gli importi fissi già
+valorizzati (`Consulenza progettazione esecutiva` = 4.000) e a `0` quelle da conteggiare.
+Questo design copre il passaggio dal computo a quei valori.
+
+Il percorso è **alternativo** al listino parametrico, non sostitutivo: la pagina è
+autonoma e non scrive sui preventivi esistenti.
+
+## Cosa dice il computo
+
+Un computo Primus di FBE si chiude con un **Riepilogo Strutturale CATEGORIE** che è la
+fonte di metà delle regole:
+
+| Codice | Categoria | Dacroce rev.03 | Crivellaro rev.04 |
+|---|---|---:|---:|
+| `M:001.001` | PARETI IN LEGNO | 105.987,63 | 79.500,82 |
+| `M:001.002` | SOLAIO | 15.240,96 | 0,00 |
+| `M:001.003` | COPERTURA | 68.428,78 | 76.701,12 |
+| `M:001.004` | CAPPOTTO | 25.684,61 | 25.264,43 |
+| `M:001.005` | CARTONGESSO | 23.612,10 | 19.337,12 |
+| `M:001.007` | INFISSI | 57.337,00 | 32.105,00 |
+| `M:001.020` | COSTI SICUREZZA | 23.352,50 | 23.352,50 |
+| `M:001.021` | TRASPORTI | 4.000,00 | 4.000,00 |
+| | **TOTALE** | **323.643,58** | **260.260,99** |
+
+L'altra metà viene dalle singole voci a misura: 166 in entrambi i computi analizzati.
+Ogni voce ha numero d'ordine, codice **tariffa**, descrizione, unità di misura, quantità,
+prezzo unitario e totale.
+
+### Le voci si indirizzano per tariffa, non per numero
+
+Le istruzioni FBE citano le voci per numero d'ordine («codice 128», «codici 142-146»).
+Il numero è però **posizionale**: dipende da quante voci precedono nel computo. La
+tariffa (`107.04.01`, `109.04.02`, …) è invece l'identità stabile della lavorazione nel
+prezzario.
+
+Sui due computi disponibili le due cose coincidono — 166 voci su 166 hanno la stessa
+tariffa allo stesso numero, perché FBE usa un template Primus rigido — ma la coincidenza
+non è garantita da nulla. Le regole si ancorano quindi alla **tariffa**, e il numero
+d'ordine atteso resta come controllo incrociato: se divergono, la UI segnala l'anomalia
+invece di produrre in silenzio un numero sbagliato.
+
+Stesso principio del vincolo #4 di `CLAUDE.md`, applicato in ingresso anziché in uscita.
+
+### "Il totale a pagina 2" non è una regola
+
+L'istruzione originale per la trave alla base diceva di prendere «il valore totale a
+pagina 2 (nel caso esempio: 4´697,52)» e sommarci `104.01.022` e `104.01.023`.
+
+Quel 4´697,52 è il subtotale `A RIPORTARE` di pagina 2 del **computo Crivellaro**, dove
+la pagina contiene esattamente le voci 1-9. Nel computo Dacroce lo stesso blocco di
+tariffe chiude a 8.208,13, sempre a fine pagina 2. La coincidenza dipende
+dall'impaginazione di Primus, che nessuno controlla.
+
+Il blocco è semanticamente ben definito — l'assieme della trave di base — e corrisponde
+alle tariffe:
+
+- `106.01.01`…`106.01.04` — guaina tagliamuro (pareti 25.0 / 20.5 / 16.0 / 11.0)
+- `104.01.017`…`104.01.020` — cordolo in trave lamellare (larice, abete per la 11.0)
+- `104.01.021` — ferramenta per fissaggio cordoli
+- `104.01.022` — ferramenta cordolo, tasselli
+- `104.01.023` — spessori di plastica
+
+Esclude `104.01.024` (posa cordolo pareti), che nei due computi cade oltre il subtotale
+citato. La regola diventa così indipendente dall'impaginazione.
+
+## 1. Estrazione (dominio puro)
+
+Nuovo modulo `src/domain/computo/estrai-voci.ts`. **Non conosce i PDF**: riceve righe di
+testo già posizionate e restituisce dati.
+
+```ts
+interface RigaTesto { pagina: number; x: number; y: number; testo: string }
+
+interface VoceComputo {
+  numero: number
+  tariffa: string
+  categoria: string | null      // "PARETI IN LEGNO", "COPERTURA", …
+  descrizione: string
+  unita: string | null          // "m", "m2", "cadauno", "a corpo"
+  quantita: number | null
+  prezzoUnitario: number | null
+  totale: number | null
+}
+
+interface Computo {
+  voci: VoceComputo[]
+  riepilogo: Record<string, { nome: string; importo: number }>  // "M:001.001" → …
+  totale: number
+}
+```
+
+Il riconoscimento sfrutta la griglia fissa di Primus, verificata su entrambi i PDF:
+
+- una voce si apre con `N / N` in colonna sinistra (x < 25);
+- la riga successiva porta la tariffa (`\d{3}\.\d{2}\.\d{2,3}`), sempre a x < 25;
+- la riga `SOMMANO <unità>` chiude la voce e porta i tre numeri, distinti per ascissa:
+  quantità in 430-485, prezzo unitario in 486-520, totale oltre 535;
+- le righe del riepilogo hanno forma `M:001.NNN <nome> euro <importo>`;
+- le intestazioni di categoria hanno forma `<nome> (Cat N)` centrate fra x 100 e 220.
+
+I numeri usano l'apostrofo tipografico per le migliaia (`260´260,99`, cfr. `CLAUDE.md`) e
+la virgola decimale.
+
+**Verifica di integrità**: la somma dei totali di tutte le voci deve pareggiare il
+`TOTALE` del riepilogo. Su entrambi i computi torna al centesimo (323.643,58 e
+260.260,99). Se non pareggia, l'estrazione è andata storta e va detto, non aggirato.
+
+L'adattatore che produce le `RigaTesto` da un `File` vive fuori dal dominio, in
+`src/app/preventivi/conteggi/leggi-pdf.ts`, e usa `pdfjs-dist` (nuova dipendenza):
+`getTextContent()` restituisce per ogni frammento la stringa e la matrice di trasformazione,
+da cui `x = transform[4]`, `y = transform[5]`. Gira nel browser, quindi il PDF non viene
+caricato da nessuna parte.
+
+## 2. Le regole (dominio puro)
+
+`src/domain/computo/regole-conteggio.ts`. Una funzione per voce del master, ciascuna
+restituisce il risultato **con i suoi passaggi**, perché l'interfaccia deve mostrarli.
+
+```ts
+interface Passaggio {
+  etichetta: string
+  origine: { tariffa?: string; numeroVoceAtteso?: number; categoria?: string }
+  valore: number
+  unita: 'mq' | 'nr' | 'eur'
+}
+
+type ImportoConteggiato = number | 'compresa'
+
+interface VoceConteggiata {
+  idMaster: string                 // id stabile: 'pareti-mhm', 'trave-base', …
+  descrizione: string
+  passaggi: Passaggio[]
+  formula: string                  // "(184,18 × 220 + 68.428,78) / 2"
+  importo: ImportoConteggiato
+  provenienza: 'calcolato' | 'manuale' | 'fisso'
+}
+```
+
+`provenienza` rispetta il vincolo #7 di `CLAUDE.md`: ogni importo dichiara da dove viene.
+Correggere un valore a mano lo marca `manuale` e la UI lo evidenzia.
+
+### Tabella delle regole
+
+| `idMaster` | Voce master | Regola |
+|---|---|---|
+| `pareti-mhm` | Pareti strutturali M.H.M. | `M:001.001`, **più il delta di pareggio** (§3) |
+| `trave-base` | Trave alla base in larice | Σ totali tariffe `106.01.01-04` + `104.01.017-023` |
+| `solaio-interpiano` | Solaio interpiano | `M:001.002` |
+| `copertura-falda` | Copertura a falda | ((mq `104.02.011` + mq `104.02.000`) × 220 + `M:001.003`) / 2 |
+| `copertura-piana` | Tetto piano | sempre `compresa` — l'importo sta su `copertura-falda` |
+| `veletta-perimetrale` | Veletta perimetrale | nessuna regola FBE: `compresa` |
+| `cappotto` | Cappotto esterno | (mq `204.03.08` × 90 + `M:001.004`) / 2 |
+| `cartongesso` | Cartongesso interno | (mq `107.04.01` × 22 + mq `107.04.01` × 5 + `M:001.005`) / 2 |
+| `assistenza-cartongessisti` | Assistenza ai cartongessisti | mq `107.04.01` × 5 |
+| `infissi` | Infissi esterni in PVC | Σmq (`109.04.02`,`.03`,`.04`,`.05`,`.06`) × 500 + Σnr (`109.04.07`…`.11`) × 100 + nr `109.04.07` × 4000 |
+| `monoblocchi` | Monoblocchi Hella | Σ totali `109.04.12` + `109.04.13` + `109.04.14` |
+| `consulenza-esecutiva` | Consulenza progettazione esecutiva | 4.000,00 fisso |
+| `tracciamento-impianti` | Tracciamento impianto idrosanitario | `compresa`, non modificabile |
+| `pareti-telaio` | Pareti non strutturali a telaio | `compresa`, non modificabile |
+
+Note sulle regole, dove il testo FBE era ambiguo e la lettura è stata fissata:
+
+- **Cartongesso.** Il `× 5` è la stessa quantità della voce `assistenza-cartongessisti`,
+  che viene comunque fatturata a parte. Decisione confermata: entra lo stesso nella media,
+  quindi l'assistenza pesa per metà anche dentro la voce cartongesso. Su Dacroce
+  (11.684,20 + 2.655,50 + 23.612,10) / 2 = 18.975,90.
+- **Cappotto.** L'istruzione parla di «mq riportati al codice `001.004`», ma `M:001.004` è
+  un importo in euro, non una superficie. La media è fra due valori in euro.
+- **Infissi, secondo gruppo.** Le tariffe `109.04.07`…`.11` sono voci di montaggio in
+  `cadauno`, non in mq: si sommano i pezzi (14 su Dacroce) e si moltiplicano per 100.
+- **Infissi, primo gruppo.** `109.04.02` (portabalcone) è dichiarata `cadauno` nel computo
+  ma la quantità è una superficie (2,10 = 1,00 × 2,100). Si somma come mq, coerentemente
+  con le altre quattro tariffe del gruppo.
+- **Portoncini.** Il conteggio è la quantità di `109.04.07`, non il suo importo.
+- **Monoblocchi.** Si sommano i **totali in euro** delle tre tariffe, non le quantità.
+
+### Righe a zero
+
+Una voce il cui calcolo dà `0` non mostra `0,00`: mostra `compresa`, come già fanno
+tracciamento impianti e pareti a telaio. Su Crivellaro il solaio (`M:001.002` = 0,00) esce
+quindi come `compresa`.
+
+`compresa` non è un numero e non entra nelle somme — vincolo #5 di `CLAUDE.md`.
+
+**Caso non coperto.** La regola FBE manda l'importo della copertura sempre sulla riga a
+falda, anche quando esiste copertura piana. Un edificio con **solo** copertura piana
+lascerebbe quindi l'importo su una riga a `compresa`, perdendolo. Nessuno dei due computi
+disponibili è in questo caso (piana = 0 mq in entrambi). L'implementazione emette un
+avviso bloccante se incontra `mq piana > 0 e mq falda = 0`, invece di produrre un totale
+sbagliato in silenzio.
+
+## 3. Riconciliazione (dominio puro)
+
+`src/domain/computo/conteggio.ts`.
+
+```
+somma        = Σ importi numerici delle voci conteggiate
+target       = TOTALE computo − COSTI_SICUREZZA_FORFETTARI
+delta        = target − somma
+pareti-mhm  += delta
+```
+
+`COSTI_SICUREZZA_FORFETTARI = 23_300` è una costante nominata, in un solo punto del
+codice.
+
+Entrambi i computi analizzati riportano però `M:001.020 = 23.352,50`. Lo scarto di 52,50
+è voluto — la costante è tarata per far atterrare il Listino vicino a una cifra tonda — ma
+resta un valore da tenere d'occhio: il conteggio emette un **avviso non bloccante** quando
+`M:001.020` differisce dalla costante, riportando entrambi i numeri.
+
+Il delta è atteso positivo (le regole sottostimano sistematicamente: 21.555,66 su Dacroce,
+21.145,02 su Crivellaro). Un delta negativo è legittimo ma anomalo, e viene segnalato.
+
+## 4. Interfaccia
+
+Nuova pagina `src/app/preventivi/conteggi/page.tsx`, autonoma: non legge né scrive
+preventivi. Riusa i componenti di `src/app/preventivi/ui/`.
+
+Tre zone in sequenza verticale:
+
+**Caricamento.** Un'area di drop per il PDF. Subito dopo l'estrazione, una riga di
+riscontro: numero di voci lette, totale ricomposto, esito della verifica di integrità, e
+la tabella del Riepilogo Strutturale così com'è nel computo.
+
+**Passaggi.** Una scheda per voce conteggiata, nell'ordine del master. Ogni scheda mostra
+le sorgenti lette — codice tariffa, descrizione della voce nel computo, valore grezzo con
+la sua unità — poi la formula in chiaro, poi il risultato. È la richiesta esplicita:
+i passaggi devono essere visibili, non solo il numero finale.
+
+Ogni importo è correggibile a mano. Un valore corretto passa a `manuale`, resta
+evidenziato, e la riconciliazione si ricalcola.
+
+**Riconciliazione.** Somma delle voci, target, delta, e la tabella master finale
+nell'ordine di `Conteggi Master.xlsx` con le pareti già a pareggio.
+
+Sotto, il blocco commerciale (Listino → sconti → PARZIALE) calcolato riusando
+`applicaScontiACascata` da `src/domain/calcolo.ts`, con i default del master (2% cliente,
+3% conferma). Nessuna logica di sconto viene riscritta: vale il vincolo #1 di `CLAUDE.md`,
+gli sconti sono a cascata.
+
+Formato importi italiano come da convenzione: `96 100,00 €`.
+
+## 5. Test
+
+`src/domain/computo/*.test.ts`, sui **due computi reali**, che diventano golden case
+accanto a quello già in `CLAUDE.md`.
+
+Le fixture sono le `RigaTesto` estratte dai due PDF e salvate in JSON
+(`src/domain/computo/fixtures/`), così i test del dominio restano puri e veloci e non
+dipendono da `pdfjs-dist` né da file binari non committati.
+
+**Estrazione** — per entrambi: 166 voci, tariffe attese ai numeri attesi, riepilogo
+completo, somma voci = totale computo.
+
+**Regole** — valori attesi:
+
+| Voce | Dacroce | Crivellaro |
+|---|---:|---:|
+| Trave alla base | 10.104,24 | 5.843,70 |
+| Solaio | 15.240,96 | `compresa` |
+| Copertura falda | 54.474,19 | 58.849,06 |
+| Cappotto | 21.624,51 | 21.253,32 |
+| Cartongesso | 18.975,90 | 15.506,77 |
+| Assistenza cartongessisti | 2.655,50 | 2.162,30 |
+| Infissi | 31.230,00 | 19.250,00 |
+| Monoblocchi | 14.495,00 | 9.450,00 |
+| Consulenza esecutiva | 4.000,00 | 4.000,00 |
+
+**Riconciliazione**:
+
+| | Dacroce | Crivellaro |
+|---|---:|---:|
+| Somma voci | 278.787,92 | 215.815,96 |
+| Target (TOT − 23.300) | 300.343,58 | 236.960,99 |
+| Delta su pareti | 21.555,66 | 21.145,02 |
+| Pareti a pareggio | 127.543,29 | 100.645,85 |
+
+Il Listino Crivellaro esce a 236.960,99 contro i 237.000,00 del golden case in
+`CLAUDE.md`: i 39,01 di scarto sono esattamente il lavoro della leva `Arrotondamento`
+(vincolo #3), che resta manuale e fuori da questo modulo.
+
+**Casi limite**: computo senza copertura piana (entrambi), categoria a zero (solaio
+Crivellaro), tariffa attesa mancante, numero d'ordine che non corrisponde alla tariffa,
+somma voci diversa dal totale.
+
+## Fuori perimetro
+
+- Scrittura su preventivi o revisioni. La pagina è autonoma; il collegamento al wizard è
+  un passo successivo, che dovrà affrontare la mappatura sul catalogo esistente e il
+  congelamento del listino (vincolo #6).
+- Computi non prodotti da Primus, o con struttura diversa dal template FBE.
+- Costi sicurezza, optional ed esclusioni del master: valori fissi o testuali, non
+  conteggiati da qui.
+- La leva `Arrotondamento` e la risoluzione inversa del totale, già in
+  `src/domain/calcolo.ts`.
