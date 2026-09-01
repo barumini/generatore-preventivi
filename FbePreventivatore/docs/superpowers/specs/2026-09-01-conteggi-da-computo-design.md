@@ -378,20 +378,35 @@ includeva nella trave anche la posa cordolo `104.01.024` (10.104,24 + 4.401,36 =
   Primus lo applica in automatico; l'offerta commerciale non lo riflette in alcuna riga
   leggibile dal riepilogo.
 
-  Sostituendo il totale-tariffa con il conteggio **grezzo** dei pezzi di montaggio
-  (`109.04.07`…`.11`, quantità intere non pesate) l'errore scende molto: con due prezzi
-  per tipologia (finestra / porta-tipo) risolti sulle due offerte, il fit è esatto su
-  Crivellaro e a −0,8% su Dacroce — ma è un sistema a due incognite risolto su due soli
-  casi: si adatta sempre esattamente, quindi da solo non prova che la regola sia quella.
+  L'abaco dei monoblocchi (elenco per dimensione, presente in entrambe le offerte) fissa
+  il roster reale. Attenzione al confronto fra revisioni: l'abaco Dacroce appartiene alla
+  rev.02 dell'offerta, che ha 13 serramenti (2 portoncini, 1 portabalcone, 4
+  portefinestre, 4 finestre, 2 alzanti), non i 14 del computo rev.03. Letto contro il suo
+  roster, l'abaco è coerente fra i due progetti: **i portoncini blindati ricevono sempre
+  un monoblocco** (Dacroce: 12 pezzi = 13 serramenti − 1 finestrella 100×110; Crivellaro:
+  11 = 10 serramenti PVC + 1 portoncino). Una prima lettura che li dava «a scelta di
+  cantiere» nasceva dal confronto improprio tra abaco rev.02 e conteggi rev.03.
 
-  Il vero ostacolo emerge dall'abaco dei monoblocchi (elenco per dimensione, presente in
-  entrambe le offerte): il numero di pezzi fisicamente installati è 12 su Dacroce e 11 su
-  Crivellaro. Su Dacroce coincide esattamente con «pezzi di montaggio meno i due
-  portoncini» (14 − 2 = 12): il portoncino blindato lì non riceve un monoblocco proprio.
-  Su Crivellaro invece il conteggio combacia solo **includendo** il portoncino (11, non
-  11 − 1 = 10). Se il portoncino riceva o no un proprio monoblocco Hella è quindi una
-  scelta di cantiere caso per caso — non è nelle quantità del computo, che sono identiche
-  nella forma in entrambi i casi.
+  Sui prezzi, la sistematica dei modelli alternativi mostra la sottodeterminazione:
+
+  | Modello (su roster omogenei) | Dacroce r.02 (off. 13.200) | Crivellaro r.04 (off. 10.200) |
+  |---|---:|---:|
+  | Σ totali tariffe computo | +9,8% | −7,4% |
+  | 900 finestra / 950 porta-tipo, a pezzo | −8,0% | **esatto** |
+  | 1.100 flat a pezzo d'abaco | **esatto** | +18,6% |
+  | perimetro telaio × ~144 €/m | −0,6% | +0,7% |
+  | perimetro × 125 + 150/pezzo | **esatto** | +3,7% |
+  | area telaio × 300 €/mq | +6,6% | −10,1% |
+
+  Tre modelli diversi colpiscono esattamente un progetto e sbagliano l'altro: con due
+  sole offerte e questa libertà di scelta, un fit esatto singolo non prova nulla. L'unico
+  con residui piccoli e coerenti su entrambi è il **perimetro del telaio** (€/m impliciti
+  144,74 e 142,86, scarto 1,3%) — fisicamente sensato, ma senza una costante condivisa
+  pulita, e le dimensioni dei monoblocchi stanno nell'abaco dell'offerta (cioè nel
+  preventivo del fornitore Hella), non nel riepilogo del computo. Nessuna dimensione è
+  condivisa fra i due progetti, quindi nemmeno un listino per-dimensione è verificabile
+  in croce. La spiegazione più plausibile: la riga d'offerta trascrive la **quotazione
+  Hella di progetto** (pezzi su misura), non una formula sul computo.
 
   **Conclusione per l'implementazione:** questa è l'unica voce del master su dieci dove i
   dati del computo non determinano il numero commerciale. La regola resta quella
