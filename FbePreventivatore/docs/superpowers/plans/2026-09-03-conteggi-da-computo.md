@@ -2559,6 +2559,29 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ### Task 9: Schede dei passaggi con correzione manuale
 
+**Emendamento — la voce di pareggio non si corregge.** Il codice mostrato negli step
+offre il campo di correzione a ogni voce con `provenienza !== 'fisso'`, quindi anche a
+`pareti-mhm`. Ma le pareti sono la voce che assorbe il pareggio: il loro importo è
+determinato per costruzione da tutte le altre, e sovrascriverlo romperebbe l'invariante
+che la somma atterri sul target. `eseguiConteggio` rifiuta quell'override con un avviso
+(Task 7), quindi l'interfaccia non deve nemmeno proporlo.
+
+In `SchedaVoce`, la condizione che mostra il campo diventa:
+
+```tsx
+const correggibile = voce.provenienza !== 'fisso' && voce.idMaster !== 'pareti-mhm'
+```
+
+e al posto del campo, sulla scheda delle pareti, va una riga che spiega perché non c'è:
+
+```tsx
+{!correggibile && voce.provenienza !== 'fisso' && (
+  <span className="text-xs text-slate-500">
+    assorbe il pareggio: correggi le altre voci
+  </span>
+)}
+```
+
 **Files:**
 - Create: `src/app/preventivi/conteggi/SchedaVoce.tsx`
 - Modify: `src/app/preventivi/conteggi/page.tsx`
