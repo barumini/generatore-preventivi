@@ -956,7 +956,14 @@ l'interfaccia (Task 8) devono formattare i numeri allo stesso modo:
  */
 export function numeroIt(valore: number, decimali = 2): string {
   return valore
-    .toLocaleString('it-IT', { minimumFractionDigits: decimali, maximumFractionDigits: 2 })
+    .toLocaleString('it-IT', {
+      minimumFractionDigits: decimali,
+      maximumFractionDigits: decimali,
+      // Senza `useGrouping: 'always'` l'ICU di it-IT omette il separatore quando la
+      // parte intera ha 4 cifre: 1070 uscirebbe "1070,00" invece di "1 070,00", e il
+      // golden case di CLAUDE.md ha un arrotondamento di esattamente -1.070,00.
+      useGrouping: 'always',
+    })
     .replace(/\./g, ' ')
 }
 
@@ -978,6 +985,23 @@ describe('numeroIt', () => {
     expect(numeroIt(105_987.63)).toBe('105 987,63')
     expect(numeroIt(220, 0)).toBe('220')
   })
+
+  it('separa le migliaia anche quando la parte intera ha 4 cifre', () => {
+    // È il caso che `useGrouping: 'always'` risolve: l'ICU di it-IT altrimenti
+    // omette il separatore proprio qui, e sono valori reali — la trave alla base
+    // di Crivellaro vale 5.843,70 e l'arrotondamento del golden case −1.070,00.
+    expect(numeroIt(1_070)).toBe('1 070,00')
+    expect(numeroIt(5_843.7)).toBe('5 843,70')
+    expect(numeroIt(9_999.99)).toBe('9 999,99')
+  })
+
+  it('non separa sotto il migliaio', () => {
+    expect(numeroIt(543.2)).toBe('543,20')
+  })
+
+  it('tratta i decimali come limite, non solo come minimo', () => {
+    expect(numeroIt(1_234.5, 0)).toBe('1 235')
+  })
 })
 
 describe('quantitaIt', () => {
@@ -987,6 +1011,11 @@ describe('quantitaIt', () => {
   })
 })
 ```
+
+In `regolaParetiBase`, passa l'importo per `arrotondaCentesimi` come già fa `regolaSolaio`:
+il vincolo globale sull'arrotondamento è incondizionato, e quell'importo finisce in una
+somma a valle. Sui due computi è innocuo — le categorie del riepilogo sono già pulite al
+centesimo — ma l'asimmetria fra le due regole non ha ragione di esistere.
 
 E nelle tre regole che hanno una `formula` simbolica, sostituisci i codici con i valori:
 
@@ -1210,7 +1239,7 @@ export function regolaTraveBase(computo: Computo): VoceConteggiata {
     unita: 'eur' as const,
   }))
   return {
-    idMaster: 'trave-base',
+    idMaster: 'trave-larice',
     descrizione: 'Trave alla base in larice',
     passaggi,
     formula: 'Σ totali 106.01.01–04 + 104.01.017–023',
@@ -1242,7 +1271,7 @@ export const CONSULENZA_ESECUTIVA = 4_000
 
 export function regolaConsulenza(): VoceConteggiata {
   return {
-    idMaster: 'consulenza-esecutiva',
+    idMaster: 'progettazione-esecutiva',
     descrizione: 'Consulenza progettazione esecutiva di produzione',
     passaggi: [],
     formula: 'importo fisso',
@@ -1696,7 +1725,7 @@ export function regolaCartongesso(computo: Computo): VoceConteggiata {
   const assistenza = arrotondaCentesimi(mq * EUR_MQ_ASSISTENZA)
   const categoria = computo.riepilogo['M:001.005']?.importo ?? 0
   return {
-    idMaster: 'cartongesso',
+    idMaster: 'cartongesso-q2',
     descrizione:
       'Cartongesso interno a placcatura diretta su pareti "M.H.M." con finitura "Q2"',
     passaggi: [
@@ -1750,7 +1779,7 @@ export function regolaInfissi(computo: Computo): VoceConteggiata {
     mq * EUR_MQ_INFISSI + pezziMontaggio * EUR_PEZZO_MONTAGGIO + portoncini * EUR_PORTONCINO,
   )
   return {
-    idMaster: 'infissi',
+    idMaster: 'infissi-pvc',
     descrizione: 'Infissi esterni in PVC (escluso oscuranti) con un portoncino di ingresso',
     passaggi: [
       { etichetta: 'mq fornitura serramenti', origine: {}, valore: mq, unita: 'mq' },
@@ -1960,15 +1989,15 @@ describe('eseguiConteggio — golden case Dacroce rev.03', () => {
   })
 
   it('produce gli importi attesi per ogni voce', () => {
-    expect(importo(esito, 'trave-base')).toBe(10_104.24)
+    expect(importo(esito, 'trave-larice')).toBe(10_104.24)
     expect(importo(esito, 'solaio-interpiano')).toBe(15_240.96)
     expect(importo(esito, 'copertura-falda')).toBe(54_474.19)
     expect(importo(esito, 'cappotto')).toBe(21_624.51)
-    expect(importo(esito, 'cartongesso')).toBe(18_975.90)
+    expect(importo(esito, 'cartongesso-q2')).toBe(18_975.90)
     expect(importo(esito, 'assistenza-cartongessisti')).toBe(2_655.50)
-    expect(importo(esito, 'infissi')).toBe(31_230)
+    expect(importo(esito, 'infissi-pvc')).toBe(31_230)
     expect(importo(esito, 'monoblocchi')).toBe(14_495)
-    expect(importo(esito, 'consulenza-esecutiva')).toBe(4_000)
+    expect(importo(esito, 'progettazione-esecutiva')).toBe(4_000)
   })
 
   it('atterra esattamente sul target', () => {
@@ -1995,12 +2024,12 @@ describe('eseguiConteggio — golden case Crivellaro rev.04', () => {
   })
 
   it('produce gli importi attesi per ogni voce', () => {
-    expect(importo(esito, 'trave-base')).toBe(5_843.70)
+    expect(importo(esito, 'trave-larice')).toBe(5_843.70)
     expect(importo(esito, 'copertura-falda')).toBe(58_849.06)
     expect(importo(esito, 'cappotto')).toBe(21_253.32)
-    expect(importo(esito, 'cartongesso')).toBe(15_506.77)
+    expect(importo(esito, 'cartongesso-q2')).toBe(15_506.77)
     expect(importo(esito, 'assistenza-cartongessisti')).toBe(2_162.30)
-    expect(importo(esito, 'infissi')).toBe(19_250)
+    expect(importo(esito, 'infissi-pvc')).toBe(19_250)
     expect(importo(esito, 'monoblocchi')).toBe(9_450)
   })
 })
@@ -2011,16 +2040,16 @@ describe('ordine e struttura', () => {
       'pareti-mhm',
       'tracciamento-impianti',
       'pareti-telaio',
-      'trave-base',
+      'trave-larice',
       'solaio-interpiano',
       'copertura-falda',
       'copertura-piana',
       'cappotto',
-      'cartongesso',
+      'cartongesso-q2',
       'assistenza-cartongessisti',
-      'infissi',
+      'infissi-pvc',
       'monoblocchi',
-      'consulenza-esecutiva',
+      'progettazione-esecutiva',
     ])
   })
 })
@@ -2672,16 +2701,16 @@ const NUMERO_MASTER: Record<string, string> = {
   'pareti-mhm': '1',
   'tracciamento-impianti': '1.a',
   'pareti-telaio': '1.b',
-  'trave-base': '1.c',
+  'trave-larice': '1.c',
   'solaio-interpiano': '2',
   'copertura-falda': '3',
   'copertura-piana': '3.a',
   cappotto: '4',
-  cartongesso: '5',
+  'cartongesso-q2': '5',
   'assistenza-cartongessisti': '5.a',
-  infissi: '6',
+  'infissi-pvc': '6',
   monoblocchi: '6.a',
-  'consulenza-esecutiva': '7',
+  'progettazione-esecutiva': '7',
 }
 
 export default function PaginaConteggi() {
