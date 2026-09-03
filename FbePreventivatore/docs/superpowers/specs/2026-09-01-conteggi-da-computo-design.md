@@ -102,14 +102,37 @@ interface Computo {
 
 ### Una tariffa può comparire più volte
 
-Non è un caso limite teorico: nel computo Crivellaro la tariffa `104.02.000` compare due
-volte, come `COPERTURA A FALDA` (186,35 mq) e come `COPERTURA SPORTO - TETTOIE - PORTICO
-P1` (42,84 mq).
+Non è un caso limite teorico ed è più diffuso di quanto sembri. In **entrambi** i computi
+ci sono 166 voci ma solo 159 tariffe distinte: **7 tariffe compaiono due volte**, e sono
+esattamente le stesse sette nei due progetti.
 
-Un indice `tariffa → VoceComputo` che tiene una voce sola perde silenziosamente le altre,
-e nel computo Dacroce — dove la tariffa compare una volta — l'errore resterebbe
-invisibile. L'accesso restituisce quindi sempre una **lista**, e ogni regola dichiara
-come sceglie:
+| Tariffa | Le due voci | Dacroce | Crivellaro |
+|---|---|---|---|
+| `103.02.09` | sovrapprezzo solaio PHE 20cm / PHE 12cm | 0 · 0 | 0 · 0 |
+| `104.01.015` | teli e nastrature: velette / pareti | 0 · 174,96 | 0 · 170,18 |
+| `104.01.016` | ferramenta sismica: velette / pareti | 0 · 246,71 | 0 · 209,23 |
+| `104.02.000` | copertura: sporto-tettoie-portico / **a falda** | 0 · 184,18 | 42,84 · 186,35 |
+| `104.02.006` | listelli ventilazione: falda / tetto piano | 184,18 · 0 | 229,19 · 0 |
+| `104.02.018` | pannello OSB: due varianti | 0 · 0 | 0 · 0 |
+| `104.02.021` | travi lamellare: **pareti / copertura** | 4,01 · 1,37 | 1,16 · 1,31 |
+
+La ragione è che tariffa e voce sono cose diverse. La **tariffa** è l'articolo di
+prezzario: dice *che lavorazione è* e a quale prezzo unitario. La **voce** è una riga di
+misurazione: dice *dove* e *quanto*. Il computista apre più righe sulla stessa tariffa
+quando vuole tenere separate quantità che hanno destinazioni fisiche diverse — la falda
+dallo sporto, le pareti dalle velette, le travi delle pareti da quelle della copertura.
+
+Due conseguenze da tenere presenti:
+
+- `104.02.021` mostra che una tariffa non è unica **nemmeno dentro una categoria**: le due
+  righe stanno in `PARETI IN LEGNO` e in `COPERTURA`, ed entrambe hanno un valore. Non si
+  può disambiguare per categoria.
+- In Dacroce `104.02.000` compare due volte come in Crivellaro, ma la riga dello sporto ha
+  quantità 0: sommare o scegliere dà lo stesso risultato. Per questo un test scritto solo
+  su Dacroce non accorgerebbe la differenza, e Crivellaro è indispensabile.
+
+Un indice `tariffa → VoceComputo` che tiene una voce sola perde silenziosamente le altre.
+L'accesso restituisce quindi sempre una **lista**, e ogni regola dichiara come sceglie:
 
 ```ts
 vociPerTariffa(computo, tariffa: string): VoceComputo[]
@@ -120,10 +143,23 @@ voceUnica(computo, tariffa: string, filtroDescrizione?: RegExp): VoceComputo
 
 `voceUnica` serve dove la regola FBE punta a **una** lavorazione precisa e non
 all'aggregato: solleva se le corrispondenze sono zero o più di una, così un computo fuori
-standard si ferma invece di scegliere a caso. È il caso della copertura a falda, dove il
-discriminante è la descrizione (`/FALDA/`): la regola originale cita il «codice 59», che
-in entrambi i computi è la riga a falda, mentre lo sporto — pur avendo la stessa tariffa —
-resta fuori.
+standard si ferma invece di scegliere a caso.
+
+Delle sette tariffe ripetute, **una sola** è toccata dalle regole del master:
+`104.02.000`, nella copertura a falda. Il discriminante è la descrizione (`/FALDA/`): la
+regola originale cita il «codice 59», che in entrambi i computi è la riga a falda, mentre
+lo sporto resta fuori. Tutte le altre tariffe usate dalle regole — `106.01.*`,
+`104.01.017-023`, `104.02.011`, `204.03.08`, `107.04.01`, `109.04.*` — compaiono una volta
+sola in entrambi i computi, e per quelle `sommaTotali` e `sommaQuantita` restano corrette
+qualunque cosa accada.
+
+Che la regola prenda la sola falda è coerente col computo, non una perdita: gli strati
+della copertura si dividono proprio su quelle due quantità. In Crivellaro il pacchetto
+coibente — freno a vapore, isolamento in fibra di legno, relativa posa — è misurato su
+186,35 mq, la falda; struttura, manto e lattoneria — travi, tavolato, membrana, listelli,
+tegole — su 229,19 mq, falda più sporto. Lo sporto non si coibenta perché sta fuori
+dall'involucro riscaldato. I 220 €/mq della regola valorizzano il pacchetto coibentato,
+quindi la superficie giusta è quella della falda.
 
 Il riconoscimento sfrutta la griglia fissa di Primus, verificata su entrambi i PDF:
 
