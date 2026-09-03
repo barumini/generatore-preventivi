@@ -103,21 +103,27 @@ interface Computo {
 ### Una tariffa può comparire più volte
 
 Non è un caso limite teorico: nel computo Crivellaro la tariffa `104.02.000` compare due
-volte, come `COPERTURA A FALDA` (186,35) e come `COPERTURA SPORTO - TETTOIE - PORTICO P1`
-(42,84). La somma, 229,19, è la superficie che tutte le voci a valle della copertura
-usano come quantità.
+volte, come `COPERTURA A FALDA` (186,35 mq) e come `COPERTURA SPORTO - TETTOIE - PORTICO
+P1` (42,84 mq).
 
-Le funzioni di accesso restituiscono quindi **somme su tutte le occorrenze** di una
-tariffa, mai una singola voce:
+Un indice `tariffa → VoceComputo` che tiene una voce sola perde silenziosamente le altre,
+e nel computo Dacroce — dove la tariffa compare una volta — l'errore resterebbe
+invisibile. L'accesso restituisce quindi sempre una **lista**, e ogni regola dichiara
+come sceglie:
 
 ```ts
-sommaQuantita(computo, ...tariffe: string[]): number
-sommaTotali(computo, ...tariffe: string[]): number
+vociPerTariffa(computo, tariffa: string): VoceComputo[]
+sommaTotali(computo, ...tariffe: string[]): number      // somma tutte le occorrenze
+sommaQuantita(computo, ...tariffe: string[]): number    // somma tutte le occorrenze
+voceUnica(computo, tariffa: string, filtroDescrizione?: RegExp): VoceComputo
 ```
 
-Un indice `tariffa → VoceComputo` che tiene una voce sola perde silenziosamente le altre.
-Nel computo Dacroce, dove `104.02.000` compare una volta, l'errore sarebbe invisibile: il
-riscontro sulle offerte reali (§6) lo ha rivelato solo grazie al caso Crivellaro.
+`voceUnica` serve dove la regola FBE punta a **una** lavorazione precisa e non
+all'aggregato: solleva se le corrispondenze sono zero o più di una, così un computo fuori
+standard si ferma invece di scegliere a caso. È il caso della copertura a falda, dove il
+discriminante è la descrizione (`/FALDA/`): la regola originale cita il «codice 59», che
+in entrambi i computi è la riga a falda, mentre lo sporto — pur avendo la stessa tariffa —
+resta fuori.
 
 Il riconoscimento sfrutta la griglia fissa di Primus, verificata su entrambi i PDF:
 
@@ -176,14 +182,14 @@ Correggere un valore a mano lo marca `manuale` e la UI lo evidenzia.
 | `pareti-mhm` | Pareti strutturali M.H.M. | `M:001.001`, **più il delta di pareggio** (§3) |
 | `trave-base` | Trave alla base in larice | Σ totali tariffe `106.01.01-04` + `104.01.017-023` |
 | `solaio-interpiano` | Solaio interpiano | `M:001.002` |
-| `copertura-falda` | Copertura a falda | ((Σmq `104.02.011` + Σmq `104.02.000`) × 220 + `M:001.003`) / 2 |
+| `copertura-falda` | Copertura a falda | ((mq `104.02.011` + mq `104.02.000` riga `/FALDA/`) × 220 + `M:001.003`) / 2 |
 | `copertura-piana` | Tetto piano | sempre `compresa` — l'importo sta su `copertura-falda` |
 | `veletta-perimetrale` | Veletta perimetrale | nessuna regola FBE: `compresa` |
-| `cappotto` | Cappotto esterno | (mq `204.03.01` × 90 + `M:001.004`) / 2 |
+| `cappotto` | Cappotto esterno | (mq `204.03.08` × 90 + `M:001.004`) / 2 |
 | `cartongesso` | Cartongesso interno | (mq `107.04.01` × 22 + mq `107.04.01` × 5 + `M:001.005`) / 2 |
 | `assistenza-cartongessisti` | Assistenza ai cartongessisti | mq `107.04.01` × 5 |
 | `infissi` | Infissi esterni in PVC | Σmq (`109.04.02`,`.03`,`.04`,`.05`,`.06`) × 500 + Σnr (`109.04.07`…`.11`) × 100 + nr `109.04.07` × 4000 |
-| `monoblocchi` | Monoblocchi Hella | Σ totali `109.04.12` + `109.04.13` + `109.04.14` — proposta di partenza, nasce `manuale` (v. nota sotto) |
+| `monoblocchi` | Monoblocchi Hella | Σ totali `109.04.12` + `109.04.13` + `109.04.14` |
 | `consulenza-esecutiva` | Consulenza progettazione esecutiva | 4.000,00 fisso |
 | `tracciamento-impianti` | Tracciamento impianto idrosanitario | `compresa`, non modificabile |
 | `pareti-telaio` | Pareti non strutturali a telaio | `compresa`, non modificabile |
@@ -195,12 +201,9 @@ Note sulle regole, dove il testo FBE era ambiguo e la lettura è stata fissata:
   quindi l'assistenza pesa per metà anche dentro la voce cartongesso. Su Dacroce
   (11.684,20 + 2.655,50 + 23.612,10) / 2 = 18.975,90.
 - **Cappotto.** L'istruzione parla di «mq riportati al codice `001.004`», ma `M:001.004` è
-  un importo in euro, non una superficie. La media è fra due valori in euro.
-- **Cappotto, quale superficie.** L'istruzione indicava la posa (`204.03.08`), che copre
-  una superficie più ampia perché include lo zoccolo perimetrale. L'ancora corretta è
-  `204.03.01`, i pannelli GUTEX in fibra di legno, che è ciò che la voce dell'offerta
-  descrive («sp. mm 60+40»). Sul riscontro Crivellaro la differenza è fra un risultato
-  esatto e uno sbagliato di 1.000 € (§6).
+  un importo in euro, non una superficie. La media è fra due valori in euro. La superficie
+  è quella del «codice 116», cioè la posa `204.03.08` (195,16 mq su Dacroce): non i
+  pannelli `204.03.01`, che coprono una superficie minore.
 - **Infissi, secondo gruppo.** Le tariffe `109.04.07`…`.11` sono voci di montaggio in
   `cadauno`, non in mq: si sommano i pezzi (14 su Dacroce) e si moltiplicano per 100.
 - **Infissi, primo gruppo.** `109.04.02` (portabalcone) è dichiarata `cadauno` nel computo
@@ -208,28 +211,33 @@ Note sulle regole, dove il testo FBE era ambiguo e la lettura è stata fissata:
   con le altre quattro tariffe del gruppo.
 - **Portoncini.** Il conteggio è la quantità di `109.04.07`, non il suo importo.
 - **Monoblocchi.** Si sommano i **totali in euro** delle tre tariffe, non le quantità.
-  È l'unica regola che il riscontro sulle offerte reali non conferma: il totale-tariffa
-  include un moltiplicatore tecnico Primus per i serramenti scorrevoli larghi che non ha
-  riscontro in offerta, e la causa profonda non è deducibile dal computo (§6, "Scarti
-  aperti"). La voce nasce `provenienza: 'manuale'`.
-- **Copertura, quali quantità.** Vanno sommate **tutte** le occorrenze di `104.02.000`,
-  non solo la voce `COPERTURA A FALDA`: in Crivellaro la stessa tariffa porta anche
-  sporto, tettoie e portico.
+- **Copertura, quale riga.** La superficie a falda è quella della riga `104.02.000` la cui
+  descrizione contiene `FALDA` — il «codice 59» dell'istruzione. In Crivellaro la stessa
+  tariffa porta anche sporto, tettoie e portico (42,84 mq), che restano fuori.
+
+### Arrotondamento
+
+Ogni voce si arrotonda al centesimo con `ROUND_HALF_UP` **prima** di entrare nella somma,
+riusando `arrotondaCentesimi` di `src/domain/calcolo.ts`.
+
+Non è un dettaglio: su entrambi i computi il cappotto cade esattamente su mezzo centesimo
+(21.624,505 su Dacroce, 21.253,315 su Crivellaro). Sommare i valori grezzi e arrotondare
+alla fine sposta il delta di pareggio di un centesimo, e i golden case non tornerebbero
+più. La convenzione va fissata nei test, non lasciata all'aritmetica in virgola mobile.
 
 ### Righe a zero
 
-Una voce il cui calcolo dà `0` viene **rimossa** dal preventivo, e le voci successive si
-rinumerano. È il comportamento documentato dall'offerta Crivellaro rev.04, dove il solaio
-(`M:001.002` = 0,00) non compare affatto e la numerazione prosegue `1.c` → `2` (copertura)
-→ `3` (cappotto) → `4` (cartongesso), senza buchi.
+Una voce il cui calcolo dà `0` non mostra `0,00`: mostra `compresa`, come già fanno
+tracciamento impianti e pareti a telaio. Su Crivellaro il solaio (`M:001.002` = 0,00) esce
+quindi come `compresa`.
 
-Coerente col vincolo #4 di `CLAUDE.md`: i numeri di voce sono calcolati al render sulle
-voci incluse.
+`compresa` non è un numero e non entra nelle somme — vincolo #5 di `CLAUDE.md`.
 
-Restano invece sempre presenti con la dicitura `compresa` le voci che sono comprese per
-scelta commerciale e non per assenza: tracciamento impianti, pareti a telaio, e la
-copertura piana quando l'importo è stato spostato sulla riga a falda. `compresa` non è un
-numero e non entra nelle somme — vincolo #5.
+L'offerta Crivellaro rev.04 in effetti omette del tutto la riga del solaio e rinumera le
+successive, che è quanto il vincolo #4 permetterebbe. Resta però una scelta commerciale, e
+la scelta fatta è mostrare `compresa`: la riga tiene il cliente informato che il solaio è
+contemplato. Il motore di numerazione al render regge comunque entrambi i comportamenti,
+perché numera sulle voci incluse.
 
 **Caso non coperto.** La regola FBE manda l'importo della copertura sempre sulla riga a
 falda, anche quando esiste copertura piana. Un edificio con **solo** copertura piana
@@ -257,8 +265,9 @@ Entrambi i computi analizzati riportano però `M:001.020 = 23.352,50`. Lo scarto
 resta un valore da tenere d'occhio: il conteggio emette un **avviso non bloccante** quando
 `M:001.020` differisce dalla costante, riportando entrambi i numeri.
 
-Il delta è atteso positivo (le regole sottostimano sistematicamente: 22.464,65 su Dacroce,
-17.395,62 su Crivellaro). Un delta negativo è legittimo ma anomalo, e viene segnalato.
+Il delta è atteso positivo (le regole sottostimano sistematicamente: 21.555,65 su Dacroce,
+21.145,02 su Crivellaro — notevolmente stabile fra i due casi). Un delta negativo è
+legittimo ma anomalo, e viene segnalato.
 
 ## 4. Interfaccia
 
@@ -301,14 +310,14 @@ dipendono da `pdfjs-dist` né da file binari non committati.
 **Estrazione** — per entrambi: 166 voci, tariffe attese ai numeri attesi, riepilogo
 completo, somma voci = totale computo.
 
-**Regole** — valori attesi:
+**Regole** — valori attesi, arrotondati al centesimo `ROUND_HALF_UP`:
 
-| Voce | Dacroce | Crivellaro |
+| Voce | Dacroce rev.03 | Crivellaro rev.04 |
 |---|---:|---:|
 | Trave alla base | 10.104,24 | 5.843,70 |
-| Solaio | 15.240,96 | *rimossa* |
-| Copertura falda | 54.474,19 | 63.561,46 |
-| Cappotto | 20.715,51 | 20.290,32 |
+| Solaio | 15.240,96 | `compresa` |
+| Copertura falda | 54.474,19 | 58.849,06 |
+| Cappotto | 21.624,51 | 21.253,32 |
 | Cartongesso | 18.975,90 | 15.506,77 |
 | Assistenza cartongessisti | 2.655,50 | 2.162,30 |
 | Infissi | 31.230,00 | 19.250,00 |
@@ -316,107 +325,85 @@ completo, somma voci = totale computo.
 | Consulenza esecutiva | 4.000,00 | 4.000,00 |
 
 Quantità intermedie da verificare esplicitamente, perché è lì che si annidano gli errori
-di indicizzazione: copertura 184,18 / 229,19 mq; cappotto 174,96 / 170,18 mq; cartongesso
-531,10 / 432,46 mq.
+di indicizzazione:
+
+| Quantità | Dacroce | Crivellaro |
+|---|---:|---:|
+| mq copertura a falda (riga `/FALDA/`) | 184,18 | 186,35 |
+| mq copertura piana | 0,00 | 0,00 |
+| mq cappotto (`204.03.08`) | 195,16 | 191,58 |
+| mq cartongesso (`107.04.01`) | 531,10 | 432,46 |
+| mq infissi gruppo 1 | 43,66 | 28,30 |
+| pezzi infissi gruppo 2 | 14 | 11 |
+| pezzi portoncini (`109.04.07`) | 2 | 1 |
+
+Il caso Crivellaro copre esplicitamente la tariffa ripetuta: `104.02.000` compare due
+volte e la regola deve prendere 186,35 (falda), non 229,19 (falda + sporto).
 
 **Riconciliazione**:
 
 | | Dacroce | Crivellaro |
 |---|---:|---:|
-| Somma voci | 277.878,93 | 219.565,37 |
+| Somma voci | 278.787,93 | 215.815,97 |
 | Target (TOT − 23.300) | 300.343,58 | 236.960,99 |
-| Delta su pareti | 22.464,65 | 17.395,62 |
-| Pareti a pareggio | 128.452,28 | 96.896,44 |
+| Delta su pareti | 21.555,65 | 21.145,02 |
+| Pareti a pareggio | 127.543,28 | 100.645,84 |
 
-**Casi limite**: tariffa presente più volte nello stesso computo (copertura Crivellaro),
-computo senza copertura piana (entrambi), categoria a zero con rinumerazione (solaio
-Crivellaro), tariffa attesa mancante, numero d'ordine che non corrisponde alla tariffa,
-somma voci diversa dal totale.
+**Casi limite**: tariffa presente più volte nello stesso computo (copertura Crivellaro —
+`voceUnica` deve scegliere la falda, e sollevare se le corrispondenze sono zero o più di
+una), computo senza copertura piana (entrambi), categoria a zero che diventa `compresa`
+(solaio Crivellaro), voce il cui importo cade su mezzo centesimo (cappotto, entrambi),
+tariffa attesa mancante, numero d'ordine che non corrisponde alla tariffa, somma voci
+diversa dal totale del riepilogo.
 
-## 6. Riscontro sulle offerte reali
+## 6. Le offerte emesse non sono un riscontro
 
-Le regole sono state verificate contro le offerte `mod.05-COM` effettivamente emesse. Gli
-importi in offerta sono arrotondati al centinaio, quindi il confronto è fra il calcolo
-arrotondato al centinaio e la riga di offerta.
+Le regole erano state confrontate con le offerte `mod.05-COM` realmente emesse (Dacroce
+rev.02, Crivellaro rev.04) e su tre voci i numeri non tornavano: copertura, cappotto e
+monoblocchi. Da quel confronto erano state derivate tre correzioni.
 
-**Crivellaro** è il riscontro probante: offerta rev.04 contro computo rev.04, stessa
-revisione.
+**FBE ha poi comunicato che quelle discrepanze sono errori di calcolo manuale commessi
+nella redazione delle offerte.** Le tre correzioni sono state quindi annullate e le regole
+originali ripristinate — è quanto documenta la tabella al §2.
 
-| Voce | Calcolato | → 100 | Offerta | Δ |
-|---|---:|---:|---:|---:|
-| Trave alla base | 5.843,70 | 5.800 | 5.800 | **0** |
-| Copertura | 63.561,46 | 63.600 | 63.600 | **0** |
-| Cappotto | 20.290,32 | 20.300 | 20.300 | **0** |
-| Cartongesso | 15.506,77 | 15.500 | 15.500 | **0** |
-| Assistenza cartongessisti | 2.162,30 | 2.200 | 2.200 | **0** |
-| Consulenza esecutiva | 4.000,00 | 4.000 | 4.000 | **0** |
-| Infissi | 19.250,00 | 19.200 | 19.300 | −100 |
-| Monoblocchi | 9.450,00 | 9.400 | 10.200 | −800 |
-| **Listino** | **236.960,99** | | **237.000** | **−39,01** |
+Cosa cambia in pratica:
 
-Gli infissi cadono esattamente a metà fra due centinaia: è il verso dell'arrotondamento,
-non un errore di regola.
+| Voce | Correzione annullata | Regola ripristinata |
+|---|---|---|
+| Copertura a falda | somma di tutte le occorrenze `104.02.000` (229,19 mq su Crivellaro) | la sola riga `/FALDA/`, il «codice 59» (186,35 mq) |
+| Cappotto | pannelli `204.03.01` | posa `204.03.08`, il «codice 116» |
+| Monoblocchi | voce `provenienza: 'manuale'` | voce `calcolato`, come tutte le altre |
 
-I monoblocchi sono l'unico scarto reale, e si propaga: sostituendo i 10.200 dell'offerta,
-le pareti a pareggio uscirebbero a 96.146,44 → 96.100, che è esattamente la riga di
-offerta. Con quella sola sostituzione **tutte** le voci Crivellaro tornano.
+**Conseguenza sui test.** Gli importi delle offerte non possono più figurare come valori
+attesi: contengono errori. I golden case restano i **due computi**, con i valori che le
+regole producono — verificabili in modo deterministico e riportati al §5. Il caso
+Crivellaro conserva il valore che aveva già: è l'unico dei due in cui offerta e computo
+condividono la revisione, e resta il riferimento per la struttura del documento.
 
-**Dacroce** è un riscontro parziale: l'offerta disponibile è rev.02, il computo è rev.03.
-Copertura esatta, quattro voci a un solo scatto di arrotondamento, Listino a −456,42
-(0,15%). Le tre voci che divergono davvero — trave −4.400, solaio −1.700, monoblocchi
-+1.300 — non sono confrontabili fra revisioni diverse. In particolare l'offerta rev.02
-includeva nella trave anche la posa cordolo `104.01.024` (10.104,24 + 4.401,36 =
-14.505,60 → 14.500), mentre Crivellaro conferma la regola senza posa.
+Resta valido, e indipendente dalle offerte, tutto ciò che discende dalla lettura del
+computo: l'indirizzamento per tariffa anziché per numero di voce (§"Le voci si
+indirizzano per tariffa"), il fatto che una tariffa possa ripetersi (§"Una tariffa può
+comparire più volte"), la riformulazione della trave alla base come blocco di tariffe
+anziché come subtotale di pagina (§"Il totale a pagina 2"), e la convenzione di
+arrotondamento (§2). Nessuno di questi punti dipendeva dagli importi in offerta: il primo
+e il secondo vengono dalla struttura dei computi, il terzo dal fatto che i due computi
+impaginano lo stesso blocco in modo diverso, il quarto dall'aritmetica.
 
-### Scarti aperti
+### Il moltiplicatore dell'alzante scorrevole
 
-- **Monoblocchi — causa individuata, regola non recuperabile dal computo.** I totali
-  delle tariffe `109.04.12/13/14` sbagliano in direzioni opposte nei due casi (+9,8% su
-  Dacroce, −7,4% su Crivellaro). La causa: la voce `109.04.13` applica un **moltiplicatore
-  tecnico interno** alla quantità dell'alzante scorrevole (`109.04.11`) — 1,70 su Dacroce,
-  1,25 su Crivellaro — che pesa i serramenti scorrevoli larghi con più di un monoblocco.
-  Primus lo applica in automatico; l'offerta commerciale non lo riflette in alcuna riga
-  leggibile dal riepilogo.
+Un dettaglio emerso durante quel confronto va comunque registrato, perché riguarda la
+lettura del computo e non gli importi d'offerta: la voce `109.04.13` non conta i pezzi
+uno a uno ma applica un fattore alla quantità dell'alzante scorrevole — 1,70 su Dacroce,
+1,25 su Crivellaro — per pesare i serramenti larghi con più di un monoblocco. È il motivo
+per cui la sua quantità non è intera (12,10 su Dacroce). La regola somma i **totali in
+euro**, quindi il fattore è già dentro il prezzo e non va ricalcolato: va solo saputo, per
+non allarmarsi davanti a una quantità frazionaria in una voce dichiarata `cadauno`.
 
-  L'abaco dei monoblocchi (elenco per dimensione, presente in entrambe le offerte) fissa
-  il roster reale. Attenzione al confronto fra revisioni: l'abaco Dacroce appartiene alla
-  rev.02 dell'offerta, che ha 13 serramenti (2 portoncini, 1 portabalcone, 4
-  portefinestre, 4 finestre, 2 alzanti), non i 14 del computo rev.03. Letto contro il suo
-  roster, l'abaco è coerente fra i due progetti: **i portoncini blindati ricevono sempre
-  un monoblocco** (Dacroce: 12 pezzi = 13 serramenti − 1 finestrella 100×110; Crivellaro:
-  11 = 10 serramenti PVC + 1 portoncino). Una prima lettura che li dava «a scelta di
-  cantiere» nasceva dal confronto improprio tra abaco rev.02 e conteggi rev.03.
+### Solaio
 
-  Sui prezzi, la sistematica dei modelli alternativi mostra la sottodeterminazione:
-
-  | Modello (su roster omogenei) | Dacroce r.02 (off. 13.200) | Crivellaro r.04 (off. 10.200) |
-  |---|---:|---:|
-  | Σ totali tariffe computo | +9,8% | −7,4% |
-  | 900 finestra / 950 porta-tipo, a pezzo | −8,0% | **esatto** |
-  | 1.100 flat a pezzo d'abaco | **esatto** | +18,6% |
-  | perimetro telaio × ~144 €/m | −0,6% | +0,7% |
-  | perimetro × 125 + 150/pezzo | **esatto** | +3,7% |
-  | area telaio × 300 €/mq | +6,6% | −10,1% |
-
-  Tre modelli diversi colpiscono esattamente un progetto e sbagliano l'altro: con due
-  sole offerte e questa libertà di scelta, un fit esatto singolo non prova nulla. L'unico
-  con residui piccoli e coerenti su entrambi è il **perimetro del telaio** (€/m impliciti
-  144,74 e 142,86, scarto 1,3%) — fisicamente sensato, ma senza una costante condivisa
-  pulita, e le dimensioni dei monoblocchi stanno nell'abaco dell'offerta (cioè nel
-  preventivo del fornitore Hella), non nel riepilogo del computo. Nessuna dimensione è
-  condivisa fra i due progetti, quindi nemmeno un listino per-dimensione è verificabile
-  in croce. La spiegazione più plausibile: la riga d'offerta trascrive la **quotazione
-  Hella di progetto** (pezzi su misura), non una formula sul computo.
-
-  **Conclusione per l'implementazione:** questa è l'unica voce del master su dieci dove i
-  dati del computo non determinano il numero commerciale. La regola resta quella
-  dichiarata (Σ totali `109.04.12/13/14`) come proposta di partenza, ma la voce nasce con
-  `provenienza: 'manuale'` invece che `'calcolato'` — l'unica eccezione alla tabella delle
-  regole — e l'interfaccia lo segnala esplicitamente come valore da rivedere, non da
-  fidarsi.
-- **Solaio Dacroce.** L'offerta riporta 16.900 contro i 15.240,96 di `M:001.002`
-  (+1.659,04). Non verificabile: Crivellaro non ha solaio. Se emergerà un terzo computo
-  con solaio, va ricontrollato prima di considerare la regola stabile.
+L'unica voce di cui non esiste alcun secondo riscontro: Dacroce ha solaio, Crivellaro no.
+La regola (`M:001.002`) è banale e viene direttamente dal riepilogo, ma se emergerà un
+terzo computo con solaio vale la pena ricontrollarla.
 
 ## Fuori perimetro
 
