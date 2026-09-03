@@ -10,7 +10,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint"
+    "lint": "next lint",
+    "copia-worker-pdf": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs",
+    "predev": "npm run copia-worker-pdf",
+    "prebuild": "npm run copia-worker-pdf",
+    "genera-fixture-computo": "tsx scripts/genera-fixture-computo.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",
@@ -19,6 +23,7 @@
     "exceljs": "^4.4.0",
     "lucide-react": "^1.30.0",
     "next": "^16.2.0",
+    "pdfjs-dist": "^5.6.205",
     "pizzip": "^3.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

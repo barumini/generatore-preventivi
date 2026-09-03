@@ -15,3 +15,7 @@ node_modules/
 # worktree isolati per l'esecuzione di piani (superpowers:using-git-worktrees)
 .worktrees/
 .superpowers/
+
+# worker di pdf.js copiato in public/ da `npm run copia-worker-pdf`
+# (1,2 MB, rigenerabile da node_modules)
+public/pdf.worker.min.mjs
