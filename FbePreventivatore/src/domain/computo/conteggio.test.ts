@@ -244,6 +244,42 @@ describe('override manuale — casi limite (round 1 di correzione)', () => {
   })
 })
 
+describe('override manuale — casi limite (round 2 di correzione)', () => {
+  it('ignora un override finito che va in overflow dopo l’arrotondamento e segnala un errore', () => {
+    // Number.isFinite(Number.MAX_VALUE) è true, ma arrotondaCentesimi lo
+    // moltiplica per 100 prima di dividere: l'overflow arriva lì, non prima.
+    const esito = eseguiConteggio(dacroce, { monoblocchi: Number.MAX_VALUE })
+
+    expect(importo(esito, 'monoblocchi')).toBe(14_495)
+    const voce = esito.voci.find((v) => v.idMaster === 'monoblocchi')!
+    expect(voce.provenienza).toBe('calcolato')
+
+    const avviso = esito.avvisi.find((a) => a.codice === 'override-non-finito')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('errore')
+    expect(avviso!.messaggio).toContain('monoblocchi')
+
+    // Il golden case resta intatto: l'override astronomico è stato ignorato
+    // per intero, non solo azzerato dopo aver già corrotto la somma.
+    expect(esito.sommaVoci).toBe(278_787.93)
+    expect(esito.target).toBe(300_343.58)
+    expect(esito.delta).toBe(21_555.65)
+    expect(importo(esito, 'pareti-mhm')).toBe(127_543.28)
+  })
+
+  it("riscrive la formula per un override su una voce che parte da 'compresa'", () => {
+    // copertura-piana, tracciamento-impianti e pareti-telaio restituiscono
+    // sempre 'compresa'; solaio-interpiano lo fa quando la categoria vale
+    // zero (il caso Crivellaro). Qui uso copertura-piana su Dacroce.
+    const esito = eseguiConteggio(dacroce, { 'copertura-piana': 5_000 })
+    const voce = esito.voci.find((v) => v.idMaster === 'copertura-piana')!
+
+    expect(voce.formula).toBe('corretto a mano: 5 000,00 € — il calcolo dava «compresa»')
+    expect(voce.importo).toBe(5_000)
+    expect(voce.provenienza).toBe('manuale')
+  })
+})
+
 describe('guardrail: pareggio non applicabile', () => {
   it('segnala un errore se le pareti non hanno un importo numerico', () => {
     vi.mocked(regolaParetiBase).mockReturnValueOnce({

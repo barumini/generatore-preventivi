@@ -111,7 +111,12 @@ export function eseguiConteggio(
       return voce
     }
 
-    if (!Number.isFinite(correzione)) {
+    const corretto = arrotondaCentesimi(correzione)
+    // Non basta validare l'input: arrotondaCentesimi moltiplica per 100, e un
+    // valore finito ma astronomico (es. Number.MAX_VALUE) va in overflow lì,
+    // non prima. Senza il secondo controllo un override "finito" produrrebbe
+    // comunque un ±Infinity silenzioso — la stessa firma del bug NaN.
+    if (!Number.isFinite(correzione) || !Number.isFinite(corretto)) {
       avvisi.push({
         livello: 'errore',
         codice: 'override-non-finito',
@@ -122,19 +127,22 @@ export function eseguiConteggio(
       return voce
     }
 
-    const corretto = arrotondaCentesimi(correzione)
     const originale = voce.importo
-    // 'compresa' non passa per numeroIt: si scrive per quello che è.
-    const testoOriginale = typeof originale === 'number' ? numeroIt(originale) : originale
+    // I passaggi restano le sorgenti lette dal computo: sono ancora vere, è
+    // solo il risultato che l'utente ha scavalcato. La formula invece deve
+    // dire la verità: senza questa riscrittura mostrerebbe ancora il calcolo
+    // che l'override ha appena sostituito. Il simbolo '€' segue solo una
+    // cifra: se il calcolo di partenza dava 'compresa' non è una cifra, e va
+    // fra virgolette basse invece che con un '€' appeso.
+    const formula =
+      typeof originale === 'number'
+        ? `corretto a mano: ${numeroIt(corretto)} € — il calcolo dava ${numeroIt(originale)} €`
+        : `corretto a mano: ${numeroIt(corretto)} € — il calcolo dava «${originale}»`
     return {
       ...voce,
       importo: corretto,
       provenienza: 'manuale' as const,
-      // I passaggi restano le sorgenti lette dal computo: sono ancora vere, è
-      // solo il risultato che l'utente ha scavalcato. La formula invece deve
-      // dire la verità: senza questa riscrittura mostrerebbe ancora il calcolo
-      // che l'override ha appena sostituito.
-      formula: `corretto a mano: ${numeroIt(corretto)} € — il calcolo dava ${testoOriginale} €`,
+      formula,
     }
   })
 
