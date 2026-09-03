@@ -8,6 +8,12 @@ import {
   regolaCoperturaFalda,
   regolaCoperturaPiana,
   regolaCappotto,
+  regolaCartongesso,
+  regolaAssistenzaCartongessisti,
+  regolaInfissi,
+  regolaMonoblocchi,
+  regolaTracciamentoImpianti,
+  regolaParetiTelaio,
   TARIFFE_TRAVE_BASE,
 } from './regole-conteggio'
 import dacroceFixture from './fixtures/dacroce.json'
@@ -83,6 +89,16 @@ describe('trasparenza delle formule', () => {
     }
     expect(regolaParetiBase(dacroce).formula).toContain('105 987,63')
   })
+
+  it('nessuna formula porta codici categoria grezzi', () => {
+    const voci = [
+      regolaCartongesso(dacroce),
+      regolaAssistenzaCartongessisti(dacroce),
+      regolaInfissi(dacroce),
+      regolaMonoblocchi(dacroce),
+    ]
+    for (const voce of voci) expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
+  })
 })
 
 describe('regolaCoperturaFalda', () => {
@@ -112,6 +128,10 @@ describe('regolaCoperturaFalda', () => {
     expect(prodotto).toBeDefined()
     expect(prodotto!.valore).toBe(40_519.60)
     expect(prodotto!.etichetta).toBe('184,18 mq × 220 €/mq')
+    // il prodotto sta fra i mq e la categoria: se finisse in coda la scheda
+    // mostrerebbe il risultato prima dei suoi ingredienti
+    expect(passaggi.findIndex((p) => p.etichetta.includes('× 220'))).toBe(2)
+    expect(passaggi.at(-1)!.origine.categoria).toBe('M:001.003')
   })
 
   it('la formula porta i valori sostituiti e il risultato', () => {
@@ -142,5 +162,77 @@ describe('regolaCappotto', () => {
     // pareggio slitterebbe di un centesimo e i golden case non tornerebbero.
     expect(regolaCappotto(dacroce).importo).not.toBe(21_624.5)
     expect(regolaCappotto(crivellaro).importo).not.toBe(21_253.31)
+  })
+
+  it('mostra il prodotto intermedio nella posizione attesa', () => {
+    // come per la copertura a falda: il prodotto sta fra i mq e la categoria,
+    // qui alla posizione 1 perché i passaggi del cappotto sono tre, non quattro
+    const passaggi = regolaCappotto(dacroce).passaggi
+    expect(passaggi.findIndex((p) => p.etichetta.includes('× 90'))).toBe(1)
+    expect(passaggi.at(-1)!.origine.categoria).toBe('M:001.004')
+  })
+})
+
+describe('regolaCartongesso', () => {
+  it('somma mq×22 e mq×5 al riepilogo, poi dimezza', () => {
+    // Dacroce: (531,10 × 22 = 11.684,20 + 531,10 × 5 = 2.655,50 + 23.612,10) / 2
+    expect(regolaCartongesso(dacroce).importo).toBe(18_975.90)
+    expect(regolaCartongesso(crivellaro).importo).toBe(15_506.77)
+  })
+
+  it('moltiplica per 5 i mq, non il risultato del ×22', () => {
+    const passaggi = regolaCartongesso(dacroce).passaggi
+    expect(passaggi.find((p) => p.unita === 'mq')!.valore).toBe(531.1)
+    // la lettura alternativa, (531,10 × 22) × 5, darebbe 41.016,55
+    expect(regolaCartongesso(dacroce).importo).not.toBe(41_016.55)
+  })
+})
+
+describe('regolaAssistenzaCartongessisti', () => {
+  it('vale i mq di cartongesso per 5', () => {
+    expect(regolaAssistenzaCartongessisti(dacroce).importo).toBe(2_655.50)
+    expect(regolaAssistenzaCartongessisti(crivellaro).importo).toBe(2_162.30)
+  })
+})
+
+describe('regolaInfissi', () => {
+  it('somma mq×500, pezzi×100 e portoncini×4000', () => {
+    // Dacroce: 43,66 × 500 + 14 × 100 + 2 × 4000
+    expect(regolaInfissi(dacroce).importo).toBe(31_230)
+    // Crivellaro: 28,30 × 500 + 11 × 100 + 1 × 4000
+    expect(regolaInfissi(crivellaro).importo).toBe(19_250)
+  })
+
+  it('tratta il secondo gruppo come pezzi e il primo come superficie', () => {
+    const passaggi = regolaInfissi(dacroce).passaggi
+    expect(passaggi.find((p) => p.unita === 'mq')!.valore).toBe(43.66)
+    expect(passaggi.find((p) => p.unita === 'nr' && p.etichetta.includes('montaggio'))!.valore).toBe(14)
+  })
+
+  it('conta i portoncini come pezzi di 109.04.07', () => {
+    expect(regolaInfissi(dacroce).passaggi.find((p) => p.etichetta.includes('portoncini'))!.valore).toBe(2)
+    expect(regolaInfissi(crivellaro).passaggi.find((p) => p.etichetta.includes('portoncini'))!.valore).toBe(1)
+  })
+
+  it('la formula degli infissi mostra i tre addendi, non i moltiplicatori', () => {
+    expect(regolaInfissi(dacroce).formula).toBe(
+      '21 830,00 + 1 400,00 + 8 000,00 = 31 230,00 €',
+    )
+  })
+})
+
+describe('regolaMonoblocchi', () => {
+  it('somma i totali in euro delle tre tariffe, non le quantità', () => {
+    expect(regolaMonoblocchi(dacroce).importo).toBe(14_495)
+    expect(regolaMonoblocchi(crivellaro).importo).toBe(9_450)
+  })
+})
+
+describe('voci sempre comprese', () => {
+  it('tracciamento impianti e pareti a telaio non sono modificabili', () => {
+    for (const voce of [regolaTracciamentoImpianti(), regolaParetiTelaio()]) {
+      expect(voce.importo).toBe('compresa')
+      expect(voce.provenienza).toBe('fisso')
+    }
   })
 })

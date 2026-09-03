@@ -137,7 +137,7 @@ export function regolaCoperturaFalda(computo: Computo): VoceConteggiata {
   const mqFalda = falda.quantita ?? 0
   const mqPiana = sommaQuantita(computo, '104.02.011')
   const mq = arrotondaCentesimi(mqFalda + mqPiana)
-  const categoria = computo.riepilogo['M:001.003']?.importo ?? 0
+  const categoria = importoCategoria(computo, 'M:001.003')
   const prodotto = arrotondaCentesimi(mq * EUR_MQ_COPERTURA)
   const importo = arrotondaCentesimi((prodotto + categoria) / 2)
   return {
@@ -207,7 +207,7 @@ export function regolaCoperturaPiana(computo: Computo): VoceConteggiata {
  */
 export function regolaCappotto(computo: Computo): VoceConteggiata {
   const mq = sommaQuantita(computo, '204.03.08')
-  const categoria = computo.riepilogo['M:001.004']?.importo ?? 0
+  const categoria = importoCategoria(computo, 'M:001.004')
   const prodotto = arrotondaCentesimi(mq * EUR_MQ_CAPPOTTO)
   const importo = arrotondaCentesimi((prodotto + categoria) / 2)
   return {
@@ -236,5 +236,158 @@ export function regolaCappotto(computo: Computo): VoceConteggiata {
     formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
     importo,
     provenienza: 'calcolato',
+  }
+}
+
+export const EUR_MQ_CARTONGESSO = 22
+export const EUR_MQ_ASSISTENZA = 5
+export const EUR_MQ_INFISSI = 500
+export const EUR_PEZZO_MONTAGGIO = 100
+export const EUR_PORTONCINO = 4_000
+
+function mqCartongesso(computo: Computo): number {
+  return sommaQuantita(computo, '107.04.01')
+}
+
+/**
+ * «Moltiplica totale cartongessi × 22. Moltiplica il risultato ottenuto × 5.»
+ * Il secondo × 5 si applica ai mq, non al risultato del × 22: altrimenti
+ * darebbe 58.421,00 su Dacroce e porterebbe la voce a 41.016,55. È la stessa
+ * quantità della voce `assistenza-cartongessisti`, che viene comunque
+ * fatturata a parte: entra lo stesso nella media, per scelta confermata.
+ */
+export function regolaCartongesso(computo: Computo): VoceConteggiata {
+  const mq = mqCartongesso(computo)
+  const lastre = arrotondaCentesimi(mq * EUR_MQ_CARTONGESSO)
+  const assistenza = arrotondaCentesimi(mq * EUR_MQ_ASSISTENZA)
+  const categoria = importoCategoria(computo, 'M:001.005')
+  const importo = arrotondaCentesimi((lastre + assistenza + categoria) / 2)
+  return {
+    idMaster: 'cartongesso-q2',
+    descrizione:
+      'Cartongesso interno a placcatura diretta su pareti "M.H.M." con finitura "Q2"',
+    passaggi: [
+      { etichetta: 'mq pannelli in cartongesso', origine: { tariffa: '107.04.01' }, valore: mq, unita: 'mq' },
+      { etichetta: `mq × ${EUR_MQ_CARTONGESSO}`, origine: {}, valore: lastre, unita: 'eur' },
+      { etichetta: `mq × ${EUR_MQ_ASSISTENZA}`, origine: {}, valore: assistenza, unita: 'eur' },
+      { etichetta: 'categoria CARTONGESSO', origine: { categoria: 'M:001.005' }, valore: categoria, unita: 'eur' },
+    ],
+    formula: `(${numeroIt(lastre)} + ${numeroIt(assistenza)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
+  }
+}
+
+export function regolaAssistenzaCartongessisti(computo: Computo): VoceConteggiata {
+  const mq = mqCartongesso(computo)
+  const importo = arrotondaCentesimi(mq * EUR_MQ_ASSISTENZA)
+  return {
+    idMaster: 'assistenza-cartongessisti',
+    descrizione: 'Assistenza ai cartongessisti',
+    passaggi: [
+      { etichetta: 'mq pannelli in cartongesso', origine: { tariffa: '107.04.01' }, valore: mq, unita: 'mq' },
+    ],
+    formula: `${quantitaIt(mq)} mq × ${EUR_MQ_ASSISTENZA} €/mq = ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
+  }
+}
+
+/**
+ * Fornitura dei serramenti, a superficie. `109.04.02` (portabalcone) è
+ * dichiarata `cadauno` nel computo ma la sua quantità è una superficie
+ * (2,10 = 1,00 × 2,100), quindi appartiene a questo gruppo.
+ */
+export const TARIFFE_INFISSI_MQ = [
+  '109.04.02', '109.04.03', '109.04.04', '109.04.05', '109.04.06',
+] as const
+
+/**
+ * Montaggio, a pezzo. L'istruzione originale diceva «somma i valori mq», ma
+ * queste voci sono in `cadauno`: non esiste una superficie da sommare.
+ */
+export const TARIFFE_INFISSI_PEZZI = [
+  '109.04.07', '109.04.08', '109.04.09', '109.04.10', '109.04.11',
+] as const
+
+/**
+ * I tre prodotti (mq×prezzo, pezzi×prezzo, portoncini×prezzo) sono passaggi in
+ * `eur` accanto alla quantità che li genera, e sono gli stessi valori che
+ * compaiono già sostituiti in `formula` — Emendamento trasparenza.
+ */
+export function regolaInfissi(computo: Computo): VoceConteggiata {
+  const mq = sommaQuantita(computo, ...TARIFFE_INFISSI_MQ)
+  const pezziMontaggio = sommaQuantita(computo, ...TARIFFE_INFISSI_PEZZI)
+  const portoncini = sommaQuantita(computo, '109.04.07')
+  const eurMq = arrotondaCentesimi(mq * EUR_MQ_INFISSI)
+  const eurPezzi = arrotondaCentesimi(pezziMontaggio * EUR_PEZZO_MONTAGGIO)
+  const eurPortoncini = arrotondaCentesimi(portoncini * EUR_PORTONCINO)
+  const importo = arrotondaCentesimi(eurMq + eurPezzi + eurPortoncini)
+  return {
+    idMaster: 'infissi-pvc',
+    descrizione: 'Infissi esterni in PVC (escluso oscuranti) con un portoncino di ingresso',
+    passaggi: [
+      { etichetta: 'mq fornitura serramenti', origine: {}, valore: mq, unita: 'mq' },
+      { etichetta: `mq × ${EUR_MQ_INFISSI}`, origine: {}, valore: eurMq, unita: 'eur' },
+      { etichetta: 'pezzi di montaggio', origine: {}, valore: pezziMontaggio, unita: 'nr' },
+      { etichetta: `pezzi × ${EUR_PEZZO_MONTAGGIO}`, origine: {}, valore: eurPezzi, unita: 'eur' },
+      { etichetta: 'portoncini di ingresso', origine: { tariffa: '109.04.07' }, valore: portoncini, unita: 'nr' },
+      { etichetta: `portoncini × ${EUR_PORTONCINO}`, origine: {}, valore: eurPortoncini, unita: 'eur' },
+    ],
+    formula: `${numeroIt(eurMq)} + ${numeroIt(eurPezzi)} + ${numeroIt(eurPortoncini)} = ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
+  }
+}
+
+/**
+ * Si sommano i totali in euro, non le quantità. La quantità di `109.04.13` non
+ * è nemmeno intera (12,10 su Dacroce) perché Primus applica un fattore alla
+ * riga dell'alzante scorrevole — 1,70 su Dacroce, 1,25 su Crivellaro — per
+ * pesare i serramenti larghi con più di un monoblocco. Il fattore è già dentro
+ * il prezzo: non va ricalcolato.
+ */
+export const TARIFFE_MONOBLOCCHI = ['109.04.12', '109.04.13', '109.04.14'] as const
+
+export function regolaMonoblocchi(computo: Computo): VoceConteggiata {
+  const importo = sommaTotali(computo, ...TARIFFE_MONOBLOCCHI)
+  return {
+    idMaster: 'monoblocchi',
+    descrizione: 'Monoblocchi lisci su 4 lati ditta Hella per posa infissi',
+    passaggi: TARIFFE_MONOBLOCCHI.map((tariffa) => ({
+      etichetta: computo.voci.find((v) => v.tariffa === tariffa)?.descrizione.slice(0, 60) ?? tariffa,
+      origine: { tariffa },
+      valore: sommaTotali(computo, tariffa),
+      unita: 'eur' as const,
+    })),
+    formula: `somma di 3 tariffe: ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
+  }
+}
+
+export function regolaTracciamentoImpianti(): VoceConteggiata {
+  return {
+    idMaster: 'tracciamento-impianti',
+    descrizione:
+      'Tracciamento impianto idrosanitario ed elettrico come da tavola di ' +
+      '"predisposizione impianti" sottoscritta',
+    passaggi: [],
+    formula: 'sempre compresa',
+    importo: 'compresa',
+    provenienza: 'fisso',
+  }
+}
+
+export function regolaParetiTelaio(): VoceConteggiata {
+  return {
+    idMaster: 'pareti-telaio',
+    descrizione:
+      'Pareti non strutturali a telaio composte dalla struttura del telaio e ' +
+      '2 lastre di cartongesso da un lato',
+    passaggi: [],
+    formula: 'sempre compresa',
+    importo: 'compresa',
+    provenienza: 'fisso',
   }
 }
