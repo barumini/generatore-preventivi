@@ -21,6 +21,32 @@
 - Formato importi italiano: `96 100,00 €` (spazio migliaia, virgola decimale).
 - Test: `vitest`, file `*.test.ts` accanto al modulo, `import { describe, expect, it } from 'vitest'`.
 - Commit in italiano, imperativo, con `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+- **Nessun numero compare senza il suo perché.** Ogni importo mostrato deve essere
+  ricostruibile leggendo la sua scheda, senza aprire il computo e senza conoscere il
+  codice: la `formula` porta i valori già sostituiti in formato italiano (non i codici
+  categoria), i prodotti intermedi compaiono fra i `passaggi`, e nessuna quantità entra in
+  un risultato senza essere prima elencata. Un numero che appare dal nulla è un difetto,
+  anche quando è aritmeticamente giusto.
+
+## Trasparenza dei conteggi
+
+Requisito esplicito del committente, e ragione d'essere della pagina: l'utente deve poter
+verificare ogni cifra senza fidarsi. Tre conseguenze che attraversano i task:
+
+1. **Formule sostituite, non simboliche.** `(184,18 × 220 + 68.428,78) / 2`, non
+   `(184.18 × 220 + M:001.003) / 2`. Il codice categoria resta nei `passaggi`, dove
+   accanto c'è il suo valore; nella formula ci vanno i numeri. Serve un formattatore
+   condiviso fra dominio e interfaccia — `src/domain/computo/formatta-numero.ts`, creato
+   nel Task 4 e riusato dal Task 8 — perché il dominio non può importare dalla cartella
+   dell'app e duplicare la formattazione porterebbe a due convenzioni divergenti.
+2. **Prodotti intermedi fra i passaggi.** Dove una regola moltiplica prima di combinare,
+   il prodotto è un passaggio a sé: la copertura mostra `184,18 mq × 220 = 40.519,60`, non
+   solo i mq. È già così nel cartongesso; va reso uniforme in copertura e cappotto.
+3. **Il delta di pareggio è un passaggio delle pareti.** È il numero più grande che la
+   pagina produce e l'unico che non viene dal computo: senza un passaggio che lo dichiari,
+   la scheda delle pareti mostrerebbe `M:001.001 = 105.987,63` e poi un totale di
+   `127.543,28` senza spiegare i 21.555,65 di differenza. Lo aggiunge `eseguiConteggio`
+   nel Task 7, che è l'unico punto che conosce il delta.
 
 ## Dati di riferimento (verificati)
 
@@ -916,6 +942,71 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 Le quattro regole che leggono un valore senza combinarlo: pareti, solaio, trave, consulenza.
 
+**Emendamento — trasparenza.** Rispetto al codice mostrato negli step, aggiungi anche
+`src/domain/computo/formatta-numero.ts`, e usalo nelle `formula` di questo e dei task
+successivi. È nel dominio, non nella cartella dell'app, perché sia le regole sia
+l'interfaccia (Task 8) devono formattare i numeri allo stesso modo:
+
+```ts
+/**
+ * Formato numerico italiano: spazio per le migliaia, virgola decimale.
+ * `toLocaleString('it-IT')` userebbe il punto per le migliaia, quindi si sostituisce.
+ * Vive nel dominio perché le formule delle regole e l'interfaccia devono concordare:
+ * due formattatori separati divergerebbero alla prima modifica.
+ */
+export function numeroIt(valore: number, decimali = 2): string {
+  return valore
+    .toLocaleString('it-IT', { minimumFractionDigits: decimali, maximumFractionDigits: 2 })
+    .replace(/\./g, ' ')
+}
+
+/** Come `numeroIt`, ma senza decimali quando il valore è intero (per quantità e pezzi). */
+export function quantitaIt(valore: number): string {
+  return numeroIt(valore, Number.isInteger(valore) ? 0 : 2)
+}
+```
+
+Con un test `src/domain/computo/formatta-numero.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { numeroIt, quantitaIt } from './formatta-numero'
+
+describe('numeroIt', () => {
+  it('usa lo spazio per le migliaia e la virgola decimale', () => {
+    expect(numeroIt(68_428.78)).toBe('68 428,78')
+    expect(numeroIt(105_987.63)).toBe('105 987,63')
+    expect(numeroIt(220, 0)).toBe('220')
+  })
+})
+
+describe('quantitaIt', () => {
+  it('omette i decimali sugli interi', () => {
+    expect(quantitaIt(14)).toBe('14')
+    expect(quantitaIt(184.18)).toBe('184,18')
+  })
+})
+```
+
+E nelle tre regole che hanno una `formula` simbolica, sostituisci i codici con i valori:
+
+- `regolaParetiBase`: `formula: \`categoria PARETI IN LEGNO: ${numeroIt(importo)} €\``
+- `regolaSolaio`: `formula: \`categoria SOLAIO: ${numeroIt(importo)} €\``
+- `regolaTraveBase`: `formula: \`somma di 11 tariffe: ${numeroIt(totale)} €\`` (dove `totale`
+  è il valore che assegni a `importo`)
+- `regolaConsulenza`: resta `'importo fisso'`, che è già esplicito.
+
+Aggiungi un test che le formule non contengano codici categoria grezzi:
+
+```ts
+it('le formule portano i valori, non i codici categoria', () => {
+  for (const voce of [regolaParetiBase(dacroce), regolaSolaio(dacroce), regolaTraveBase(dacroce)]) {
+    expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
+  }
+  expect(regolaParetiBase(dacroce).formula).toContain('105 987,63')
+})
+```
+
 **Files:**
 - Modify: `src/domain/calcolo.ts:11` (esporta `arrotondaCentesimi`)
 - Create: `src/domain/computo/regole-conteggio.ts`
@@ -1198,6 +1289,51 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 Copertura e cappotto: una quantità dal computo, moltiplicata per un prezzo, mediata con
 l'importo della categoria corrispondente.
 
+**Emendamento — trasparenza.** Sono le due regole dove il buco era più visibile: mostravano
+i mq e la categoria, ma non il prodotto intermedio, e la formula portava il codice
+categoria invece del suo valore. Rispetto al codice mostrato negli step:
+
+1. Importa `numeroIt` e `quantitaIt` da `./formatta-numero` (creato nel Task 4).
+2. In `regolaCoperturaFalda`, aggiungi un passaggio per il prodotto, **fra** i mq e la
+   categoria, e sostituisci la formula:
+
+   ```ts
+   const prodotto = arrotondaCentesimi(mq * EUR_MQ_COPERTURA)
+   // …fra il passaggio 'mq copertura piana' e quello della categoria:
+   {
+     etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_COPERTURA} €/mq`,
+     origine: {},
+     valore: prodotto,
+     unita: 'eur',
+   },
+   // …e la formula:
+   formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
+   ```
+
+3. In `regolaCappotto`, la stessa cosa con `EUR_MQ_CAPPOTTO`.
+4. In `regolaCoperturaPiana`, la formula diventa
+   `` `${quantitaIt(mqPiana)} mq — importo riportato sulla riga a falda` ``, così anche una
+   riga a `compresa` dice perché.
+
+Aggiungi i test corrispondenti:
+
+```ts
+it('mostra il prodotto intermedio, non solo i mq', () => {
+  const passaggi = regolaCoperturaFalda(dacroce).passaggi
+  const prodotto = passaggi.find((p) => p.etichetta.includes('× 220'))
+  expect(prodotto).toBeDefined()
+  expect(prodotto!.valore).toBe(40_519.60)
+  expect(prodotto!.etichetta).toBe('184,18 mq × 220 €/mq')
+})
+
+it('la formula porta i valori sostituiti e il risultato', () => {
+  expect(regolaCoperturaFalda(dacroce).formula).toBe(
+    '(40 519,60 + 68 428,78) / 2 = 54 474,19 €',
+  )
+  expect(regolaCappotto(dacroce).formula).not.toMatch(/M:001\.\d{3}/)
+})
+```
+
 **Files:**
 - Modify: `src/domain/computo/regole-conteggio.ts` (aggiunge le regole)
 - Modify: `src/domain/computo/regole-conteggio.test.ts` (aggiunge i test)
@@ -1408,6 +1544,42 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ---
 
 ### Task 6: Regole di cartongesso, infissi e monoblocchi
+
+**Emendamento — trasparenza.** Il cartongesso già espone i prodotti intermedi fra i
+passaggi; qui manca solo la sostituzione nelle formule. Importa `numeroIt` e `quantitaIt`
+da `./formatta-numero` e sostituisci le quattro `formula`:
+
+- `regolaCartongesso`:
+  `` `(${numeroIt(lastre)} + ${numeroIt(assistenza)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €` ``
+  (estrai `importo` in una costante prima di comporre l'oggetto)
+- `regolaAssistenzaCartongessisti`:
+  `` `${quantitaIt(mq)} mq × ${EUR_MQ_ASSISTENZA} €/mq = ${numeroIt(importo)} €` ``
+- `regolaInfissi`: la formula deve mostrare i tre addendi calcolati, non i soli
+  moltiplicatori:
+  `` `${numeroIt(mq * EUR_MQ_INFISSI)} + ${numeroIt(pezziMontaggio * EUR_PEZZO_MONTAGGIO)} + ${numeroIt(portoncini * EUR_PORTONCINO)} = ${numeroIt(importo)} €` ``
+  Aggiungi anche i tre prodotti come passaggi in `eur`, accanto alle quantità che già ci
+  sono, così si vede da dove viene ciascun addendo.
+- `regolaMonoblocchi`: `` `somma di 3 tariffe: ${numeroIt(importo)} €` ``
+
+Test da aggiungere:
+
+```ts
+it('la formula degli infissi mostra i tre addendi, non i moltiplicatori', () => {
+  expect(regolaInfissi(dacroce).formula).toBe(
+    '21 830,00 + 1 400,00 + 8 000,00 = 31 230,00 €',
+  )
+})
+
+it('nessuna formula porta codici categoria grezzi', () => {
+  const voci = [
+    regolaCartongesso(dacroce),
+    regolaAssistenzaCartongessisti(dacroce),
+    regolaInfissi(dacroce),
+    regolaMonoblocchi(dacroce),
+  ]
+  for (const voce of voci) expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
+})
+```
 
 **Files:**
 - Modify: `src/domain/computo/regole-conteggio.ts`
@@ -1672,6 +1844,68 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 Il golden case completo: le dieci voci nell'ordine del master, la somma, il target, il
 delta caricato sulle pareti.
+
+**Emendamento — trasparenza (il buco più grave).** Il delta di pareggio è il numero più
+grande che la pagina produce e l'unico che non viene dal computo. Col codice mostrato
+negli step, la scheda delle pareti mostrerebbe `M:001.001 = 105.987,63` fra i passaggi e
+poi un importo di `127.543,28`, senza niente che spieghi i 21.555,65 di differenza: un
+numero che appare dal nulla.
+
+In `eseguiConteggio`, dove sostituisci l'importo delle pareti, aggiungi anche il passaggio
+e riscrivi la formula. Importa `numeroIt` da `./formatta-numero`:
+
+```ts
+const vociAPareggio = voci.map((voce) => {
+  if (voce.idMaster !== ID_PARETI || typeof voce.importo !== 'number') return voce
+  const aPareggio = arrotondaCentesimi(voce.importo + delta)
+  return {
+    ...voce,
+    importo: aPareggio,
+    // Il delta non viene dal computo: senza questo passaggio l'importo delle pareti
+    // sarebbe l'unico numero della pagina che il lettore non può ricostruire.
+    passaggi: [
+      ...voce.passaggi,
+      {
+        etichetta:
+          `pareggio: ${numeroIt(target)} di target − ${numeroIt(sommaVoci)} di voci conteggiate`,
+        origine: {},
+        valore: delta,
+        unita: 'eur' as const,
+      },
+    ],
+    formula:
+      `${numeroIt(voce.importo)} + ${numeroIt(delta)} di pareggio = ${numeroIt(aPareggio)} €`,
+  }
+})
+```
+
+Test da aggiungere:
+
+```ts
+describe('trasparenza del pareggio', () => {
+  const esito = eseguiConteggio(dacroce)
+  const pareti = esito.voci.find((v) => v.idMaster === 'pareti-mhm')!
+
+  it('dichiara il delta fra i passaggi delle pareti', () => {
+    const pareggio = pareti.passaggi.find((p) => p.etichetta.startsWith('pareggio:'))
+    expect(pareggio).toBeDefined()
+    expect(pareggio!.valore).toBe(21_555.65)
+    expect(pareggio!.etichetta).toContain('300 343,58')
+    expect(pareggio!.etichetta).toContain('278 787,93')
+  })
+
+  it('la formula delle pareti ricostruisce l’importo finale', () => {
+    expect(pareti.formula).toBe('105 987,63 + 21 555,65 di pareggio = 127 543,28 €')
+  })
+
+  it('ogni voce con importo numerico ha una formula non vuota', () => {
+    for (const voce of esito.voci) {
+      expect(voce.formula.length).toBeGreaterThan(0)
+      expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
+    }
+  })
+})
+```
 
 **Files:**
 - Create: `src/domain/computo/conteggio.ts`
@@ -2009,6 +2243,27 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ---
 
 ### Task 8: Pagina e caricamento del computo
+
+**Emendamento — trasparenza.** `formatta.ts` non riscrive la formattazione dei numeri: la
+costruisce su `numeroIt` e `quantitaIt` di `src/domain/computo/formatta-numero.ts`, creato
+nel Task 4. Due formattatori separati divergerebbero alla prima modifica, e le formule
+delle regole userebbero una convenzione diversa dalle tabelle.
+
+```ts
+import { numeroIt, quantitaIt } from '@/domain/computo/formatta-numero'
+
+/** Formato importi FBE: spazio per le migliaia, virgola decimale (CLAUDE.md). */
+export function formattaEuro(valore: number): string {
+  return `${numeroIt(valore)} €`
+}
+
+export function formattaQuantita(valore: number, unita: string): string {
+  return `${quantitaIt(valore)} ${unita}`
+}
+```
+
+I test dello Step 1 restano validi così come sono: verificano lo stesso comportamento
+osservabile.
 
 **Files:**
 - Create: `src/app/preventivi/conteggi/page.tsx`
