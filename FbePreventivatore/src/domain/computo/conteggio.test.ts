@@ -1,9 +1,22 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { estraiComputo } from './estrai-voci'
 import { eseguiConteggio, COSTI_SICUREZZA_FORFETTARI } from './conteggio'
+import { regolaParetiBase } from './regole-conteggio'
 import dacroceFixture from './fixtures/dacroce.json'
 import crivellaroFixture from './fixtures/crivellaro.json'
 import type { FrammentoTesto } from './frammenti'
+
+// Solo per il test del guardrail 'pareggio-non-applicato' più in fondo al file:
+// wrappa regolaParetiBase in uno spy che di default chiama l'implementazione
+// vera. Un singolo test accoda un mockReturnValueOnce per simulare, senza
+// toccare regole-conteggio.ts, un futuro in cui la regola restituisse
+// 'compresa' come già fa regolaSolaio. Tutti gli altri test — inclusi i golden
+// case che chiamano eseguiConteggio a livello di describe, prima che quel test
+// venga eseguito — passano per lo spy senza notarne la presenza.
+vi.mock('./regole-conteggio', async (importOriginal) => {
+  const reali = await importOriginal<typeof import('./regole-conteggio')>()
+  return { ...reali, regolaParetiBase: vi.fn(reali.regolaParetiBase) }
+})
 
 const dacroce = estraiComputo(dacroceFixture as FrammentoTesto[])
 const crivellaro = estraiComputo(crivellaroFixture as FrammentoTesto[])
@@ -98,7 +111,7 @@ describe('avvisi', () => {
     const avviso = eseguiConteggio(dacroce).avvisi.find((a) => a.codice === 'sicurezza-diversa')
     expect(avviso).toBeDefined()
     expect(avviso!.livello).toBe('avviso')
-    expect(avviso!.messaggio).toContain('23.352,50')
+    expect(avviso!.messaggio).toContain('23 352,50')
   })
 
   it('non segnala nulla di grave sui due computi reali', () => {
@@ -158,5 +171,96 @@ describe('trasparenza del pareggio', () => {
       expect(voce.formula.length).toBeGreaterThan(0)
       expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
     }
+  })
+})
+
+describe('override manuale — casi limite (round 1 di correzione)', () => {
+  it('ignora un override non finito e segnala un errore', () => {
+    const esito = eseguiConteggio(dacroce, { monoblocchi: NaN })
+
+    expect(importo(esito, 'monoblocchi')).toBe(14_495)
+    const voce = esito.voci.find((v) => v.idMaster === 'monoblocchi')!
+    expect(voce.provenienza).toBe('calcolato')
+
+    const avviso = esito.avvisi.find((a) => a.codice === 'override-non-finito')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('errore')
+    expect(avviso!.messaggio).toContain('monoblocchi')
+    expect(avviso!.messaggio).toContain('NaN')
+
+    // Il bug originale: NaN è 'number' per typeof, e si propagava senza avviso.
+    expect(Number.isFinite(esito.sommaVoci)).toBe(true)
+    expect(Number.isFinite(esito.delta)).toBe(true)
+    expect(Number.isFinite(importo(esito, 'pareti-mhm') as number)).toBe(true)
+  })
+
+  it('rifiuta un override sulle pareti e segnala un avviso', () => {
+    const esito = eseguiConteggio(dacroce, { 'pareti-mhm': 50_000 })
+
+    expect(importo(esito, 'pareti-mhm')).toBe(127_543.28)
+    const voce = esito.voci.find((v) => v.idMaster === 'pareti-mhm')!
+    expect(voce.provenienza).toBe('calcolato')
+
+    const avviso = esito.avvisi.find((a) => a.codice === 'override-pareti-rifiutato')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('avviso')
+    expect(avviso!.messaggio).toContain('pareti')
+  })
+
+  it('riscrive la formula con la correzione manuale, mantenendo i passaggi', () => {
+    const base = eseguiConteggio(dacroce).voci.find((v) => v.idMaster === 'monoblocchi')!
+    const corretto = eseguiConteggio(dacroce, { monoblocchi: 13_200 }).voci.find(
+      (v) => v.idMaster === 'monoblocchi',
+    )!
+
+    expect(corretto.formula).toBe('corretto a mano: 13 200,00 € — il calcolo dava 14 495,00 €')
+    expect(corretto.passaggi).toHaveLength(3)
+    // I passaggi sono le sorgenti lette dal computo: l'override cambia il
+    // risultato, non le sorgenti che lo giustificavano prima della correzione.
+    expect(corretto.passaggi).toEqual(base.passaggi)
+  })
+
+  it('segnala un override che non corrisponde a nessuna voce', () => {
+    const esito = eseguiConteggio(dacroce, { 'voce-che-non-esiste': 999 })
+
+    const avviso = esito.avvisi.find((a) => a.codice === 'override-voce-sconosciuta')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('avviso')
+    expect(avviso!.messaggio).toContain('voce-che-non-esiste')
+
+    // Nessun altro effetto: né sul target, né sul delta.
+    const base = eseguiConteggio(dacroce)
+    expect(esito.target).toBe(base.target)
+    expect(esito.delta).toBe(base.delta)
+  })
+
+  it('con un override valido su una voce diversa dalle pareti la somma atterra ancora sul target', () => {
+    const esito = eseguiConteggio(dacroce, { monoblocchi: 13_200 })
+    const somma = esito.voci.reduce(
+      (t, v) => t + (typeof v.importo === 'number' ? v.importo : 0),
+      0,
+    )
+    expect(Math.round(somma * 100) / 100).toBe(esito.target)
+  })
+})
+
+describe('guardrail: pareggio non applicabile', () => {
+  it('segnala un errore se le pareti non hanno un importo numerico', () => {
+    vi.mocked(regolaParetiBase).mockReturnValueOnce({
+      idMaster: 'pareti-mhm',
+      descrizione: 'Pareti strutturali in legno "M.H.M."',
+      passaggi: [],
+      formula: 'simulazione guardrail: regola ipotetica che restituisce compresa',
+      importo: 'compresa',
+      provenienza: 'calcolato',
+    })
+
+    const esito = eseguiConteggio(dacroce)
+
+    expect(importo(esito, 'pareti-mhm')).toBe('compresa')
+    const avviso = esito.avvisi.find((a) => a.codice === 'pareggio-non-applicato')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('errore')
+    expect(avviso!.messaggio).toContain('pareti')
   })
 })
