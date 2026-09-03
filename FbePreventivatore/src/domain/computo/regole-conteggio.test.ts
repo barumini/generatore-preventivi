@@ -39,6 +39,10 @@ describe('regolaTraveBase', () => {
     expect(TARIFFE_TRAVE_BASE).toHaveLength(11)
   })
 
+  it('usa l’id stabile già presente nel catalogo, non uno inventato', () => {
+    expect(regolaTraveBase(dacroce).idMaster).toBe('trave-larice')
+  })
+
   it('mostra un passaggio per ogni tariffa che contribuisce', () => {
     const voce = regolaTraveBase(dacroce)
     expect(voce.passaggi).toHaveLength(11)
@@ -62,6 +66,10 @@ describe('regolaConsulenza', () => {
     expect(voce.importo).toBe(4_000)
     expect(voce.provenienza).toBe('fisso')
     expect(voce.passaggi).toEqual([])
+  })
+
+  it('usa l’id stabile già presente nel catalogo, non uno inventato', () => {
+    expect(regolaConsulenza().idMaster).toBe('progettazione-esecutiva')
   })
 })
 

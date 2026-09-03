@@ -50,7 +50,7 @@ export function regolaParetiBase(computo: Computo): VoceConteggiata {
       },
     ],
     formula: `categoria PARETI IN LEGNO: ${numeroIt(importo)} €`,
-    importo,
+    importo: arrotondaCentesimi(importo),
     provenienza: 'calcolato',
   }
 }
@@ -79,7 +79,7 @@ export function regolaTraveBase(computo: Computo): VoceConteggiata {
   }))
   const totale = sommaTotali(computo, ...TARIFFE_TRAVE_BASE)
   return {
-    idMaster: 'trave-base',
+    idMaster: 'trave-larice',
     descrizione: 'Trave alla base in larice',
     passaggi,
     formula: `somma di 11 tariffe: ${numeroIt(totale)} €`,
@@ -111,7 +111,7 @@ export const CONSULENZA_ESECUTIVA = 4_000
 
 export function regolaConsulenza(): VoceConteggiata {
   return {
-    idMaster: 'consulenza-esecutiva',
+    idMaster: 'progettazione-esecutiva',
     descrizione: 'Consulenza progettazione esecutiva di produzione',
     passaggi: [],
     formula: 'importo fisso',
