@@ -8,7 +8,7 @@ export interface Sconto extends ParametriSconto {
   importoCalcolato: number
 }
 
-function arrotondaCentesimi(valore: number): number {
+export function arrotondaCentesimi(valore: number): number {
   return Math.round(valore * 100) / 100
 }
 

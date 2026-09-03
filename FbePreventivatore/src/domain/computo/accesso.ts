@@ -1,3 +1,4 @@
+import { arrotondaCentesimi } from '../calcolo'
 import type { Computo, VoceComputo } from './estrai-voci'
 
 /**
@@ -15,13 +16,9 @@ export function vociPerTariffa(computo: Computo, tariffa: string): VoceComputo[]
   return computo.voci.filter((voce) => voce.tariffa === tariffa)
 }
 
-function arrotonda(valore: number): number {
-  return Math.round(valore * 100) / 100
-}
-
 export function sommaTotali(computo: Computo, ...tariffe: string[]): number {
   const cercate = new Set(tariffe)
-  return arrotonda(
+  return arrotondaCentesimi(
     computo.voci
       .filter((voce) => voce.tariffa !== null && cercate.has(voce.tariffa))
       .reduce((somma, voce) => somma + (voce.totale ?? 0), 0),
@@ -30,7 +27,7 @@ export function sommaTotali(computo: Computo, ...tariffe: string[]): number {
 
 export function sommaQuantita(computo: Computo, ...tariffe: string[]): number {
   const cercate = new Set(tariffe)
-  return arrotonda(
+  return arrotondaCentesimi(
     computo.voci
       .filter((voce) => voce.tariffa !== null && cercate.has(voce.tariffa))
       .reduce((somma, voce) => somma + (voce.quantita ?? 0), 0),

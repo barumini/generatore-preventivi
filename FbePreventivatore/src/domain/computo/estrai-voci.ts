@@ -1,3 +1,4 @@
+import { arrotondaCentesimi } from '../calcolo'
 import type { FrammentoTesto } from './frammenti'
 
 export interface VoceComputo {
@@ -48,10 +49,6 @@ const TARIFFA = /^(\d{3}\.\d{2}\.\d{2,3})\b\s*(.*)$/
 const CATEGORIA = /^(.+?)\s+\(Cat \d+\)$/
 const RIGA_RIEPILOGO = /^(M:\d{3}\.\d{3})\s+(.*?)\s+euro\s+([\d´.,]+)$/
 const RIGA_SOMMANO = /^SOMMANO\s+(.+)$/
-
-function arrotonda(valore: number): number {
-  return Math.round(valore * 100) / 100
-}
 
 /**
  * I numeri di Primus usano la virgola decimale e, per le migliaia, l'apostrofo
@@ -179,7 +176,7 @@ export function estraiComputo(frammenti: FrammentoTesto[]): Computo {
     delete (conRighe as { righeDescrizione?: string[] }).righeDescrizione
   }
 
-  const totale = arrotonda(
+  const totale = arrotondaCentesimi(
     Object.values(riepilogo).reduce((somma, categoria) => somma + categoria.importo, 0),
   )
   return { voci, riepilogo, totale }
@@ -191,7 +188,7 @@ export function estraiComputo(frammenti: FrammentoTesto[]): Computo {
  * su un computo letto male produrrebbe numeri plausibili e sbagliati.
  */
 export function verificaIntegrita(computo: Computo): EsitoIntegrita {
-  const totaleVoci = arrotonda(
+  const totaleVoci = arrotondaCentesimi(
     computo.voci.reduce((somma, voce) => somma + (voce.totale ?? 0), 0),
   )
   return { coerente: totaleVoci === computo.totale, totaleRiepilogo: computo.totale, totaleVoci }
