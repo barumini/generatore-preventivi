@@ -259,6 +259,11 @@ describe('override manuale — casi limite (round 2 di correzione)', () => {
     expect(avviso!.livello).toBe('errore')
     expect(avviso!.messaggio).toContain('monoblocchi')
 
+    // Number.MAX_VALUE supera anche il tetto di plausibilità (round 3), ma la
+    // finitezza si controlla per prima: deve fermarsi qui, non arrivare a
+    // 'override-fuori-scala'.
+    expect(esito.avvisi.some((a) => a.codice === 'override-fuori-scala')).toBe(false)
+
     // Il golden case resta intatto: l'override astronomico è stato ignorato
     // per intero, non solo azzerato dopo aver già corrotto la somma.
     expect(esito.sommaVoci).toBe(278_787.93)
@@ -277,6 +282,49 @@ describe('override manuale — casi limite (round 2 di correzione)', () => {
     expect(voce.formula).toBe('corretto a mano: 5 000,00 € — il calcolo dava «compresa»')
     expect(voce.importo).toBe(5_000)
     expect(voce.provenienza).toBe('manuale')
+  })
+})
+
+describe('override manuale — casi limite (round 3 di correzione)', () => {
+  it('ignora un override finito ma implausibile e segnala un errore', () => {
+    // Appena sotto la soglia di overflow (non oltre: quella dà già
+    // 'override-non-finito') scatta comunque la cancellazione catastrofica
+    // IEEE-754: un override enorme e il delta di segno opposto si annullano,
+    // e le voci normali sommate a quella scala spariscono sotto l'ULP del
+    // float. Number.isFinite da solo non basta a un importo edile.
+    const esito = eseguiConteggio(dacroce, { monoblocchi: 1e300 })
+
+    expect(importo(esito, 'monoblocchi')).toBe(14_495)
+    const voce = esito.voci.find((v) => v.idMaster === 'monoblocchi')!
+    expect(voce.provenienza).toBe('calcolato')
+
+    const avviso = esito.avvisi.find((a) => a.codice === 'override-fuori-scala')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('errore')
+    expect(avviso!.messaggio).toContain('monoblocchi')
+
+    // Golden case Dacroce intatto: l'override e' stato ignorato per intero.
+    expect(esito.sommaVoci).toBe(278_787.93)
+    expect(esito.target).toBe(300_343.58)
+    expect(esito.delta).toBe(21_555.65)
+    expect(importo(esito, 'pareti-mhm')).toBe(127_543.28)
+  })
+
+  it('accetta un override appena sotto il tetto di plausibilità', () => {
+    const esito = eseguiConteggio(dacroce, { monoblocchi: 99_000_000 })
+
+    expect(importo(esito, 'monoblocchi')).toBe(99_000_000)
+    const voce = esito.voci.find((v) => v.idMaster === 'monoblocchi')!
+    expect(voce.provenienza).toBe('manuale')
+    expect(esito.avvisi.filter((a) => a.livello === 'errore')).toEqual([])
+
+    // A questa magnitudine l'aritmetica regge ancora: la somma delle voci
+    // finali riatterra esattamente sul target, non solo "vicino".
+    const somma = esito.voci.reduce(
+      (t, v) => t + (typeof v.importo === 'number' ? v.importo : 0),
+      0,
+    )
+    expect(Math.round(somma * 100) / 100).toBe(esito.target)
   })
 })
 

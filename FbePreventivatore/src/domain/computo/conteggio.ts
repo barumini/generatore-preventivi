@@ -27,6 +27,16 @@ import {
  */
 export const COSTI_SICUREZZA_FORFETTARI = 23_300
 
+/**
+ * Tetto di plausibilità per una correzione manuale. Non serve a validare l'intenzione
+ * dell'utente ma a proteggere l'aritmetica: già a magnitudini molto inferiori
+ * all'overflow, sommare un importo enorme alle voci normali le fa sparire sotto l'ULP
+ * del float, e il pareggio smette di atterrare sul target senza che nulla lo segnali.
+ * Il computo più grande analizzato totalizza ~324.000 €, quindi il tetto è largo di
+ * tre ordini di grandezza: intercetta i bug, non l'uso legittimo.
+ */
+export const IMPORTO_MASSIMO_OVERRIDE = 100_000_000
+
 export interface Avviso {
   livello: 'avviso' | 'errore'
   codice: string
@@ -123,6 +133,26 @@ export function eseguiConteggio(
         messaggio:
           `La correzione manuale per "${voce.idMaster}" non è un numero valido ` +
           `(ricevuto ${correzione}): ignorata, resta il valore calcolato.`,
+      })
+      return voce
+    }
+
+    // Un valore finito può comunque corrompere: molto prima dell'overflow, un
+    // override enorme sommato alle voci normali le fa sparire sotto l'ULP del
+    // float (cancellazione catastrofica IEEE-754) quando si annulla col delta
+    // di segno opposto, e il pareggio smette di atterrare sul target senza
+    // dirlo. Controllo distinto da 'override-non-finito': sono due errori
+    // diversi da leggere ("non è un numero" contro "è un numero troppo
+    // grande"), e questo va verificato *dopo* la finitezza, non prima — un
+    // valore come Number.MAX_VALUE deve fermarsi al controllo precedente.
+    if (Math.abs(correzione) > IMPORTO_MASSIMO_OVERRIDE) {
+      avvisi.push({
+        livello: 'errore',
+        codice: 'override-fuori-scala',
+        messaggio:
+          `La correzione manuale per "${voce.idMaster}" vale ${numeroIt(correzione)}, ` +
+          `oltre il tetto di plausibilità di ${numeroIt(IMPORTO_MASSIMO_OVERRIDE)}: ` +
+          'ignorata, resta il valore calcolato.',
       })
       return voce
     }
