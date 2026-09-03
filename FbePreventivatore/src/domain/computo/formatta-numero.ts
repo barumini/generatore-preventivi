@@ -9,15 +9,14 @@ export function numeroIt(valore: number, decimali = 2): string {
     .toLocaleString('it-IT', {
       minimumFractionDigits: decimali,
       maximumFractionDigits: decimali,
-      // Senza `useGrouping: 'always'` l'ICU di it-IT omette il separatore quando la
+      // Senza forzare il raggruppamento l'ICU di it-IT omette il separatore quando la
       // parte intera ha 4 cifre: 1070 uscirebbe "1070,00" invece di "1 070,00", e il
       // golden case di CLAUDE.md ha un arrotondamento di esattamente −1.070,00.
-      // Il valore stringa è un `NumberFormatOptions` valido a runtime (ECMA-402 v3,
-      // verificato su Node 20) ma il lib TS di progetto (ES2022) tipizza ancora
-      // `useGrouping` come solo booleano: il cast aggira un buco nei tipi, non un
-      // vincolo del motore JS. Non si tocca tsconfig.json per non allargare il lib
-      // a tutto il progetto per un solo valore usato in un punto.
-      useGrouping: 'always' as unknown as boolean,
+      // `true` e la stringa ES2023 `'always'` producono lo stesso output (verificato
+      // su 543,20 / 1 070,00 / 5 843,70 / 9 999,99 / 68 428,78): con `true` il valore
+      // è tipizzato correttamente anche col lib TS di progetto (ES2022), senza
+      // bisogno del cast che serviva solo ad aggirare il buco nei tipi.
+      useGrouping: true,
     })
     .replace(/\./g, ' ')
 }

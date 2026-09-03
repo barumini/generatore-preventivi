@@ -1,7 +1,7 @@
 import { arrotondaCentesimi } from '../calcolo'
 import type { Computo } from './estrai-voci'
-import { sommaTotali } from './accesso'
-import { numeroIt } from './formatta-numero'
+import { sommaTotali, sommaQuantita, voceUnica } from './accesso'
+import { numeroIt, quantitaIt } from './formatta-numero'
 
 export interface Passaggio {
   etichetta: string
@@ -117,5 +117,124 @@ export function regolaConsulenza(): VoceConteggiata {
     formula: 'importo fisso',
     importo: CONSULENZA_ESECUTIVA,
     provenienza: 'fisso',
+  }
+}
+
+export const EUR_MQ_COPERTURA = 220
+export const EUR_MQ_CAPPOTTO = 90
+
+/**
+ * La superficie a falda è quella della riga `104.02.000` che dice FALDA. La
+ * stessa tariffa porta anche sporto, tettoie e portico — 42,84 mq in
+ * Crivellaro — che restano fuori, e non è una perdita: nel computo gli strati
+ * si dividono proprio così. Il pacchetto coibente (freno a vapore, isolamento,
+ * posa) è misurato sulla falda; struttura e manto su falda più sporto, perché
+ * lo sporto sta fuori dall'involucro riscaldato. I 220 €/mq valorizzano il
+ * pacchetto coibentato.
+ */
+export function regolaCoperturaFalda(computo: Computo): VoceConteggiata {
+  const falda = voceUnica(computo, '104.02.000', /FALDA/)
+  const mqFalda = falda.quantita ?? 0
+  const mqPiana = sommaQuantita(computo, '104.02.011')
+  const mq = arrotondaCentesimi(mqFalda + mqPiana)
+  const categoria = computo.riepilogo['M:001.003']?.importo ?? 0
+  const prodotto = arrotondaCentesimi(mq * EUR_MQ_COPERTURA)
+  const importo = arrotondaCentesimi((prodotto + categoria) / 2)
+  return {
+    idMaster: 'copertura-falda',
+    descrizione:
+      'Copertura a falda in travi e tavolato lato inferiore a vista, compresa ' +
+      'coibentazione, teli, manto in tegole e lattoneria',
+    passaggi: [
+      {
+        etichetta: 'mq copertura a falda',
+        origine: { tariffa: '104.02.000', numeroVoce: falda.numero },
+        valore: mqFalda,
+        unita: 'mq',
+      },
+      {
+        etichetta: 'mq copertura piana',
+        origine: { tariffa: '104.02.011' },
+        valore: mqPiana,
+        unita: 'mq',
+      },
+      {
+        etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_COPERTURA} €/mq`,
+        origine: {},
+        valore: prodotto,
+        unita: 'eur',
+      },
+      {
+        etichetta: 'categoria COPERTURA',
+        origine: { categoria: 'M:001.003' },
+        valore: categoria,
+        unita: 'eur',
+      },
+    ],
+    formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
+  }
+}
+
+/**
+ * L'importo dell'intera copertura sta sulla riga a falda: questa riga resta a
+ * `compresa` anche quando esiste una copertura piana.
+ */
+export function regolaCoperturaPiana(computo: Computo): VoceConteggiata {
+  const mqPiana = sommaQuantita(computo, '104.02.011')
+  return {
+    idMaster: 'copertura-piana',
+    descrizione: 'Tetto piano in lamellare lato inferiore a vista',
+    passaggi: [
+      {
+        etichetta: 'mq copertura piana',
+        origine: { tariffa: '104.02.011' },
+        valore: mqPiana,
+        unita: 'mq',
+      },
+    ],
+    formula: `${quantitaIt(mqPiana)} mq — importo riportato sulla riga a falda`,
+    importo: 'compresa',
+    provenienza: 'calcolato',
+  }
+}
+
+/**
+ * La superficie è quella della posa (`204.03.08`, il «codice 116»): comprende
+ * lo zoccolo perimetrale, quindi è maggiore di quella dei soli pannelli.
+ * `M:001.004` è un importo in euro, non una superficie: la media è fra euro.
+ */
+export function regolaCappotto(computo: Computo): VoceConteggiata {
+  const mq = sommaQuantita(computo, '204.03.08')
+  const categoria = computo.riepilogo['M:001.004']?.importo ?? 0
+  const prodotto = arrotondaCentesimi(mq * EUR_MQ_CAPPOTTO)
+  const importo = arrotondaCentesimi((prodotto + categoria) / 2)
+  return {
+    idMaster: 'cappotto',
+    descrizione: 'Cappotto esterno in fibra di legno finito con rasante ed intonaco',
+    passaggi: [
+      {
+        etichetta: 'mq posa cappotto',
+        origine: { tariffa: '204.03.08' },
+        valore: mq,
+        unita: 'mq',
+      },
+      {
+        etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_CAPPOTTO} €/mq`,
+        origine: {},
+        valore: prodotto,
+        unita: 'eur',
+      },
+      {
+        etichetta: 'categoria CAPPOTTO',
+        origine: { categoria: 'M:001.004' },
+        valore: categoria,
+        unita: 'eur',
+      },
+    ],
+    formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
+    importo,
+    provenienza: 'calcolato',
   }
 }

@@ -5,6 +5,9 @@ import {
   regolaTraveBase,
   regolaSolaio,
   regolaConsulenza,
+  regolaCoperturaFalda,
+  regolaCoperturaPiana,
+  regolaCappotto,
   TARIFFE_TRAVE_BASE,
 } from './regole-conteggio'
 import dacroceFixture from './fixtures/dacroce.json'
@@ -79,5 +82,65 @@ describe('trasparenza delle formule', () => {
       expect(voce.formula).not.toMatch(/M:001\.\d{3}/)
     }
     expect(regolaParetiBase(dacroce).formula).toContain('105 987,63')
+  })
+})
+
+describe('regolaCoperturaFalda', () => {
+  it('media i mq per 220 con la categoria COPERTURA', () => {
+    // Dacroce: (184,18 × 220 = 40.519,60 + 68.428,78) / 2
+    expect(regolaCoperturaFalda(dacroce).importo).toBe(54_474.19)
+    // Crivellaro: (186,35 × 220 = 40.997,00 + 76.701,12) / 2
+    expect(regolaCoperturaFalda(crivellaro).importo).toBe(58_849.06)
+  })
+
+  it('usa la sola riga a falda, non lo sporto che condivide la tariffa', () => {
+    const passaggi = regolaCoperturaFalda(crivellaro).passaggi
+    const falda = passaggi.find((p) => p.origine.tariffa === '104.02.000')!
+    expect(falda.valore).toBe(186.35)
+    expect(falda.valore).not.toBe(229.19)
+    expect(falda.origine.numeroVoce).toBe(59)
+  })
+
+  it('espone i mq letti come passaggi in mq, non in euro', () => {
+    const passaggi = regolaCoperturaFalda(dacroce).passaggi
+    expect(passaggi.filter((p) => p.unita === 'mq')).toHaveLength(2)
+  })
+
+  it('mostra il prodotto intermedio, non solo i mq', () => {
+    const passaggi = regolaCoperturaFalda(dacroce).passaggi
+    const prodotto = passaggi.find((p) => p.etichetta.includes('× 220'))
+    expect(prodotto).toBeDefined()
+    expect(prodotto!.valore).toBe(40_519.60)
+    expect(prodotto!.etichetta).toBe('184,18 mq × 220 €/mq')
+  })
+
+  it('la formula porta i valori sostituiti e il risultato', () => {
+    expect(regolaCoperturaFalda(dacroce).formula).toBe(
+      '(40 519,60 + 68 428,78) / 2 = 54 474,19 €',
+    )
+    expect(regolaCappotto(dacroce).formula).not.toMatch(/M:001\.\d{3}/)
+  })
+})
+
+describe('regolaCoperturaPiana', () => {
+  it("è sempre 'compresa': l'importo sta sulla riga a falda", () => {
+    expect(regolaCoperturaPiana(dacroce).importo).toBe('compresa')
+    expect(regolaCoperturaPiana(crivellaro).importo).toBe('compresa')
+  })
+})
+
+describe('regolaCappotto', () => {
+  it('media i mq della posa per 90 con la categoria CAPPOTTO', () => {
+    // Dacroce: (195,16 × 90 = 17.564,40 + 25.684,61) / 2 = 21.624,505
+    expect(regolaCappotto(dacroce).importo).toBe(21_624.51)
+    // Crivellaro: (191,58 × 90 = 17.242,20 + 25.264,43) / 2 = 21.253,315
+    expect(regolaCappotto(crivellaro).importo).toBe(21_253.32)
+  })
+
+  it('arrotonda per eccesso il mezzo centesimo, in entrambi i computi', () => {
+    // Se si sommassero i valori grezzi senza arrotondare per voce, il delta di
+    // pareggio slitterebbe di un centesimo e i golden case non tornerebbero.
+    expect(regolaCappotto(dacroce).importo).not.toBe(21_624.5)
+    expect(regolaCappotto(crivellaro).importo).not.toBe(21_253.31)
   })
 })
