@@ -57,6 +57,7 @@ export function Riconciliazione({ esito, totaleComputo, numeroMaster }: Props) {
             <Riga
               etichetta="Delta caricato sulle pareti strutturali"
               valore={esito.delta}
+              nota={`${formattaEuro(esito.target)} − ${formattaEuro(esito.sommaVoci)}`}
               evidenzia
             />
           </tbody>
@@ -146,7 +147,12 @@ function Riga({
     <tr className={`border-b border-border-warm/60 last:border-0 ${evidenzia ? 'bg-cream' : ''}`}>
       <td className="px-5 py-3 text-text">
         {etichetta}
-        {nota && <span className="ml-2 text-xs text-text-secondary">{nota}</span>}
+        {nota && (
+          <>
+            {' '}
+            <span className="ml-2 text-xs text-text-secondary">{nota}</span>
+          </>
+        )}
       </td>
       <td
         className={`px-5 py-3 text-right font-mono tabular-nums text-text ${
