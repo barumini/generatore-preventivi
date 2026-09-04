@@ -29,7 +29,13 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
       }
       onComputo(estratto, file.name)
     } catch (causa) {
-      setErrore(causa instanceof Error ? causa.message : 'Lettura del PDF non riuscita.')
+      // Il messaggio grezzo (spesso di pdf.js, in inglese: "Invalid PDF structure.")
+      // resterebbe l'unica stringa non italiana dell'interfaccia. Si tiene come
+      // dettaglio secondario, non come prima cosa che l'utente legge.
+      const dettaglio = causa instanceof Error ? causa.message : 'errore sconosciuto'
+      setErrore(
+        `Non riesco a leggere questo PDF: potrebbe essere danneggiato o protetto (dettaglio tecnico: ${dettaglio}).`,
+      )
     } finally {
       setInCorso(false)
     }
@@ -50,6 +56,7 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
       <label
         className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed
                     border-border-warm px-6 py-8 text-sm text-text-secondary
+                    focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30
                     ${inCorso ? 'pointer-events-none opacity-50' : 'cursor-pointer hover:border-accent hover:bg-cream'}`}
         onDragOver={(evento) => evento.preventDefault()}
         onDrop={(evento) => {
@@ -59,7 +66,10 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
         }}
       >
         {inCorso ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-        {inCorso ? 'Lettura in corso…' : 'Scegli il PDF del computo, o trascinalo qui'}
+        {/* aria-live: senza, uno screen reader non annuncia il passaggio a "Lettura in corso…". */}
+        <span aria-live="polite">
+          {inCorso ? 'Lettura in corso…' : 'Scegli il PDF del computo, o trascinalo qui'}
+        </span>
         <input
           type="file"
           accept="application/pdf,.pdf,.PDF"
@@ -110,6 +120,19 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
             <caption className="pb-2 text-left text-[11px] font-bold uppercase tracking-wide text-accent">
               Riepilogo strutturale, come nel computo
             </caption>
+            <thead>
+              <tr className="border-b border-border-warm text-[11px] font-bold uppercase tracking-wide text-text-secondary">
+                <th scope="col" className="py-2 text-left">
+                  Codice
+                </th>
+                <th scope="col" className="py-2 text-left">
+                  Categoria
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Importo
+                </th>
+              </tr>
+            </thead>
             <tbody>
               {Object.entries(computo.riepilogo).map(([codice, categoria]) => (
                 <tr key={codice} className="border-b border-border-warm/60 last:border-0">
@@ -132,7 +155,10 @@ function Dato({ etichetta, valore }: { etichetta: string; valore: string }) {
   return (
     <div>
       <dt className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">{etichetta}</dt>
-      <dd className="mt-1 truncate text-sm font-semibold text-text">{valore}</dd>
+      {/* title: il testo può troncare (es. un nome file lungo), il valore intero resta leggibile all'hover. */}
+      <dd className="mt-1 truncate text-sm font-semibold text-text" title={valore}>
+        {valore}
+      </dd>
     </div>
   )
 }
