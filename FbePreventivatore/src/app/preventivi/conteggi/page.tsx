@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { CaricamentoComputo } from './CaricamentoComputo'
 import { SchedaVoce } from './SchedaVoce'
+import { Riconciliazione } from './Riconciliazione'
 import { Alert } from '../ui/Alert'
 import { Breadcrumb } from '../ui/Breadcrumb'
 import { eseguiConteggio } from '@/domain/computo/conteggio'
@@ -12,7 +13,7 @@ import type { Computo } from '@/domain/computo/estrai-voci'
  * Numeri di riga del foglio Conteggi Master, per id stabile — vincolo CLAUDE.md #4:
  * si calcolano al render sulle voci incluse, mai memorizzati sulla voce stessa.
  */
-const NUMERO_MASTER: Record<string, string> = {
+export const NUMERO_MASTER: Record<string, string> = {
   'pareti-mhm': '1',
   'tracciamento-impianti': '1.a',
   'pareti-telaio': '1.b',
@@ -100,6 +101,12 @@ export default function PaginaConteggi() {
               ))}
             </div>
           </div>
+
+          <Riconciliazione
+            esito={esito}
+            totaleComputo={computo!.totale}
+            numeroMaster={NUMERO_MASTER}
+          />
         </>
       )}
     </div>
