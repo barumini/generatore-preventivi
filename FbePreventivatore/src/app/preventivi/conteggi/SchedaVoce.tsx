@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import type { VoceConteggiata } from '@/domain/computo/regole-conteggio'
-import { formattaEuro, formattaQuantita } from './formatta'
+import { Alert } from '../ui/Alert'
+import { formattaEuro, formattaQuantita, importoDaTesto } from './formatta'
 
 interface Props {
   voce: VoceConteggiata
@@ -26,9 +27,12 @@ const ID_PARETI = 'pareti-mhm'
 
 export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
   const [bozza, setBozza] = useState('')
+  const [erroreLocale, setErroreLocale] = useState<string | null>(null)
 
   const manuale = voce.provenienza === 'manuale'
   const correggibile = voce.provenienza !== 'fisso' && voce.idMaster !== ID_PARETI
+  const inputId = `correggi-${voce.idMaster}`
+  const erroreId = `${inputId}-errore`
 
   return (
     <article
@@ -68,7 +72,11 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
           </thead>
           <tbody>
             {voce.passaggi.map((passaggio, indice) => (
-              <tr key={indice} className="border-t border-border-warm/60">
+              // L'etichetta da sola non è garantita unica: le voci sommate da più
+              // tariffe (es. trave alla base, monoblocchi) la derivano dalla
+              // descrizione di ciascuna riga del computo, che può ripetersi.
+              // Stesso pattern degli avvisi in page.tsx: valore stabile + indice.
+              <tr key={`${passaggio.etichetta}-${indice}`} className="border-t border-border-warm/60">
                 <td className="px-4 py-2 text-text">{passaggio.etichetta}</td>
                 <td className="py-2 font-mono text-xs text-text-secondary">
                   {passaggio.origine.tariffa ?? passaggio.origine.categoria ?? ''}
@@ -87,48 +95,84 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
 
       <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-border-warm bg-cream px-4 py-3">
         <code className="text-xs text-text-secondary">{voce.formula}</code>
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-base font-semibold tabular-nums text-text">
-            {typeof voce.importo === 'number' ? formattaEuro(voce.importo) : voce.importo}
-          </span>
 
-          {correggibile && (
-            <>
-              <label className="sr-only" htmlFor={`correggi-${voce.idMaster}`}>
-                Correggi l&apos;importo di {voce.descrizione}
-              </label>
-              <input
-                id={`correggi-${voce.idMaster}`}
-                inputMode="decimal"
-                placeholder="correggi"
-                value={bozza}
-                onChange={(evento) => setBozza(evento.target.value)}
-                onBlur={() => {
-                  const valore = Number.parseFloat(bozza.replace(/\s/g, '').replace(',', '.'))
-                  if (Number.isFinite(valore)) onOverride(voce.idMaster, valore)
-                  setBozza('')
-                }}
-                className="w-28 rounded-md border border-border-warm bg-cream px-2 py-1 text-right
-                           text-sm text-text tabular-nums focus:border-accent focus:bg-white
-                           focus:outline-none focus:ring-2 focus:ring-accent/30"
-              />
-              {manuale && (
-                <button
-                  type="button"
-                  onClick={() => onRipristina(voce.idMaster)}
-                  className="rounded px-2 py-1 text-xs text-text-secondary underline
-                             hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-                >
-                  ripristina
-                </button>
-              )}
-            </>
-          )}
-
-          {!correggibile && voce.provenienza !== 'fisso' && (
-            <span className="text-xs text-text-secondary">
-              assorbe il pareggio: correggi le altre voci
+        {/* Colonna: la riga di controlli, e sotto — solo se presente — il messaggio
+            d'errore, largo quanto la riga sopra (stretch è il default di align-items
+            su un flex-col: non serve un w-full, che dentro una riga sarebbe circolare). */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-base font-semibold tabular-nums text-text">
+              {typeof voce.importo === 'number' ? formattaEuro(voce.importo) : voce.importo}
             </span>
+
+            {correggibile && (
+              <>
+                <label className="sr-only" htmlFor={inputId}>
+                  Correggi l&apos;importo di {voce.descrizione}
+                </label>
+                <input
+                  id={inputId}
+                  inputMode="decimal"
+                  placeholder="correggi"
+                  value={bozza}
+                  aria-describedby={erroreLocale ? erroreId : undefined}
+                  onChange={(evento) => {
+                    const testo = evento.target.value
+                    setBozza(testo)
+                    // Il messaggio d'errore sparisce appena il testo torna valido o si
+                    // svuota; non lo si ri-genera a ogni tasto, solo al blur.
+                    if (erroreLocale !== null) {
+                      const pulito = testo.trim()
+                      if (pulito === '' || importoDaTesto(testo) !== null) setErroreLocale(null)
+                    }
+                  }}
+                  onBlur={() => {
+                    const pulito = bozza.trim()
+                    if (pulito === '') {
+                      // Fuoco tolto senza scrivere nulla: non è un errore, non è una
+                      // correzione. Per annullarne una già applicata c'è "ripristina".
+                      setErroreLocale(null)
+                      return
+                    }
+                    const valore = importoDaTesto(bozza)
+                    if (valore === null) {
+                      // Il testo resta nel campo (niente setBozza('')): l'utente deve
+                      // vedere cosa aveva scritto per poterlo correggere.
+                      setErroreLocale('Importo non riconosciuto: scrivi per esempio 13.200,00')
+                      return
+                    }
+                    onOverride(voce.idMaster, valore)
+                    setErroreLocale(null)
+                    setBozza('')
+                  }}
+                  className="w-28 rounded-md border border-border-warm bg-cream px-2 py-1 text-right
+                             text-sm text-text tabular-nums focus:border-accent focus:bg-white
+                             focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                {manuale && (
+                  <button
+                    type="button"
+                    onClick={() => onRipristina(voce.idMaster)}
+                    className="rounded px-2 py-1 text-xs text-text-secondary underline
+                               hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  >
+                    ripristina
+                  </button>
+                )}
+              </>
+            )}
+
+            {!correggibile && voce.provenienza !== 'fisso' && (
+              <span className="text-xs text-text-secondary">
+                assorbe il pareggio: correggi le altre voci
+              </span>
+            )}
+          </div>
+
+          {erroreLocale && (
+            <Alert id={erroreId} variant="errore">
+              {erroreLocale}
+            </Alert>
           )}
         </div>
       </footer>
