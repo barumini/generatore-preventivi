@@ -7,6 +7,7 @@ import {
   regolaConsulenza,
   regolaCoperturaFalda,
   regolaCoperturaPiana,
+  regolaVelettaPerimetrale,
   regolaCappotto,
   regolaCartongesso,
   regolaAssistenzaCartongessisti,
@@ -15,6 +16,7 @@ import {
   regolaTracciamentoImpianti,
   regolaParetiTelaio,
   TARIFFE_TRAVE_BASE,
+  TARIFFE_MONOBLOCCHI,
 } from './regole-conteggio'
 import dacroceFixture from './fixtures/dacroce.json'
 import crivellaroFixture from './fixtures/crivellaro.json'
@@ -147,6 +149,10 @@ describe('regolaCoperturaPiana', () => {
     expect(regolaCoperturaPiana(dacroce).importo).toBe('compresa')
     expect(regolaCoperturaPiana(crivellaro).importo).toBe('compresa')
   })
+
+  it("è 'fisso', come le altre voci sempre comprese: un override qui doppierebbe il conteggio della copertura, già intero sulla riga a falda", () => {
+    expect(regolaCoperturaPiana(dacroce).provenienza).toBe('fisso')
+  })
 })
 
 describe('regolaCappotto', () => {
@@ -229,10 +235,49 @@ describe('regolaMonoblocchi', () => {
 })
 
 describe('voci sempre comprese', () => {
-  it('tracciamento impianti e pareti a telaio non sono modificabili', () => {
-    for (const voce of [regolaTracciamentoImpianti(), regolaParetiTelaio()]) {
+  it('tracciamento impianti, pareti a telaio e veletta perimetrale non sono modificabili', () => {
+    for (const voce of [
+      regolaTracciamentoImpianti(),
+      regolaParetiTelaio(),
+      regolaVelettaPerimetrale(),
+    ]) {
       expect(voce.importo).toBe('compresa')
       expect(voce.provenienza).toBe('fisso')
     }
+  })
+
+  it('la veletta perimetrale usa l’id stabile del catalogo', () => {
+    expect(regolaVelettaPerimetrale().idMaster).toBe('veletta-perimetrale')
+  })
+})
+
+describe('righe calcolate che possono risultare zero diventano "compresa"', () => {
+  it('su entrambi i computi reali nessuna di queste voci vale mai zero', () => {
+    // Regressione minima: se zeroDiventaCompresa scattasse per errore su un
+    // golden case, questi importi diventerebbero 'compresa' invece del
+    // numero atteso — cosa che i test dei singoli importi, sopra, già
+    // impedirebbero, ma qui è esplicito e in un posto solo.
+    const regole = [
+      regolaTraveBase,
+      regolaCoperturaFalda,
+      regolaCappotto,
+      regolaCartongesso,
+      regolaAssistenzaCartongessisti,
+      regolaInfissi,
+      regolaMonoblocchi,
+    ]
+    for (const computo of [dacroce, crivellaro]) {
+      for (const regola of regole) {
+        expect(regola(computo).importo).not.toBe(0)
+      }
+    }
+  })
+
+  it("regolaMonoblocchi diventa 'compresa' se nessuna delle tre tariffe è presente nel computo", () => {
+    const senzaMonoblocchi = {
+      ...dacroce,
+      voci: dacroce.voci.filter((v) => !TARIFFE_MONOBLOCCHI.some((t) => t === v.tariffa)),
+    }
+    expect(regolaMonoblocchi(senzaMonoblocchi).importo).toBe('compresa')
   })
 })

@@ -2,6 +2,7 @@ import { arrotondaCentesimi } from '../calcolo'
 import type { Computo } from './estrai-voci'
 import { sommaTotali, sommaQuantita, voceUnica } from './accesso'
 import { numeroIt, quantitaIt } from './formatta-numero'
+import { pulisciDescrizione } from './pulisci-descrizione'
 
 export interface Passaggio {
   etichetta: string
@@ -72,7 +73,7 @@ export const TARIFFE_TRAVE_BASE = [
 
 export function regolaTraveBase(computo: Computo): VoceConteggiata {
   const passaggi: Passaggio[] = TARIFFE_TRAVE_BASE.map((tariffa) => ({
-    etichetta: computo.voci.find((v) => v.tariffa === tariffa)?.descrizione.slice(0, 60) ?? tariffa,
+    etichetta: pulisciDescrizione(computo.voci.find((v) => v.tariffa === tariffa)?.descrizione ?? tariffa),
     origine: { tariffa },
     valore: sommaTotali(computo, tariffa),
     unita: 'eur' as const,
@@ -83,7 +84,7 @@ export function regolaTraveBase(computo: Computo): VoceConteggiata {
     descrizione: 'Trave alla base in larice',
     passaggi,
     formula: `somma di 11 tariffe: ${numeroIt(totale)} €`,
-    importo: totale,
+    importo: zeroDiventaCompresa(totale),
     provenienza: 'calcolato',
   }
 }
@@ -172,7 +173,7 @@ export function regolaCoperturaFalda(computo: Computo): VoceConteggiata {
       },
     ],
     formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
@@ -196,7 +197,33 @@ export function regolaCoperturaPiana(computo: Computo): VoceConteggiata {
     ],
     formula: `${quantitaIt(mqPiana)} mq — importo riportato sulla riga a falda`,
     importo: 'compresa',
-    provenienza: 'calcolato',
+    // 'fisso', non 'calcolato': un override qui creerebbe un importo per un
+    // tetto piano inesistente mentre la riga a falda tiene già tutto l'importo
+    // della copertura (doppio conteggio, riassorbito in silenzio dalle
+    // pareti). Stesso invariante delle altre voci sempre-compresa: bloccata
+    // dall'interfaccia (SchedaVoce, `correggibile`).
+    provenienza: 'fisso',
+  }
+}
+
+/**
+ * Nessuna regola FBE la conteggia: sempre `compresa`, come tracciamento
+ * impianti e pareti a telaio. Segue subito `copertura-piana` nell'ordine del
+ * master (`REGOLE` in conteggio.ts) perché la veletta serve al contenimento
+ * della copertura piana (terrazza) — cfr. `Conteggi Master.xlsx`.
+ */
+export function regolaVelettaPerimetrale(): VoceConteggiata {
+  return {
+    idMaster: 'veletta-perimetrale',
+    descrizione:
+      'Veletta perimetrale h. cm 30, utilizzata per il contenimento della copertura piana ' +
+      '(terrazza), coibentata esternamente con fibra di legno, rasata ed intonacata, ' +
+      'internamente inguainata alla base completo di pannello in EPS, rasata ed intonacata, ' +
+      'chiusa con una copertina in lamiera sommitale',
+    passaggi: [],
+    formula: 'sempre compresa',
+    importo: 'compresa',
+    provenienza: 'fisso',
   }
 }
 
@@ -234,7 +261,7 @@ export function regolaCappotto(computo: Computo): VoceConteggiata {
       },
     ],
     formula: `(${numeroIt(prodotto)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
@@ -268,12 +295,12 @@ export function regolaCartongesso(computo: Computo): VoceConteggiata {
       'Cartongesso interno a placcatura diretta su pareti "M.H.M." con finitura "Q2"',
     passaggi: [
       { etichetta: 'mq pannelli in cartongesso', origine: { tariffa: '107.04.01' }, valore: mq, unita: 'mq' },
-      { etichetta: `mq × ${EUR_MQ_CARTONGESSO}`, origine: {}, valore: lastre, unita: 'eur' },
-      { etichetta: `mq × ${EUR_MQ_ASSISTENZA}`, origine: {}, valore: assistenza, unita: 'eur' },
+      { etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_CARTONGESSO} €/mq`, origine: {}, valore: lastre, unita: 'eur' },
+      { etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_ASSISTENZA} €/mq`, origine: {}, valore: assistenza, unita: 'eur' },
       { etichetta: 'categoria CARTONGESSO', origine: { categoria: 'M:001.005' }, valore: categoria, unita: 'eur' },
     ],
     formula: `(${numeroIt(lastre)} + ${numeroIt(assistenza)} + ${numeroIt(categoria)}) / 2 = ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
@@ -288,7 +315,7 @@ export function regolaAssistenzaCartongessisti(computo: Computo): VoceConteggiat
       { etichetta: 'mq pannelli in cartongesso', origine: { tariffa: '107.04.01' }, valore: mq, unita: 'mq' },
     ],
     formula: `${quantitaIt(mq)} mq × ${EUR_MQ_ASSISTENZA} €/mq = ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
@@ -327,15 +354,44 @@ export function regolaInfissi(computo: Computo): VoceConteggiata {
     idMaster: 'infissi-pvc',
     descrizione: 'Infissi esterni in PVC (escluso oscuranti) con un portoncino di ingresso',
     passaggi: [
-      { etichetta: 'mq fornitura serramenti', origine: {}, valore: mq, unita: 'mq' },
-      { etichetta: `mq × ${EUR_MQ_INFISSI}`, origine: {}, valore: eurMq, unita: 'eur' },
-      { etichetta: 'pezzi di montaggio', origine: {}, valore: pezziMontaggio, unita: 'nr' },
-      { etichetta: `pezzi × ${EUR_PEZZO_MONTAGGIO}`, origine: {}, valore: eurPezzi, unita: 'eur' },
-      { etichetta: 'portoncini di ingresso', origine: { tariffa: '109.04.07' }, valore: portoncini, unita: 'nr' },
-      { etichetta: `portoncini × ${EUR_PORTONCINO}`, origine: {}, valore: eurPortoncini, unita: 'eur' },
+      {
+        etichetta: 'mq fornitura serramenti',
+        origine: { tariffa: TARIFFE_INFISSI_MQ.join(', ') },
+        valore: mq,
+        unita: 'mq',
+      },
+      { etichetta: `${quantitaIt(mq)} mq × ${EUR_MQ_INFISSI} €/mq`, origine: {}, valore: eurMq, unita: 'eur' },
+      {
+        etichetta: 'pezzi di montaggio',
+        origine: { tariffa: TARIFFE_INFISSI_PEZZI.join(', ') },
+        valore: pezziMontaggio,
+        unita: 'nr',
+      },
+      {
+        etichetta: `${quantitaIt(pezziMontaggio)} pezzi × ${EUR_PEZZO_MONTAGGIO} €/pezzo`,
+        origine: {},
+        valore: eurPezzi,
+        unita: 'eur',
+      },
+      {
+        // Chi apre la riga 109.04.07 nel computo trova il prezzo di MONTAGGIO
+        // (350 € su Dacroce), non l'importo del portoncino (8.000 €): la
+        // coincidenza fra le due quantità è strutturale — un portoncino, un
+        // montaggio — ma non ovvia, va detta.
+        etichetta: 'portoncini di ingresso, dalla riga di montaggio',
+        origine: { tariffa: '109.04.07' },
+        valore: portoncini,
+        unita: 'nr',
+      },
+      {
+        etichetta: `${quantitaIt(portoncini)} portoncini × ${EUR_PORTONCINO} €/portoncino`,
+        origine: {},
+        valore: eurPortoncini,
+        unita: 'eur',
+      },
     ],
     formula: `${numeroIt(eurMq)} + ${numeroIt(eurPezzi)} + ${numeroIt(eurPortoncini)} = ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
@@ -355,13 +411,13 @@ export function regolaMonoblocchi(computo: Computo): VoceConteggiata {
     idMaster: 'monoblocchi',
     descrizione: 'Monoblocchi lisci su 4 lati ditta Hella per posa infissi',
     passaggi: TARIFFE_MONOBLOCCHI.map((tariffa) => ({
-      etichetta: computo.voci.find((v) => v.tariffa === tariffa)?.descrizione.slice(0, 60) ?? tariffa,
+      etichetta: pulisciDescrizione(computo.voci.find((v) => v.tariffa === tariffa)?.descrizione ?? tariffa),
       origine: { tariffa },
       valore: sommaTotali(computo, tariffa),
       unita: 'eur' as const,
     })),
     formula: `somma di 3 tariffe: ${numeroIt(importo)} €`,
-    importo,
+    importo: zeroDiventaCompresa(importo),
     provenienza: 'calcolato',
   }
 }
