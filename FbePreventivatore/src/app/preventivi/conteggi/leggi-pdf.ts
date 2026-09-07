@@ -1,4 +1,5 @@
 import type { FrammentoTesto } from '@/domain/computo/frammenti'
+import { frammentiDaDocumento } from './frammenti-documento'
 
 export async function frammentiDaPdf(sorgente: ArrayBuffer): Promise<FrammentoTesto[]> {
   // Import dinamico e non in testa al modulo: la sola valutazione di
@@ -13,20 +14,5 @@ export async function frammentiDaPdf(sorgente: ArrayBuffer): Promise<FrammentoTe
   GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
   const documento = await getDocument({ data: new Uint8Array(sorgente) }).promise
-  const frammenti: FrammentoTesto[] = []
-  for (let pagina = 1; pagina <= documento.numPages; pagina++) {
-    const contenuto = await (await documento.getPage(pagina)).getTextContent()
-    for (const elemento of contenuto.items) {
-      const testo = 'str' in elemento ? elemento.str.trim() : ''
-      if (!testo) continue
-      const trasformazione = (elemento as { transform: number[] }).transform
-      frammenti.push({
-        pagina,
-        x: Math.round(trasformazione[4]),
-        y: Math.round(trasformazione[5]),
-        testo,
-      })
-    }
-  }
-  return frammenti
+  return frammentiDaDocumento(documento)
 }

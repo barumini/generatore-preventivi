@@ -1,3 +1,5 @@
+import { arrotondaCentesimi } from './calcolo'
+
 export const CATEGORIE_SERRAMENTO = [
   'finestra-battente',
   'portafinestra-battente',
@@ -30,18 +32,14 @@ export interface DetrazioniSerramenti {
 
 export const DETRAZIONI_DEFAULT: DetrazioniSerramenti = { orizzontale: 0.6, verticale: 0.3 }
 
-function arrotonda2(valore: number): number {
-  return Math.round(valore * 100) / 100
-}
-
 export function calcolaApertura(
   serramento: Serramento,
   detrazioni: DetrazioniSerramenti = DETRAZIONI_DEFAULT,
 ): AperturaCalcolata {
-  const areaLorda = arrotonda2(serramento.b * serramento.h)
-  const larghezzaNetta = arrotonda2(serramento.b - detrazioni.orizzontale)
-  const altezzaNetta = arrotonda2(serramento.h - detrazioni.verticale)
-  const areaNetta = arrotonda2(larghezzaNetta * altezzaNetta)
+  const areaLorda = arrotondaCentesimi(serramento.b * serramento.h)
+  const larghezzaNetta = arrotondaCentesimi(serramento.b - detrazioni.orizzontale)
+  const altezzaNetta = arrotondaCentesimi(serramento.h - detrazioni.verticale)
+  const areaNetta = arrotondaCentesimi(larghezzaNetta * altezzaNetta)
   return { ...serramento, areaLorda, larghezzaNetta, altezzaNetta, areaNetta }
 }
 
@@ -50,8 +48,8 @@ export function totaliSerramenti(
   detrazioni: DetrazioniSerramenti = DETRAZIONI_DEFAULT,
 ): { aperture: AperturaCalcolata[]; areaLordaTotale: number; areaNettaTotale: number; numero: number } {
   const aperture = serramenti.map((s) => calcolaApertura(s, detrazioni))
-  const areaLordaTotale = arrotonda2(aperture.reduce((somma, a) => somma + a.areaLorda, 0))
-  const areaNettaTotale = arrotonda2(aperture.reduce((somma, a) => somma + a.areaNetta, 0))
+  const areaLordaTotale = arrotondaCentesimi(aperture.reduce((somma, a) => somma + a.areaLorda, 0))
+  const areaNettaTotale = arrotondaCentesimi(aperture.reduce((somma, a) => somma + a.areaNetta, 0))
   return { aperture, areaLordaTotale, areaNettaTotale, numero: serramenti.length }
 }
 
@@ -107,7 +105,7 @@ export function risolviValoreLordo(valore: string): number {
 }
 
 export function totaleSuperficiLorde(superfici: SuperficiePiano[]): number {
-  return arrotonda2(
+  return arrotondaCentesimi(
     superfici
       .filter((s) => s.piano !== PIANO_GARAGE)
       .reduce((somma, s) => somma + risolviValoreLordo(s.valoreLordo), 0),
