@@ -1,6 +1,7 @@
 import { arrotondaCentesimi } from '../calcolo'
 import type { Computo } from './estrai-voci'
 import { verificaIntegrita } from './estrai-voci'
+import { sommaQuantita } from './accesso'
 import { numeroIt } from './formatta-numero'
 import {
   regolaParetiBase,
@@ -10,6 +11,7 @@ import {
   regolaSolaio,
   regolaCoperturaFalda,
   regolaCoperturaPiana,
+  regolaVelettaPerimetrale,
   regolaCappotto,
   regolaCartongesso,
   regolaAssistenzaCartongessisti,
@@ -61,6 +63,7 @@ const REGOLE: Array<(computo: Computo) => VoceConteggiata> = [
   regolaSolaio,
   regolaCoperturaFalda,
   regolaCoperturaPiana,
+  regolaVelettaPerimetrale,
   regolaCappotto,
   regolaCartongesso,
   regolaAssistenzaCartongessisti,
@@ -97,6 +100,28 @@ export function eseguiConteggio(
       messaggio:
         `Il computo riporta costi sicurezza di ${numeroIt(sicurezzaComputo)}, ` +
         `mentre il pareggio usa i ${numeroIt(COSTI_SICUREZZA_FORFETTARI)} forfettari.`,
+    })
+  }
+
+  // La regola FBE fa sempre atterrare l'importo della copertura sulla riga a
+  // falda (regolaCoperturaFalda), anche quando l'edificio ha solo copertura
+  // piana. `voceUnica` non intercetta questo caso: solleva se la riga /FALDA/
+  // manca del tutto, non se esiste con quantità 0 — e Primus tiene le righe di
+  // template a zero invece di cancellarle. Si cerca quindi la riga direttamente,
+  // senza passare da voceUnica, per non sollevare sui casi (diversi, gestiti
+  // altrove) di riga assente o duplicata.
+  const mqPiana = sommaQuantita(computo, '104.02.011')
+  const mqFalda =
+    computo.voci.find((voce) => voce.tariffa === '104.02.000' && /FALDA/.test(voce.descrizione))
+      ?.quantita ?? 0
+  if (mqFalda === 0 && mqPiana > 0) {
+    avvisi.push({
+      livello: 'errore',
+      codice: 'copertura-senza-falda',
+      messaggio:
+        `L'edificio ha ${numeroIt(mqPiana)} mq di copertura piana e nessuna copertura a falda, ` +
+        `ma la regola FBE fa comunque atterrare l'intero importo della copertura sulla riga ` +
+        `"Copertura a falda": verificare a mano prima di usare questo conteggio.`,
     })
   }
 

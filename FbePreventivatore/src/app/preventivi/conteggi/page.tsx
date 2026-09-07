@@ -21,6 +21,7 @@ export const NUMERO_MASTER: Record<string, string> = {
   'solaio-interpiano': '2',
   'copertura-falda': '3',
   'copertura-piana': '3.a',
+  'veletta-perimetrale': '3.b',
   cappotto: '4',
   'cartongesso-q2': '5',
   'assistenza-cartongessisti': '5.a',
@@ -34,10 +35,23 @@ export default function PaginaConteggi() {
   const [nomeFile, setNomeFile] = useState<string | null>(null)
   const [override, setOverride] = useState<Record<string, number>>({})
 
-  const esito = useMemo(
-    () => (computo ? eseguiConteggio(computo, override) : null),
-    [computo, override],
-  )
+  // eseguiConteggio può sollevare VoceNonUnivocaError (riga /FALDA/ mancante o
+  // duplicata: cfr. accesso.ts): senza questo try/catch l'eccezione uscirebbe
+  // dal render e, non esistendo un error.tsx in src/app, romperebbe l'intera
+  // pagina perdendo il computo già caricato. Il messaggio dell'eccezione è già
+  // scritto per l'utente (accesso.ts) e va mostrato, non solo inghiottito.
+  const { esito, erroreConteggio } = useMemo((): {
+    esito: ReturnType<typeof eseguiConteggio> | null
+    erroreConteggio: string | null
+  } => {
+    if (!computo) return { esito: null, erroreConteggio: null }
+    try {
+      return { esito: eseguiConteggio(computo, override), erroreConteggio: null }
+    } catch (causa) {
+      const messaggio = causa instanceof Error ? causa.message : 'Errore sconosciuto nel conteggio.'
+      return { esito: null, erroreConteggio: messaggio }
+    }
+  }, [computo, override])
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-6">
@@ -66,6 +80,12 @@ export default function PaginaConteggi() {
           setOverride({})
         }}
       />
+
+      {erroreConteggio && (
+        <div className="mt-6">
+          <Alert variant="errore">{erroreConteggio}</Alert>
+        </div>
+      )}
 
       {esito && (
         <>

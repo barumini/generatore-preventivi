@@ -94,6 +94,7 @@ describe('ordine e struttura', () => {
       'solaio-interpiano',
       'copertura-falda',
       'copertura-piana',
+      'veletta-perimetrale',
       'cappotto',
       'cartongesso-q2',
       'assistenza-cartongessisti',
@@ -131,6 +132,41 @@ describe('avvisi', () => {
     const esito = eseguiConteggio(gonfiato)
     expect(esito.delta).toBeLessThan(0)
     expect(esito.avvisi.some((a) => a.codice === 'delta-negativo')).toBe(true)
+  })
+})
+
+describe('guardrail: copertura piana senza falda', () => {
+  // regolaCoperturaFalda fa sempre atterrare l'importo della copertura sulla
+  // riga a falda. Un edificio con falda 0 e piana > 0 lo farebbe in silenzio
+  // su una lavorazione inesistente, mentre "Tetto piano" resta 'compresa'.
+  // Primus tiene la riga /FALDA/ col template a quantità 0 invece di
+  // cancellarla (come 104.02.000 SPORTO in Dacroce), quindi voceUnica non
+  // solleva: serve un controllo esplicito.
+  const senzaFalda = {
+    ...dacroce,
+    voci: dacroce.voci.map((voce) => {
+      if (voce.tariffa === '104.02.000' && /FALDA/.test(voce.descrizione)) {
+        return { ...voce, quantita: 0 }
+      }
+      if (voce.tariffa === '104.02.011') return { ...voce, quantita: 150 }
+      return voce
+    }),
+  }
+
+  it('segnala un errore quando la piana è valorizzata e la falda vale zero', () => {
+    const avviso = eseguiConteggio(senzaFalda).avvisi.find((a) => a.codice === 'copertura-senza-falda')
+    expect(avviso).toBeDefined()
+    expect(avviso!.livello).toBe('errore')
+    expect(avviso!.messaggio).toContain('150,00')
+    expect(avviso!.messaggio).toContain('falda')
+  })
+
+  it('non segnala nulla sui due computi reali, dove la piana è sempre 0', () => {
+    for (const computo of [dacroce, crivellaro]) {
+      expect(
+        eseguiConteggio(computo).avvisi.some((a) => a.codice === 'copertura-senza-falda'),
+      ).toBe(false)
+    }
   })
 })
 
@@ -325,6 +361,15 @@ describe('override manuale — casi limite (round 3 di correzione)', () => {
       0,
     )
     expect(Math.round(somma * 100) / 100).toBe(esito.target)
+  })
+
+  it('applica il tetto di plausibilità anche a un override negativo', () => {
+    // Math.abs(correzione) > IMPORTO_MASSIMO_OVERRIDE: senza il valore assoluto
+    // un override molto negativo passerebbe il controllo, riaprendo la
+    // cancellazione catastrofica che i due test sopra proteggono solo sul lato
+    // positivo.
+    expect(importo(eseguiConteggio(dacroce, { monoblocchi: -5_000 }), 'monoblocchi')).toBe(-5_000)
+    expect(importo(eseguiConteggio(dacroce, { monoblocchi: -1e300 }), 'monoblocchi')).toBe(14_495)
   })
 })
 

@@ -34,6 +34,34 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
   const inputId = `correggi-${voce.idMaster}`
   const erroreId = `${inputId}-errore`
 
+  // Riusata da onBlur e onKeyDown (Invio): l'input non è in un <form>, quindi
+  // senza un onKeyDown esplicito premere Invio non applica la correzione — il
+  // campo mostra la cifra digitata e la scheda un importo diverso, senza alcun
+  // segnale. Duplicare la logica fra i due handler è il modo più facile per
+  // farli divergere in futuro.
+  function commettiCorrezione() {
+    const pulito = bozza.trim()
+    if (pulito === '') {
+      // Fuoco tolto (o Invio) senza scrivere nulla: non è un errore, non è una
+      // correzione. Per annullarne una già applicata c'è "ripristina". Il campo
+      // non deve restare valorizzato con soli spazi dopo un commit che non ha
+      // fatto niente.
+      setErroreLocale(null)
+      setBozza('')
+      return
+    }
+    const valore = importoDaTesto(bozza)
+    if (valore === null) {
+      // Il testo resta nel campo (niente setBozza('')): l'utente deve
+      // vedere cosa aveva scritto per poterlo correggere.
+      setErroreLocale('Importo non riconosciuto: scrivi per esempio 13.200,00')
+      return
+    }
+    onOverride(voce.idMaster, valore)
+    setErroreLocale(null)
+    setBozza('')
+  }
+
   return (
     <article
       className={`rounded-lg border bg-white ${
@@ -126,24 +154,13 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
                       if (pulito === '' || importoDaTesto(testo) !== null) setErroreLocale(null)
                     }
                   }}
-                  onBlur={() => {
-                    const pulito = bozza.trim()
-                    if (pulito === '') {
-                      // Fuoco tolto senza scrivere nulla: non è un errore, non è una
-                      // correzione. Per annullarne una già applicata c'è "ripristina".
-                      setErroreLocale(null)
-                      return
-                    }
-                    const valore = importoDaTesto(bozza)
-                    if (valore === null) {
-                      // Il testo resta nel campo (niente setBozza('')): l'utente deve
-                      // vedere cosa aveva scritto per poterlo correggere.
-                      setErroreLocale('Importo non riconosciuto: scrivi per esempio 13.200,00')
-                      return
-                    }
-                    onOverride(voce.idMaster, valore)
-                    setErroreLocale(null)
-                    setBozza('')
+                  onBlur={commettiCorrezione}
+                  onKeyDown={(evento) => {
+                    if (evento.key !== 'Enter') return
+                    // Niente <form> qui, quindi nessun submit di cui preoccuparsi: previene
+                    // solo un eventuale comportamento di default del browser sull'input.
+                    evento.preventDefault()
+                    commettiCorrezione()
                   }}
                   className="w-28 rounded-md border border-border-warm bg-cream px-2 py-1 text-right
                              text-sm text-text tabular-nums focus:border-accent focus:bg-white
