@@ -47,6 +47,22 @@ export default function Home() {
           <span className="text-sm text-text-secondary">Preventivi già realizzati e in bozza</span>
         </Link>
       </section>
+
+      <section className="mt-8 w-full max-w-2xl">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+          Strumenti
+        </h2>
+        <p className="mb-5 text-sm text-text-secondary">Utilità di calcolo e verifica</p>
+        <Link
+          href="/preventivi/conteggi"
+          className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
+        >
+          <span className="text-lg font-semibold text-text">Conteggi da computo metrico</span>
+          <span className="text-sm text-text-secondary">
+            Carica il computo Primus e riconcilia le quantità con le voci del preventivo
+          </span>
+        </Link>
+      </section>
     </div>
   )
 }
