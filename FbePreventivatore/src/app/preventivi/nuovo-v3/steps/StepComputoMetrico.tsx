@@ -44,8 +44,10 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
   // includerlo fra le dipendenze lo farebbe rieseguire a ogni scrittura che lui stesso
   // produce.
   const overridesAttuali = useRef(stato.overrides)
-  // eslint-disable-next-line react-hooks/refs
-  overridesAttuali.current = stato.overrides
+
+  useEffect(() => {
+    overridesAttuali.current = stato.overrides
+  })
 
   useEffect(() => {
     if (!esito) return
