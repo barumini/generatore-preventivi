@@ -150,10 +150,13 @@ Le voci con `idMaster` senza corrispondenza in `CATALOGO_VOCI` (`copertura-piana
 ("questa voce del computo non ha una voce corrispondente nel catalogo attuale") invece di
 sparire in silenzio.
 
-**Rimozione di un override.** "Ripristina" su una `SchedaVoce` (come già in `/conteggi`)
-rimuove la chiave da `stato.overrides`, riportando la voce al comportamento di default di
-`eseguiCalcolo` (driver da geometria, se esiste, altrimenti 0) — stesso comportamento di
-cancellare a mano il campo in `StepPrezzi`.
+**Rimozione di una correzione locale.** "Ripristina" su una `SchedaVoce` annulla la
+correzione manuale fatta con quella scheda (rimuove la chiave da `overrideLocali`, lo
+stato interno dello step): la voce torna al valore calcolato dalle regole del conteggio,
+che l'effetto scrive comunque in `stato.overrides` come qualunque altro valore di questo
+step. Non riporta la voce al comportamento di default di `eseguiCalcolo` (driver da
+geometria): per farlo, l'utente deve cancellare a mano il campo corrispondente nello
+step "Prezzi".
 
 **Nessun caricamento del computo.** Se l'utente non usa questo step, `stato.overrides`
 resta quello che arriva dalla chat/da `StepPrezzi`: il comportamento è identico a v1.
