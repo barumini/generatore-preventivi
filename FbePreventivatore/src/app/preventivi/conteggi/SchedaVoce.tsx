@@ -64,6 +64,7 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
 
   return (
     <article
+      data-testid={`scheda-voce-${voce.idMaster}`}
       className={`rounded-lg border bg-white ${
         manuale ? 'border-warning/30 ring-1 ring-warning/10' : 'border-border-warm'
       }`}
@@ -129,7 +130,10 @@ export function SchedaVoce({ voce, numero, onOverride, onRipristina }: Props) {
             su un flex-col: non serve un w-full, che dentro una riga sarebbe circolare). */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-base font-semibold tabular-nums text-text">
+            <span
+              data-testid={`importo-voce-${voce.idMaster}`}
+              className="font-mono text-base font-semibold tabular-nums text-text"
+            >
               {typeof voce.importo === 'number' ? formattaEuro(voce.importo) : voce.importo}
             </span>
 

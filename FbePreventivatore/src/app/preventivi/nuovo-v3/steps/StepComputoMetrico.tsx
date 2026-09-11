@@ -147,7 +147,7 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
           {esito.avvisi.length > 0 && (
             <ul className="mt-4 space-y-2">
               {esito.avvisi.map((avviso, indice) => (
-                <li key={`${avviso.codice}-${indice}`}>
+                <li key={`${avviso.codice}-${indice}`} data-testid={`avviso-${avviso.codice}`}>
                   <Alert variant={avviso.livello === 'errore' ? 'errore' : 'avviso'}>
                     {avviso.messaggio}
                   </Alert>
@@ -195,7 +195,10 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
                 <tbody>
                   <tr className="border-b border-border-warm/60">
                     <td className="px-5 py-3 text-text">Somma delle voci conteggiate</td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-text">
+                    <td
+                      className="px-5 py-3 text-right font-mono tabular-nums text-text"
+                      data-testid="riconciliazione-somma-voci"
+                    >
                       {formattaEuro(esito.sommaVoci)}
                     </td>
                   </tr>
@@ -206,7 +209,10 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
                         da {formattaEuro(computo!.totale)}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-text">
+                    <td
+                      className="px-5 py-3 text-right font-mono tabular-nums text-text"
+                      data-testid="riconciliazione-target"
+                    >
                       {formattaEuro(esito.target)}
                     </td>
                   </tr>
@@ -217,7 +223,10 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
                         {formattaEuro(esito.target)} − {formattaEuro(esito.sommaVoci)}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums font-semibold text-text">
+                    <td
+                      className="px-5 py-3 text-right font-mono tabular-nums font-semibold text-text"
+                      data-testid="riconciliazione-delta"
+                    >
                       {formattaEuro(esito.delta)}
                     </td>
                   </tr>

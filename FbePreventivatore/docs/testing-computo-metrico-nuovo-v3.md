@@ -29,13 +29,15 @@ golden case commerciale.
 |---|---|---|
 | PDF computo | `Documentazione addestramento/Computo Crivellaro rev04.PDF.pdf` | `Documentazione addestramento/x IA/Computo Dacroce Dalila - senza terrazzo.PDF` |
 | Offerta di riscontro | `Documentazione addestramento/Offerta MHM rev.04_crivellaro.pdf` | `Documentazione addestramento/x IA/Offerta MHM rev.02_Dacroce Dalila riscontro.pdf` |
-| Fixture committata (JSON, usata nei test automatici) | [`src/domain/computo/fixtures/crivellaro.json`](../src/domain/computo/fixtures/crivellaro.json) | [`src/domain/computo/fixtures/dacroce.json`](../src/domain/computo/fixtures/dacroce.json) |
+| Fixture committata (JSON, usata dai test Vitest di dominio) | [`src/domain/computo/fixtures/crivellaro.json`](../src/domain/computo/fixtures/crivellaro.json) | [`src/domain/computo/fixtures/dacroce.json`](../src/domain/computo/fixtures/dacroce.json) |
+| Copia PDF committata (usata dalla suite E2E) | [`e2e/fixtures/computo-crivellaro.pdf`](../e2e/fixtures/computo-crivellaro.pdf) | [`e2e/fixtures/computo-dacroce.pdf`](../e2e/fixtures/computo-dacroce.pdf) |
 | Cliente / cantiere | Crivellaro Mariano — Trissino (VI) | Dacroce Dalila — Rovereto (TN) |
 
 I PDF sorgente vivono in `Documentazione addestramento/` (**non committata**, ~33 MB, verifica di
 averla in locale). Le fixture JSON in `src/domain/computo/fixtures/` sono invece committate e sono
-la fonte di verità per i test automatici: se il PDF non è disponibile, i test `npm test` restano
-comunque eseguibili.
+la fonte di verità per i test Vitest di dominio: se il PDF non è disponibile, `npm test` resta
+comunque eseguibile. Le due copie in `e2e/fixtures/` sono committate apposta per la suite E2E
+(sezione 3): stessi PDF, rinominati senza spazi.
 
 ---
 
@@ -58,7 +60,45 @@ npm test -- src/app/preventivi/nuovo-v3/
 
 ---
 
-## 3. Test manuale in browser
+## 3. Test E2E automatico (Playwright, browser reale)
+
+```bash
+npm run test:e2e
+```
+
+A differenza della sezione 2, questa suite ([`e2e/computo-metrico-golden-cases.spec.ts`](../e2e/computo-metrico-golden-cases.spec.ts))
+non chiama le funzioni di dominio: apre `/preventivi/nuovo-v3` in un browser Chromium reale (via
+`@playwright/test`), passa allo step "4. Computo metrico", carica i PDF committati in
+`e2e/fixtures/` con un vero upload di file e legge i risultati dal DOM — la stessa `pdfjs-dist`
+che gira per un utente vero, non una fixture JSON pre-estratta. Copre entrambi i golden case
+(Crivellaro e Da Croce) con gli stessi numeri delle sezioni 4.1/4.2 sotto: voci lette, categorie,
+totale computo, riconciliazione (`sommaVoci`/`target`/`delta`), importo per ogni voce di catalogo,
+avviso sicurezza, voci scartate/escluse.
+
+Il `webServer` in [`playwright.config.ts`](../playwright.config.ts) avvia `npm run dev` da solo se
+la porta 3000 è libera, altrimenti riusa il dev server già in esecuzione — non serve avviarlo a
+mano prima di lanciare la suite. Al primo utilizzo serve il browser Chromium di Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+Per debuggare un test che fallisce, `npm run test:e2e:ui` apre l'UI interattiva di Playwright
+(timeline, DOM snapshot per ogni step, screenshot/trace al fallimento).
+
+Selettori: le schede voce e i valori chiave dello step hanno `data-testid` dedicati
+(`computo-voci-lette`, `computo-categorie`, `computo-totale`, `riconciliazione-somma-voci`,
+`riconciliazione-target`, `riconciliazione-delta`, `importo-voce-<idMaster>`,
+`avviso-<codice avviso>`) aggiunti apposta in
+[`CaricamentoComputo.tsx`](../src/app/preventivi/conteggi/CaricamentoComputo.tsx),
+[`SchedaVoce.tsx`](../src/app/preventivi/conteggi/SchedaVoce.tsx) e
+[`StepComputoMetrico.tsx`](../src/app/preventivi/nuovo-v3/steps/StepComputoMetrico.tsx): non
+dipendono dal testo visibile (che può cambiare per motivi di copy) né dalle classi Tailwind (che
+possono cambiare per motivi di stile).
+
+---
+
+## 4. Test manuale in browser
 
 ```bash
 npm run dev
@@ -69,7 +109,7 @@ il PDF (drag&drop o dal selettore file: "Il PDF resta nel browser: non viene car
 parte" — l'estrazione con `pdfjs-dist` gira lato client). Se non hai un mouse/file-picker a
 disposizione (es. sessione automatizzata), vedi la nota a fondo pagina.
 
-### 3.1 Caso Crivellaro rev.04
+### 4.1 Caso Crivellaro rev.04
 
 Dopo il caricamento, verifica nel riquadro "Computo metrico":
 
@@ -106,7 +146,7 @@ Voci scartate (nel catalogo ma senza corrispondenza in questo computo): `copertu
 `veletta-perimetrale`. Voci escluse dalla configurazione di default (monopiano):
 `solaio-interpiano`.
 
-### 3.2 Caso Da Croce rev.03
+### 4.2 Caso Da Croce rev.03
 
 Stessa procedura, PDF Da Croce. Verifica:
 
@@ -139,7 +179,7 @@ Importi per voce:
 Stesso avviso sicurezza (23 352,50 vs 23 300 forfettari). Stesse voci scartate/escluse del caso
 Crivellaro.
 
-### 3.3 Verifica di coerenza incrociata
+### 4.3 Verifica di coerenza incrociata
 
 Entrambi i computi condividono la stessa struttura (166 voci, 8 categorie, stesso ordine di voci
 master, stesso avviso sicurezza) pur avendo importi diversi: è un segnale che il parser Primus
@@ -149,7 +189,12 @@ due casi senza una ragione nel PDF sorgente, è quasi certamente un regressione 
 
 ---
 
-## 4. Nota: caricare il PDF senza dialog di sistema (test headless)
+## 5. Nota: caricare il PDF senza dialog di sistema (senza Playwright)
+
+Per un test ripetibile, la sezione 3 (Playwright) è il modo giusto: `setInputFiles` carica un file
+reale senza dialog nativi, senza questo escamotage. Questa nota resta utile per un'ispezione
+manuale ad-hoc dentro una sessione che pilota un browser via CDP/accessibility tree ma senza
+Playwright installato (es. un agente con solo gli strumenti di automazione del browser).
 
 In una sessione senza controllo diretto del mouse/file-picker del sistema operativo (es. un
 agente che pilota il browser via CDP/accessibility tree), l'input `<input type="file">` non è
@@ -187,3 +232,8 @@ scrivibile via JavaScript per motivi di sicurezza del browser. Percorso alternat
 - "Ripristina" su una scheda dello step "Computo metrico" annulla solo una correzione manuale
   fatta in quella pagina, non rimuove l'importo dal preventivo (resta comunque nello step
   "Prezzi").
+- La suite E2E (sezione 3) non sostituisce i test Vitest di dominio (sezione 2): copre il
+  cablaggio reale (upload → `pdfjs-dist` → DOM), i test di dominio coprono la logica di calcolo
+  con molti più casi e guardrail (166 test contro 2 scenari E2E). Un bug nella pipeline di
+  estrazione/conteggio va aggiunto prima come test Vitest — l'E2E è la prova che il browser vede
+  davvero quello che i test di dominio promettono, non il posto dove esplorare i casi limite.

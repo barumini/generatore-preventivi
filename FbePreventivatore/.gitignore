@@ -19,3 +19,9 @@ node_modules/
 # worker di pdf.js copiato in public/ da `npm run copia-worker-pdf`
 # (1,2 MB, rigenerabile da node_modules)
 public/pdf.worker.min.mjs
+
+# output della suite E2E Playwright (npm run test:e2e)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
