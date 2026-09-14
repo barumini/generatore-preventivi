@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { StepTabs } from '../ui/StepTabs'
 import { StepAnagrafica } from '../nuovo/steps/StepAnagrafica'
 import { StepConfigurazione } from '../nuovo/steps/StepConfigurazione'
-import { StepGeometria } from '../nuovo/steps/StepGeometria'
 import { StepComputoMetrico } from './steps/StepComputoMetrico'
 import { StepPrezzi } from '../nuovo/steps/StepPrezzi'
 import { StepCondizioni } from '../nuovo/steps/StepCondizioni'
@@ -38,15 +37,13 @@ interface Props {
   onCambiamento: (stato: StatoForm) => void
 }
 
-const STEP_TITOLI = [
-  'Anagrafica',
-  'Configurazione',
-  'Geometria',
-  'Computo metrico',
-  'Prezzi',
-  'Condizioni',
-  'Condizioni contrattuali',
-]
+// Niente step "Geometria" in questa versione (rimosso su richiesta esplicita): superfici,
+// perimetro e serramenti restano ai default vuoti/0 di STATO_INIZIALE per l'intera sessione,
+// quindi numeroPianiAbitativi/superficieGarage in StepComputoMetrico sono sempre 0 — le voci
+// 'solaio-interpiano' e 'garage' sono perciò sempre escluse dal preventivo, anche quando il
+// computo caricato le valorizza (vedi l'avviso "escluse dalla configurazione attuale" in
+// StepComputoMetrico.tsx).
+const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Computo metrico', 'Prezzi', 'Condizioni', 'Condizioni contrattuali']
 
 export function FormStrutturatoV3({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
@@ -76,11 +73,10 @@ export function FormStrutturatoV3({ statoIniziale, aggiornamentoEsterno, onCambi
       <StepTabs titoli={STEP_TITOLI} stepCorrente={step} onSeleziona={setStep} />
       {step === 0 && <StepAnagrafica stato={stato} aggiorna={aggiorna} />}
       {step === 1 && <StepConfigurazione stato={stato} aggiorna={aggiorna} />}
-      {step === 2 && <StepGeometria stato={stato} aggiorna={aggiorna} />}
-      {step === 3 && <StepComputoMetrico stato={stato} aggiorna={aggiorna} />}
-      {step === 4 && <StepPrezzi stato={stato} aggiorna={aggiorna} />}
-      {step === 5 && <StepCondizioni stato={stato} aggiorna={aggiorna} />}
-      {step === 6 && <StepCondizioniContrattuali stato={stato} aggiorna={aggiorna} />}
+      {step === 2 && <StepComputoMetrico stato={stato} aggiorna={aggiorna} />}
+      {step === 3 && <StepPrezzi stato={stato} aggiorna={aggiorna} />}
+      {step === 4 && <StepCondizioni stato={stato} aggiorna={aggiorna} />}
+      {step === 5 && <StepCondizioniContrattuali stato={stato} aggiorna={aggiorna} />}
     </div>
   )
 }

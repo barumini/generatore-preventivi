@@ -55,10 +55,12 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
   })
 
   // La configurazione corrente decide quali voci del catalogo compaiono nel preventivo
-  // (StepConfigurazione, StepGeometria): un importo dal conteggio per una voce esclusa
-  // non deve entrare in overrides, altrimenti resterebbe nella somma di controllo di
-  // questo step senza comparire nel Listino reale. Stesso pattern di ref-in-effect del
-  // blocco sopra, stesso motivo.
+  // (StepConfigurazione): un importo dal conteggio per una voce esclusa non deve entrare
+  // in overrides, altrimenti resterebbe nella somma di controllo di questo step senza
+  // comparire nel Listino reale. Stesso pattern di ref-in-effect del blocco sopra, stesso
+  // motivo. numeroPianiAbitativi/superficieGarage restano sempre 0 in questo wizard (niente
+  // step Geometria): solaio-interpiano e garage sono quindi sempre esclusi, non solo quando
+  // il progetto non li prevede — vedi l'avviso più sotto.
   const configurazioneRef = useRef<ConfigurazioneVoci>({
     livelli: stato.livelli,
     numeroPianiAbitativi: numeroPianiAbitativi(stato.superfici),
@@ -136,8 +138,10 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
         <div className="mt-4">
           <Alert variant="avviso">
             Queste voci del computo sono nel catalogo ma escluse dalla configurazione
-            attuale (Configurazione/Geometria): il loro importo non è entrato nel
-            preventivo: {vociEscluse.join(', ')}.
+            attuale (Configurazione): il loro importo non è entrato nel preventivo:{' '}
+            {vociEscluse.join(', ')}. Questa versione del wizard non permette di configurare
+            piani superiori o garage: se il progetto ne ha, i relativi importi del computo
+            restano esclusi.
           </Alert>
         </div>
       )}

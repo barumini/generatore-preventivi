@@ -8,7 +8,7 @@ sono test, non documentazione (stesso principio del golden case commerciale in
 
 `nuovo-v3` aggiunge un terzo punto di ingresso rispetto ai due descritti in
 `testing-golden-case-crivellaro.md`: oltre alla compilazione manuale (`/nuovo`) e all'import Excel
-(`/nuovo-v2`), lo step **"4. Computo metrico"** legge direttamente il PDF Primus del computo e
+(`/nuovo-v2`), lo step **"3. Computo metrico"** legge direttamente il PDF Primus del computo e
 propone gli importi di listino calcolati per categoria — non i valori "digitati" e arrotondati del
 golden case commerciale.
 
@@ -68,7 +68,7 @@ npm run test:e2e
 
 A differenza della sezione 2, questa suite ([`e2e/computo-metrico-golden-cases.spec.ts`](../e2e/computo-metrico-golden-cases.spec.ts))
 non chiama le funzioni di dominio: apre `/preventivi/nuovo-v3` in un browser Chromium reale (via
-`@playwright/test`), passa allo step "4. Computo metrico", carica i PDF committati in
+`@playwright/test`), passa allo step "3. Computo metrico", carica i PDF committati in
 `e2e/fixtures/` con un vero upload di file e legge i risultati dal DOM — la stessa `pdfjs-dist`
 che gira per un utente vero, non una fixture JSON pre-estratta. Copre entrambi i golden case
 (Crivellaro e Da Croce) con gli stessi numeri delle sezioni 4.1/4.2 sotto: voci lette, categorie,
@@ -104,7 +104,7 @@ possono cambiare per motivi di stile).
 npm run dev
 ```
 
-Apri `http://localhost:3000/preventivi/nuovo-v3`, vai allo step **"4. Computo metrico"** e carica
+Apri `http://localhost:3000/preventivi/nuovo-v3`, vai allo step **"3. Computo metrico"** e carica
 il PDF (drag&drop o dal selettore file: "Il PDF resta nel browser: non viene caricato da nessuna
 parte" — l'estrazione con `pdfjs-dist` gira lato client). Se non hai un mouse/file-picker a
 disposizione (es. sessione automatizzata), vedi la nota a fondo pagina.
@@ -143,8 +143,8 @@ Avvisi attesi: "Il computo riporta costi sicurezza di 23 352,50, mentre il pareg
 livello `errore`.
 
 Voci scartate (nel catalogo ma senza corrispondenza in questo computo): `copertura-piana`,
-`veletta-perimetrale`. Voci escluse dalla configurazione di default (monopiano):
-`solaio-interpiano`.
+`veletta-perimetrale`. Voci escluse dalla configurazione: `solaio-interpiano` — sempre esclusa in
+questo wizard, non solo di default (niente step "Geometria": vedi Note in fondo).
 
 ### 4.2 Caso Da Croce rev.03
 
@@ -167,7 +167,7 @@ Importi per voce:
 |---|---:|
 | `pareti-mhm` | 127 543,28 € *(105 987,63 di categoria + 21 555,65 di delta)* |
 | `trave-larice` | 10 104,24 € |
-| `solaio-interpiano` | 15 240,96 € *(numerica qui: la categoria SOLAIO non è a zero, a differenza di Crivellaro — ma resta esclusa dal Listino finale con la configurazione monopiano di default)* |
+| `solaio-interpiano` | 15 240,96 € *(numerica qui: la categoria SOLAIO non è a zero, a differenza di Crivellaro — ma resta comunque esclusa dal Listino finale, sempre, in questo wizard)* |
 | `copertura-falda` | 54 474,19 € |
 | `cappotto` | 21 624,51 € |
 | `cartongesso-q2` | 18 975,90 € |
@@ -225,8 +225,14 @@ scrivibile via JavaScript per motivi di sicurezza del browser. Percorso alternat
 
 ## Note
 
+- `nuovo-v3` non ha uno step "Geometria" (rimosso su richiesta esplicita): superfici, perimetro
+  e serramenti restano sempre ai default vuoti/0. Conseguenza diretta: `numeroPianiAbitativi` e
+  `superficieGarage` sono sempre 0, quindi le voci di catalogo `solaio-interpiano` e `garage`
+  sono **sempre escluse** dal preventivo in questa versione, anche quando il computo caricato le
+  valorizza — non c'è modo, nel wizard, di includerle. Un progetto multipiano o con garage va
+  gestito con `/nuovo` o `/nuovo-v2` (che hanno lo step Geometria), non con `/nuovo-v3`.
 - Le sezioni 1–2 del [golden case commerciale](testing-golden-case-crivellaro.md) restano valide
-  per testare gli step successivi (5. Prezzi, 6. Condizioni) di `nuovo-v3`: sono lo stesso
+  per testare gli step successivi (4. Prezzi, 5. Condizioni) di `nuovo-v3`: sono lo stesso
   `StatoForm` e lo stesso motore `src/domain/calcolo.ts` di `/nuovo`. La differenza è solo nella
   provenienza degli override di listino: digitati a mano lì, proposti dal conteggio qui.
 - "Ripristina" su una scheda dello step "Computo metrico" annulla solo una correzione manuale

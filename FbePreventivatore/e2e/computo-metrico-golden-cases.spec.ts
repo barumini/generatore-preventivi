@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /**
- * Suite E2E per lo step "4. Computo metrico" di /preventivi/nuovo-v3: carica un
+ * Suite E2E per lo step "3. Computo metrico" di /preventivi/nuovo-v3: carica un
  * PDF Primus reale nel browser (pdfjs-dist gira lato client, come per un utente
  * vero) e verifica i due golden case di dominio — vedi
  * docs/testing-computo-metrico-nuovo-v3.md per i numeri attesi e la loro origine
@@ -87,7 +87,7 @@ const CASI: CasoGolden[] = [
 
 async function apriStepComputoMetrico(page: Page) {
   await page.goto('/preventivi/nuovo-v3')
-  await page.getByRole('button', { name: '4. Computo metrico' }).click()
+  await page.getByRole('button', { name: '3. Computo metrico' }).click()
 }
 
 for (const caso of CASI) {
