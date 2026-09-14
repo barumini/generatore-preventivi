@@ -189,11 +189,6 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
     expect(input.risultato.totaleNetto).toBe(300000)
   })
 
-  it('non passa consentiPlaceholderNonRisolti — il golden case Crivellaro ha placeholder di spessore non interpolati e deve bloccarsi in costruisciBufferOfferta, non essere silenziato qui', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
-    expect(input.consentiPlaceholderNonRisolti).toBeUndefined()
-  })
-
   // review finale piano export-docx-wizard (Finding 1): le revisioni salvate prima di questa
   // feature non hanno la chiave `condizioni` nel loro JSON persistito (deserializzaRevisione fa
   // un JSON.parse non controllato) — costruisciCondizioni deve ricadere su CONDIZIONI_DEFAULT

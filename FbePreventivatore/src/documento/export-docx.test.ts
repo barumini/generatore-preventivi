@@ -101,15 +101,11 @@ function costruisciInputEsportazione(percorsoOutput: string): InputEsportazione 
     },
     percorsoMaster: PERCORSO_MASTER,
     percorsoOutput,
-    // il golden case include pareti-mhm/cappotto/copertura-falda, le cui descrizioni portano
-    // placeholder di spessore non interpolati (Finding 5) — opt-in esplicito e dichiarato.
-    consentiPlaceholderNonRisolti: true,
   }
 }
 
-// Stesso golden case Crivellaro, ma con gli spessori compilati: l'export deve riuscire senza
-// il residuo di sviluppo e SENZA il ricorso a `consentiPlaceholderNonRisolti` (Task 3/4 del
-// fix ai placeholder di spessore non interpolati).
+// Stesso golden case Crivellaro, ma con gli spessori compilati: senza alcun placeholder
+// {{spessore*}} residuo nelle descrizioni.
 function costruisciInputEsportazioneConSpessoriCompilati(percorsoOutput: string): InputEsportazione {
   const risultatoConSpessori = eseguiCalcolo({
     ...INPUT_CRIVELLARO,
@@ -118,7 +114,6 @@ function costruisciInputEsportazioneConSpessoriCompilati(percorsoOutput: string)
   return {
     ...costruisciInputEsportazione(percorsoOutput),
     risultato: risultatoConSpessori,
-    consentiPlaceholderNonRisolti: undefined,
   }
 }
 
@@ -180,11 +175,12 @@ describe('esportaOfferta — golden case Crivellaro', () => {
 
       // Controllo generale: nessun tag docxtemplater a singola graffa deve sopravvivere.
       // Le sequenze a doppia graffa tipo {{spessoreEsterno}} sono placeholder testuali del
-      // catalogo voci (src/domain/voci.ts), non tag docxtemplater: non sono nello scope di
-      // questo task (nessun dato di spessore in InputEsportazione), sono già presenti tali e
-      // quali nella preview (src/documento/preview/PaginaPrezzi.tsx), e qui sono ammesse solo
-      // perché il test passa esplicitamente `consentiPlaceholderNonRisolti: true` (Finding 5) —
-      // non vanno confusi con un vero placeholder sopravvissuto al render.
+      // catalogo voci (src/domain/voci.ts), non tag docxtemplater: qui sono presenti tali e
+      // quali perché questo golden case non passa gli spessori (nessun dato in
+      // InputEsportazione) — l'export non li blocca più (spessori opzionali), quindi
+      // sopravvivono nel documento esattamente come in preview
+      // (src/documento/preview/PaginaPrezzi.tsx). Non vanno confusi con un vero tag
+      // docxtemplater sopravvissuto al render.
       const tagSopravvissuti = documentoXml.match(/(?<!\{)\{[#/]?[a-z][\w.]*\}(?!\})/g)
       expect(tagSopravvissuti).toBeNull()
     } finally {
@@ -210,14 +206,13 @@ describe('esportaOfferta — chiavi non risolte nel master (review Task 17, Find
   })
 })
 
-describe('esportaOfferta — placeholder di spessore non interpolati (review Task 17, Finding 5)', () => {
-  it('si blocca di default se le descrizioni contengono placeholder a doppia graffa mai interpolati', () => {
+describe('esportaOfferta — placeholder di spessore non interpolati', () => {
+  it('non si blocca: gli spessori sono opzionali, un token non interpolato resta testuale nel documento', () => {
     const percorsoOutput = percorsoOutputTemporaneo()
     const input = costruisciInputEsportazione(percorsoOutput)
-    input.consentiPlaceholderNonRisolti = false
 
     try {
-      expect(() => esportaOfferta(input)).toThrowError(/spessoreEsterno/)
+      expect(() => esportaOfferta(input)).not.toThrow()
     } finally {
       fs.rmSync(percorsoOutput, { force: true })
     }
@@ -237,7 +232,7 @@ describe('esportaOfferta — placeholder di spessore non interpolati (review Tas
 })
 
 describe('esportaOfferta — spessori compilati (fix follow-up ai placeholder)', () => {
-  it('esporta senza errore e senza consentiPlaceholderNonRisolti quando tutti gli spessori sono forniti', () => {
+  it('esporta senza errore e senza placeholder residui quando tutti gli spessori sono forniti', () => {
     const percorsoOutput = percorsoOutputTemporaneo()
     const input = costruisciInputEsportazioneConSpessoriCompilati(percorsoOutput)
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo, type VoceValorizzata } from '@/domain/calcolo'
+import type { RisultatoCalcolo, VoceValorizzata } from '@/domain/calcolo'
 import type { AbacoPerCategoria } from '@/ai/abaco'
 import { formattaImportoItaliano } from './preview/formattazione'
 import { righeVoci, segnoArrotondamento, formattaPercentuale } from './tabella-prezzi'
@@ -63,21 +63,6 @@ export interface InputEsportazione {
   abaco: AbacoPerCategoria
   percorsoMaster: string
   percorsoOutput?: string
-  /**
-   * Opt-in esplicito, di default assente/false. Alcune `descrizioneTemplate` del catalogo
-   * (`src/domain/voci.ts`) contengono placeholder testuali a doppia graffa (es.
-   * `{{spessoreEsterno}}`) che vengono interpolati con i valori raccolti nello step
-   * "Configurazione" del wizard (`spessoreEsterno`, `spessoreInterno`, `spessoreCoibente`,
-   * `spessoreCappotto` — vedi `interpolaPlaceholder` in `src/domain/calcolo.ts`). Se uno di
-   * questi campi resta vuoto il token non viene sostituito, e senza questo flag
-   * `esportaOfferta` si blocca per non produrre in silenzio un documento con un residuo di
-   * sviluppo dentro una cella che il cliente firma — vedi
-   * `rilevaPlaceholderSpessoreNonInterpolati` sotto e `template/PLACEHOLDER.md`. Questo flag
-   * serve solo a bypassare il blocco in test o in una preview interna in cui lo spessore è
-   * deliberatamente non ancora compilato: non va mai usato per un documento destinato a un
-   * cliente reale, il vero rimedio è compilare il campo nel wizard.
-   */
-  consentiPlaceholderNonRisolti?: boolean
 }
 
 function formattaNumeroItaliano(valore: number): string {
@@ -90,16 +75,6 @@ function formattaVoceOpzionale(v: VoceOpzionale) {
 
 export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
   const { vociGrezzo, vociPostSconto } = righeVoci(input.risultato)
-
-  const placeholderSpessore = rilevaPlaceholderSpessoreNonInterpolati([...vociGrezzo, ...vociPostSconto])
-  if (placeholderSpessore.length > 0 && !input.consentiPlaceholderNonRisolti) {
-    throw new Error(
-      `esportaOfferta: descrizioni con placeholder di spessore non interpolati: ${[...new Set(placeholderSpessore)].join(', ')}. ` +
-        `Compila i campi spessore corrispondenti nello step "Configurazione" del wizard (spessoreEsterno, spessoreInterno, ` +
-        `spessoreCoibente, spessoreCappotto — cfr. template/PLACEHOLDER.md) e questo documento non è pronto per un cliente reale finché non lo fai. ` +
-        `Passa consentiPlaceholderNonRisolti: true solo per un giro di test/dev in cui lasci deliberatamente uno spessore in bianco.`,
-    )
-  }
 
   const contenuto = fs.readFileSync(input.percorsoMaster, 'binary')
   const zip = new PizZip(contenuto)

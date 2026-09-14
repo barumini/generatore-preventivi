@@ -119,12 +119,11 @@ describe('POST /api/preventivi/[id]/revisioni/[numero]/export', () => {
     expect(risposta.status).toBe(404)
   })
 
-  it('risponde 422 con messaggio leggibile se il documento ha placeholder di spessore non interpolati', async () => {
+  it('risponde 200 anche con placeholder di spessore non interpolati (spessori opzionali)', async () => {
     // struttura: 'completo' reintroduce pareti-mhm — e col suo {{spessoreEsterno}}/
     // {{spessoreInterno}} mai interpolato (limite noto e separato, non risolto da questo
-    // piano). costruisciInputEsportazione non passa mai consentiPlaceholderNonRisolti,
-    // quindi costruisciBufferOfferta deve bloccarsi qui esattamente come da progetto —
-    // niente file corrotto scaricato in silenzio.
+    // piano). Gli spessori sono opzionali nell'export: un token non interpolato resta
+    // testuale nel documento invece di bloccare la generazione.
     const statoConPlaceholder: StatoForm = {
       ...STATO_SENZA_PLACEHOLDER,
       livelli: { struttura: 'completo', involucro: 'escluso', finiture: 'escluso' },
@@ -133,8 +132,6 @@ describe('POST /api/preventivi/[id]/revisioni/[numero]/export', () => {
     const risposta = await POST(new Request('http://localhost', { method: 'POST' }), {
       params: Promise.resolve({ id: preventivo.id, numero: '1' }),
     })
-    expect(risposta.status).toBe(422)
-    const corpo = await risposta.json()
-    expect(corpo.errore).toMatch(/spessore/)
+    expect(risposta.status).toBe(200)
   })
 })
