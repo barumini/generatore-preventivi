@@ -204,7 +204,11 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
     expect(input.condizioni.consegna).toBe(CONDIZIONI_DEFAULT.consegna)
     expect(input.condizioni.caparra).toBe(CONDIZIONI_DEFAULT.caparra)
     expect(input.condizioni.validita).toBe(CONDIZIONI_DEFAULT.validita)
-    expect(input.condizioni.optional).toEqual([])
-    expect(input.condizioni.esclusioni).toEqual([])
+    expect(input.condizioni.optional).toEqual([
+      { id: 'pratica-genio-civile', lettera: 'A)', descrizione: CONDIZIONI_DEFAULT.optional[0].descrizione, importo: 5000 },
+    ])
+    expect(input.condizioni.esclusioni).toEqual([
+      { id: '', lettera: 'a)', descrizione: 'Operaio specializzato', importo: '€ 35,00/ora' },
+    ])
   })
 })

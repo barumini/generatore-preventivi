@@ -72,16 +72,29 @@ export interface CondizioniForm {
 }
 
 /**
- * Default per il nuovo step "Condizioni contrattuali" del wizard. A differenza di
- * `CONDIZIONE_DA_DEFINIRE` (segnaposto di sola visualizzazione), questo è un valore
- * di STATO iniziale: consegna/caparra/validità partono vuoti/0 perché l'operatore li
- * compili, non perché restino permanentemente un placeholder.
+ * Default per il nuovo step "Condizioni contrattuali" del wizard, su richiesta esplicita:
+ * ogni nuovo preventivo parte con gli stessi consegna/caparra/validità/optional/esclusioni
+ * del golden case Crivellaro (`CONDIZIONI_CRIVELLARO` in
+ * `costruisci-input-esportazione.test.ts`), non più vuoti — l'operatore li corregge quando
+ * differiscono, invece di doverli digitare da zero ogni volta (inclusa la riga optional con
+ * `praticaGenioCivile: true`, oggi obbligatoria in `esportaOfferta` per esportare).
+ *
+ * ATTENZIONE: `validita` è una data fissa ('31.08.2026') presa da un preventivo reale del
+ * 2026 — su un nuovo preventivo può risultare già passata o comunque sbagliata per il
+ * cliente corrente. Non è ricalcolata dinamicamente: chi compila deve verificarla o
+ * aggiornarla, esattamente come per caparra/consegna.
  */
 export const CONDIZIONI_DEFAULT: CondizioniForm = {
-  consegna: '',
-  caparra: 0,
-  validita: '',
+  consegna: 'da pattuire',
+  caparra: 30000,
+  validita: '31.08.2026',
   sal: SAL_DEFAULT.map((s) => ({ percentuale: s.percentuale, descrizione: s.milestone })),
-  optional: [],
-  esclusioni: [],
+  optional: [
+    {
+      descrizione: 'Pratica per deposito al Genio Civile dei calcoli sismici',
+      importo: 5000,
+      praticaGenioCivile: true,
+    },
+  ],
+  esclusioni: [{ descrizione: 'Operaio specializzato', importo: '€ 35,00/ora' }],
 }
