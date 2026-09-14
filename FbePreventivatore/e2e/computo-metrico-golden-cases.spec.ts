@@ -30,6 +30,8 @@ interface CasoGolden {
   avvisoSicurezza: string
   vociScartate: string[]
   vociEscluse: string[]
+  listinoTotale: string
+  listinoContieneSolaioInterpiano: boolean
 }
 
 const CASI: CasoGolden[] = [
@@ -57,6 +59,9 @@ const CASI: CasoGolden[] = [
     avvisoSicurezza: '23 352,50',
     vociScartate: ['copertura-piana', 'veletta-perimetrale'],
     vociEscluse: ['solaio-interpiano'],
+    // Monopiano: 100645,84+5843,70+58849,06+21253,32+15506,77+2162,30+19250,00+9450,00+4000,00
+    listinoTotale: '236 960,99 €',
+    listinoContieneSolaioInterpiano: false,
   },
   {
     nome: 'Da Croce rev.03',
@@ -81,7 +86,17 @@ const CASI: CasoGolden[] = [
     },
     avvisoSicurezza: '23 352,50',
     vociScartate: ['copertura-piana', 'veletta-perimetrale'],
-    vociEscluse: ['solaio-interpiano'],
+    // A differenza di Crivellaro (monopiano, SOLAIO a zero nel computo): Da Croce è un
+    // edificio Piano Terra + Piano Primo reale (Offerta MHM rev.02_Dacroce Dalila
+    // riscontro.pdf, pag. 4), e numeroPianiAbitativiDalComputo lo riconosce dalla
+    // categoria SOLAIO valorizzata nel computo stesso — solaio-interpiano entra nel
+    // Listino, non resta escluso.
+    vociEscluse: [],
+    // Bipiano, solaio-interpiano incluso: somma di tutte le voci, che infatti atterra
+    // esattamente sul target di riconciliazione sopra (300 343,58 €) — vedi
+    // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
+    listinoTotale: '300 343,58 €',
+    listinoContieneSolaioInterpiano: true,
   },
 ]
 
@@ -125,13 +140,31 @@ for (const caso of CASI) {
         await expect(alertScartate).toContainText(idMaster)
       }
       const alertEscluse = page.getByRole('alert').filter({ hasText: 'escluse dalla configurazione' })
-      for (const idMaster of caso.vociEscluse) {
-        await expect(alertEscluse).toContainText(idMaster)
+      if (caso.vociEscluse.length === 0) {
+        await expect(alertEscluse).toHaveCount(0)
+      } else {
+        for (const idMaster of caso.vociEscluse) {
+          await expect(alertEscluse).toContainText(idMaster)
+        }
       }
 
       // Nessun errore bloccante: solo avvisi, mai un banner "errore" di livello critico
       // per un computo Primus reale e ben formato.
       await expect(page.getByText('Non riesco a leggere questo PDF')).toHaveCount(0)
+
+      // Il Listino finale (pannello di anteprima a destra, non solo la scheda del
+      // conteggio a sinistra): questo è il numero che finisce nel documento esportato.
+      // Un fix che scrive l'override giusto ma non lo fa arrivare fin qui (es. perché
+      // eseguiCalcolo rifiltra le voci con una configurazione ricostruita da un'altra
+      // fonte) passerebbe inosservato senza questa verifica — è già successo una volta
+      // in sviluppo con solaio-interpiano.
+      await expect(page.getByTestId('listino-totale')).toHaveText(caso.listinoTotale)
+      const rigaSolaio = page.getByTestId('listino-voce-solaio-interpiano')
+      if (caso.listinoContieneSolaioInterpiano) {
+        await expect(rigaSolaio).toBeVisible()
+      } else {
+        await expect(rigaSolaio).toHaveCount(0)
+      }
     })
   })
 }

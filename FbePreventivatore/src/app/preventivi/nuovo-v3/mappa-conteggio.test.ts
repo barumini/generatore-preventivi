@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mappaConteggioAOverride } from './mappa-conteggio'
+import { mappaConteggioAOverride, numeroPianiAbitativiDalComputo } from './mappa-conteggio'
 import type { VoceConteggiata } from '@/domain/computo/regole-conteggio'
 import type { ConfigurazioneVoci } from '@/domain/voci'
 
@@ -123,5 +123,31 @@ describe('mappaConteggioAOverride', () => {
     expect(esito.overrides['pareti-mhm']).toBe(100000)
     expect(esito.overrides['copertura-piana']).toBeUndefined()
     expect(esito.vociScartate).toEqual(['copertura-piana'])
+  })
+})
+
+describe('numeroPianiAbitativiDalComputo', () => {
+  it('restituisce 1 (monopiano) se il computo non ha una voce solaio-interpiano', () => {
+    expect(numeroPianiAbitativiDalComputo([voceConteggiata({ idMaster: 'pareti-mhm', importo: 100000 })])).toBe(1)
+  })
+
+  it("restituisce 1 se solaio-interpiano vale 'compresa' (categoria SOLAIO a zero nel computo)", () => {
+    expect(
+      numeroPianiAbitativiDalComputo([voceConteggiata({ idMaster: 'solaio-interpiano', importo: 'compresa' })]),
+    ).toBe(1)
+  })
+
+  it('restituisce 1 se solaio-interpiano vale 0 numerico', () => {
+    expect(numeroPianiAbitativiDalComputo([voceConteggiata({ idMaster: 'solaio-interpiano', importo: 0 })])).toBe(1)
+  })
+
+  it('restituisce 2 (multipiano) se solaio-interpiano ha un importo numerico positivo', () => {
+    expect(
+      numeroPianiAbitativiDalComputo([voceConteggiata({ idMaster: 'solaio-interpiano', importo: 15240.96 })]),
+    ).toBe(2)
+  })
+
+  it('un array vuoto è monopiano', () => {
+    expect(numeroPianiAbitativiDalComputo([])).toBe(1)
   })
 })

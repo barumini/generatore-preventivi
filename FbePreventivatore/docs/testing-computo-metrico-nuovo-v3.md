@@ -143,8 +143,10 @@ Avvisi attesi: "Il computo riporta costi sicurezza di 23 352,50, mentre il pareg
 livello `errore`.
 
 Voci scartate (nel catalogo ma senza corrispondenza in questo computo): `copertura-piana`,
-`veletta-perimetrale`. Voci escluse dalla configurazione: `solaio-interpiano` — sempre esclusa in
-questo wizard, non solo di default (niente step "Geometria": vedi Note in fondo).
+`veletta-perimetrale`. Voci escluse dalla configurazione: `solaio-interpiano` — qui perché la
+categoria SOLAIO di *questo* computo vale zero (Crivellaro è monopiano), non perché il wizard la
+escluda sempre: vedi Note in fondo su come `numeroPianiAbitativiDalComputo` la deriva dal
+computo caricato, non da uno step "Geometria" che non esiste in questa versione.
 
 ### 4.2 Caso Da Croce rev.03
 
@@ -167,7 +169,7 @@ Importi per voce:
 |---|---:|
 | `pareti-mhm` | 127 543,28 € *(105 987,63 di categoria + 21 555,65 di delta)* |
 | `trave-larice` | 10 104,24 € |
-| `solaio-interpiano` | 15 240,96 € *(numerica qui: la categoria SOLAIO non è a zero, a differenza di Crivellaro — ma resta comunque esclusa dal Listino finale, sempre, in questo wizard)* |
+| `solaio-interpiano` | 15 240,96 € *(categoria SOLAIO non a zero → numeroPianiAbitativiDalComputo rileva "multipiano" ed entra nel Listino, a differenza di Crivellaro — vedi 4.3)* |
 | `copertura-falda` | 54 474,19 € |
 | `cappotto` | 21 624,51 € |
 | `cartongesso-q2` | 18 975,90 € |
@@ -176,8 +178,12 @@ Importi per voce:
 | `monoblocchi` | 14 495,00 € |
 | `progettazione-esecutiva` | 4 000,00 € *(importo fisso, non dal computo)* |
 
-Stesso avviso sicurezza (23 352,50 vs 23 300 forfettari). Stesse voci scartate/escluse del caso
-Crivellaro.
+Stesso avviso sicurezza (23 352,50 vs 23 300 forfettari). Stesse voci scartate (`copertura-piana`,
+`veletta-perimetrale`), ma **nessuna voce esclusa dalla configurazione** — a differenza di
+Crivellaro, qui `solaio-interpiano` entra nel Listino: Da Croce è davvero un edificio a due piani
+(Piano Terra 138 mq + Piano Primo 62 mq, confermato nell'offerta reale
+`Documentazione addestramento/x IA/Offerta MHM rev.02_Dacroce Dalila riscontro.pdf`, pag. 4), e il
+computo lo segnala da solo.
 
 ### 4.3 Verifica di coerenza incrociata
 
@@ -225,12 +231,17 @@ scrivibile via JavaScript per motivi di sicurezza del browser. Percorso alternat
 
 ## Note
 
-- `nuovo-v3` non ha uno step "Geometria" (rimosso su richiesta esplicita): superfici, perimetro
-  e serramenti restano sempre ai default vuoti/0. Conseguenza diretta: `numeroPianiAbitativi` e
-  `superficieGarage` sono sempre 0, quindi le voci di catalogo `solaio-interpiano` e `garage`
-  sono **sempre escluse** dal preventivo in questa versione, anche quando il computo caricato le
-  valorizza — non c'è modo, nel wizard, di includerle. Un progetto multipiano o con garage va
-  gestito con `/nuovo` o `/nuovo-v2` (che hanno lo step Geometria), non con `/nuovo-v3`.
+- `nuovo-v3` non ha uno step "Geometria" (rimosso su richiesta esplicita: i conteggi si ricavano
+  esclusivamente dal computo metrico, non da un dato inserito a mano). Superfici, perimetro e
+  serramenti restano ai default vuoti/0, ma `numeroPianiAbitativi` **non** ne dipende più:
+  [`numeroPianiAbitativiDalComputo`](../src/app/preventivi/nuovo-v3/mappa-conteggio.ts) lo deriva
+  dal computo stesso — se la categoria SOLAIO del Primus è valorizzata (voce
+  `solaio-interpiano` numerica, non `'compresa'`), riconosce un edificio multipiano e la include
+  nel Listino, esattamente come nel caso Da Croce (sezione 4.2). `superficieGarage` resta invece
+  sempre 0: il Primus non ha una categoria "garage" distinta da cui dedurne la presenza, quindi
+  la voce `garage` (che comunque il conteggio non calcola mai: non è fra gli idMaster prodotti da
+  `eseguiConteggio`, va sempre digitata a mano) resta configurabile solo nello step "Prezzi", non
+  proponibile automaticamente in nessuna versione del wizard basata sul computo.
 - Le sezioni 1–2 del [golden case commerciale](testing-golden-case-crivellaro.md) restano valide
   per testare gli step successivi (4. Prezzi, 5. Condizioni) di `nuovo-v3`: sono lo stesso
   `StatoForm` e lo stesso motore `src/domain/calcolo.ts` di `/nuovo`. La differenza è solo nella

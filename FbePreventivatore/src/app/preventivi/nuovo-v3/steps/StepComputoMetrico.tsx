@@ -9,9 +9,8 @@ import { Alert } from '../../ui/Alert'
 import { Section } from '../../ui/Section'
 import { eseguiConteggio, COSTI_SICUREZZA_FORFETTARI, type RisultatoConteggio } from '@/domain/computo/conteggio'
 import type { Computo } from '@/domain/computo/estrai-voci'
-import { numeroPianiAbitativi, superficieGarage } from '@/domain/geometria'
 import type { ConfigurazioneVoci } from '@/domain/voci'
-import { mappaConteggioAOverride } from '../mappa-conteggio'
+import { mappaConteggioAOverride, numeroPianiAbitativiDalComputo } from '../mappa-conteggio'
 import type { StatoForm } from '../../nuovo/stato-form'
 
 interface Props {
@@ -58,20 +57,22 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
   // (StepConfigurazione): un importo dal conteggio per una voce esclusa non deve entrare
   // in overrides, altrimenti resterebbe nella somma di controllo di questo step senza
   // comparire nel Listino reale. Stesso pattern di ref-in-effect del blocco sopra, stesso
-  // motivo. numeroPianiAbitativi/superficieGarage restano sempre 0 in questo wizard (niente
-  // step Geometria): solaio-interpiano e garage sono quindi sempre esclusi, non solo quando
-  // il progetto non li prevede — vedi l'avviso più sotto.
+  // motivo. numeroPianiAbitativi si ricava dal computo stesso (numeroPianiAbitativiDalComputo,
+  // niente step Geometria in questo wizard): un edificio multipiano viene riconosciuto dalla
+  // categoria SOLAIO del Primus, non da un dato inserito a mano. superficieGarage resta
+  // invece sempre 0: il Primus non ha una categoria "garage" da cui dedurne la presenza —
+  // vedi l'avviso più sotto.
   const configurazioneRef = useRef<ConfigurazioneVoci>({
     livelli: stato.livelli,
-    numeroPianiAbitativi: numeroPianiAbitativi(stato.superfici),
-    superficieGarage: superficieGarage(stato.superfici),
+    numeroPianiAbitativi: numeroPianiAbitativiDalComputo(esito?.voci ?? []),
+    superficieGarage: 0,
     chiaviInManoNelTotale: stato.chiaviInManoNelTotale,
   })
   useEffect(() => {
     configurazioneRef.current = {
       livelli: stato.livelli,
-      numeroPianiAbitativi: numeroPianiAbitativi(stato.superfici),
-      superficieGarage: superficieGarage(stato.superfici),
+      numeroPianiAbitativi: numeroPianiAbitativiDalComputo(esito?.voci ?? []),
+      superficieGarage: 0,
       chiaviInManoNelTotale: stato.chiaviInManoNelTotale,
     }
   })
@@ -79,7 +80,15 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
   useEffect(() => {
     if (!esito) return
     const risultato = mappaConteggioAOverride(esito.voci, overridesAttuali.current, configurazioneRef.current)
-    aggiorna({ overrides: risultato.overrides })
+    // configurazioneRef.current.numeroPianiAbitativi è già derivato dal computo (vedi sopra):
+    // va scritto anche in stato.numeroPianiAbitativiDaComputo, non solo usato qui, altrimenti
+    // eseguiCalcolo (chiamato altrove — PannelloPreview, salvataggio, export — sempre tramite
+    // inputCalcoloDaStato) rifiltrerebbe solaio-interpiano fuori dal Listino con la sua stessa
+    // configurazione ricostruita da `stato.superfici`, che in questo wizard resta sempre vuoto.
+    aggiorna({
+      overrides: risultato.overrides,
+      numeroPianiAbitativiDaComputo: configurazioneRef.current.numeroPianiAbitativi,
+    })
     setVociScartate(risultato.vociScartate)
     setVociEscluse(risultato.vociEscluseDallaConfigurazione)
     setIdApplicati(
@@ -139,9 +148,7 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
           <Alert variant="avviso">
             Queste voci del computo sono nel catalogo ma escluse dalla configurazione
             attuale (Configurazione): il loro importo non è entrato nel preventivo:{' '}
-            {vociEscluse.join(', ')}. Questa versione del wizard non permette di configurare
-            piani superiori o garage: se il progetto ne ha, i relativi importi del computo
-            restano esclusi.
+            {vociEscluse.join(', ')}.
           </Alert>
         </div>
       )}

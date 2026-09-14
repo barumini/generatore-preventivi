@@ -83,6 +83,13 @@ export interface StatoForm {
   pareti?: Parete[]
   falde?: VoceGeometricaLibera[]
   travi?: VoceGeometricaLibera[]
+  // Scritto solo da StepComputoMetrico.tsx (nuovo-v3, che non ha uno step "Geometria"):
+  // sovrascrive numeroPianiAbitativi(superfici) qui sotto quando presente, perché in quel
+  // wizard il segnale "edificio multipiano" si ricava dal computo caricato (categoria SOLAIO
+  // valorizzata — numeroPianiAbitativiDalComputo in mappa-conteggio.ts), non da `superfici`,
+  // che in nuovo-v3 resta sempre vuoto. Assente per /nuovo e /nuovo-v2: lì la fonte resta
+  // sempre `superfici`, invariata.
+  numeroPianiAbitativiDaComputo?: number
   livelli: Record<Modulo, LivelloModulo>
   chiaviInManoNelTotale: boolean
   sconti: ParametriSconto[]
@@ -100,7 +107,7 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
     catalogo: CATALOGO_VOCI,
     configurazione: {
       livelli: stato.livelli,
-      numeroPianiAbitativi: numeroPianiAbitativi(stato.superfici),
+      numeroPianiAbitativi: stato.numeroPianiAbitativiDaComputo ?? numeroPianiAbitativi(stato.superfici),
       superficieGarage: superficieGarage(stato.superfici),
       chiaviInManoNelTotale: stato.chiaviInManoNelTotale,
     },
