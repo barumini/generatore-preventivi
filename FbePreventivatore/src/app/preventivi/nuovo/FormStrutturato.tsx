@@ -9,8 +9,12 @@ import { StepPrezzi } from './steps/StepPrezzi'
 import { StepCondizioni } from './steps/StepCondizioni'
 import { StepCondizioniContrattuali } from './steps/StepCondizioniContrattuali'
 import { CARATTERISTICHE_DEFAULT, OGGETTO_STANDARD, type StatoForm } from './stato-form'
-import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
+import { creaCondizioniDefault } from '@/documento/condizioni-default'
 
+// `condizioni` qui è solo un placeholder per far quadrare il tipo: STATO_INIZIALE è un
+// modulo caricato una volta sola, quindi una `creaCondizioniDefault()` chiamata qui
+// congelerebbe "oggi" al boot invece che al montaggio del wizard. Il valore vero si calcola
+// nell'inizializzatore lazy di useState qui sotto, e lo sovrascrive.
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
   protocollo: '',
@@ -28,7 +32,7 @@ const STATO_INIZIALE: StatoForm = {
   totaleTarget: 0,
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
   caratteristiche: CARATTERISTICHE_DEFAULT,
-  condizioni: CONDIZIONI_DEFAULT,
+  condizioni: creaCondizioniDefault(),
 }
 
 interface Props {
@@ -41,7 +45,11 @@ const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Geometria', 'Prezzi', 'Con
 
 export function FormStrutturato({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
-  const [stato, setStato] = useState<StatoForm>({ ...STATO_INIZIALE, ...statoIniziale })
+  const [stato, setStato] = useState<StatoForm>(() => ({
+    ...STATO_INIZIALE,
+    condizioni: creaCondizioniDefault(),
+    ...statoIniziale,
+  }))
 
   // Unico punto che notifica il genitore: gira dopo il render (mai durante), a ogni
   // cambio di stato — mount incluso. Prima onCambiamento veniva chiamato anche dentro

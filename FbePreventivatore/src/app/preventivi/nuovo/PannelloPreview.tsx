@@ -10,7 +10,7 @@ import { PaginaCaratteristiche } from '@/documento/preview/PaginaCaratteristiche
 import { PaginaPrezzi } from '@/documento/preview/PaginaPrezzi'
 import { PaginaAbacoSerramenti } from '@/documento/preview/PaginaAbacoSerramenti'
 import { PaginaCondizioni } from '@/documento/preview/PaginaCondizioni'
-import { CONDIZIONI_DEFAULT, CONDIZIONE_DA_DEFINIRE } from '@/documento/condizioni-default'
+import { creaCondizioniDefault, CONDIZIONE_DA_DEFINIRE } from '@/documento/condizioni-default'
 import { formattaImportoItaliano } from '@/documento/preview/formattazione'
 import { pacchettoDaLivelli } from './stato-form'
 import type { StatoForm } from './stato-form'
@@ -28,7 +28,7 @@ export function PannelloPreview({ stato, input }: Props) {
   // JSON: CLAUDE.md vincolo 6 impone che restino apribili con gli stessi numeri firmati, quindi
   // qui serve un fallback esplicito (il merge in FormStrutturato copre solo il percorso bozza,
   // non questa pagina di sola lettura che deserializza il JSON grezzo senza passare da lì).
-  const condizioni = stato.condizioni ?? CONDIZIONI_DEFAULT
+  const condizioni = stato.condizioni ?? creaCondizioniDefault()
 
   // Gli avvisi di coerenza stanno PRIMA delle pagine: sono i bug osservati nei
   // documenti FBE reali (superfici che non tornano, protocollo non sostituito,

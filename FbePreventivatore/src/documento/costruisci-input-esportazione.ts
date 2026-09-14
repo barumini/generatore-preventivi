@@ -6,7 +6,7 @@ import { pacchettoDaLivelli, type StatoForm } from '@/app/preventivi/nuovo/stato
 import { suggerisciTotaleLordoTesto } from '@/domain/geometria'
 import { formattaDataItaliana } from './formatta-data-italiana'
 import type { InputEsportazione, SuperficiOfferta, CondizioniOfferta, VoceOpzionale } from './export-docx'
-import { CONDIZIONI_DEFAULT, type VoceEsclusioneForm, type VoceOptionalForm } from './condizioni-default'
+import { creaCondizioniDefault, type VoceEsclusioneForm, type VoceOptionalForm } from './condizioni-default'
 
 const NUMERO_SAL_PRIMI = 3
 
@@ -43,7 +43,7 @@ function costruisciCondizioni(stato: StatoForm): CondizioniOfferta {
   // JSON: CLAUDE.md vincolo 6 impone che restino apribili con gli stessi numeri firmati, quindi
   // qui serve un fallback esplicito (stesso pattern di PannelloPreview.tsx, che affronta lo
   // stesso scenario per la preview).
-  const condizioni = stato.condizioni ?? CONDIZIONI_DEFAULT
+  const condizioni = stato.condizioni ?? creaCondizioniDefault()
   const { sal, optional, esclusioni, consegna, caparra, validita } = condizioni
   return {
     consegna,

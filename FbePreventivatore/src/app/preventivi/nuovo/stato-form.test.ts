@@ -1,7 +1,7 @@
 // src/app/preventivi/nuovo/stato-form.test.ts
 import { describe, expect, it } from 'vitest'
 import { inputCalcoloDaStato, livelliDaPacchetto, pacchettoDaLivelli, type StatoForm } from './stato-form'
-import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
+import { creaCondizioniDefault } from '@/documento/condizioni-default'
 
 const STATO_CRIVELLARO: StatoForm = {
   cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
@@ -33,7 +33,7 @@ const STATO_CRIVELLARO: StatoForm = {
     spessoreCoibente: '',
     spessoreCappotto: '',
   },
-  condizioni: CONDIZIONI_DEFAULT,
+  condizioni: creaCondizioniDefault(),
 }
 
 describe('inputCalcoloDaStato', () => {

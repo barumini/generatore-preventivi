@@ -4,7 +4,7 @@ import { creaPreventivoConBozza } from '@/server/preventivi-repo'
 import { serializzaRevisione } from '@/domain/persistenza'
 import { eseguiCalcolo } from '@/domain/calcolo'
 import { inputCalcoloDaStato, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
-import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
+import { creaCondizioniDefault } from '@/documento/condizioni-default'
 
 vi.mock('@/server/prisma', () => ({ prisma: creaClientDiTest() }))
 
@@ -59,7 +59,7 @@ const STATO_SENZA_PLACEHOLDER: StatoForm = {
     spessoreCappotto: '',
   },
   condizioni: {
-    ...CONDIZIONI_DEFAULT,
+    ...creaCondizioniDefault(),
     consegna: 'da pattuire',
     caparra: 30000,
     validita: '31.08.2026',
