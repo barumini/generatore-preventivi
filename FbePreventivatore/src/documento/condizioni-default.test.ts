@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { creaCondizioniDefault, SAL_DEFAULT } from './condizioni-default'
+import { creaCondizioniDefault, CONDIZIONI_LEGACY_SENZA_CAMPO, SAL_DEFAULT } from './condizioni-default'
 
 describe('creaCondizioniDefault', () => {
   it('precompila sal da SAL_DEFAULT, rinominando milestone in descrizione', () => {
@@ -52,5 +52,29 @@ describe('creaCondizioniDefault', () => {
       vi.setSystemTime(new Date(2026, 11, 15)) // 15 dicembre 2026
       expect(creaCondizioniDefault().validita).toBe('14.01.2027')
     })
+  })
+})
+
+describe('CONDIZIONI_LEGACY_SENZA_CAMPO', () => {
+  // Vincolo CLAUDE.md #6: una revisione già firmata deve mostrare sempre gli stessi numeri.
+  // A differenza di creaCondizioniDefault() (pensata per un preventivo NUOVO, proposta di
+  // partenza legittima), questo è il fallback per revisioni salvate prima che questo step
+  // esistesse — deve restare stabile e neutro, mai i dati di un altro cliente.
+  it('consegna/caparra/validità partono vuoti — nessun valore finto plausibile', () => {
+    expect(CONDIZIONI_LEGACY_SENZA_CAMPO.consegna).toBe('')
+    expect(CONDIZIONI_LEGACY_SENZA_CAMPO.caparra).toBe(0)
+    expect(CONDIZIONI_LEGACY_SENZA_CAMPO.validita).toBe('')
+  })
+
+  it('optional ed esclusioni partono vuoti — una revisione legacy può non averne', () => {
+    expect(CONDIZIONI_LEGACY_SENZA_CAMPO.optional).toEqual([])
+    expect(CONDIZIONI_LEGACY_SENZA_CAMPO.esclusioni).toEqual([])
+  })
+
+  it('non cambia mai fra due letture, a differenza di creaCondizioniDefault() (validità dipende da "oggi")', () => {
+    const a = CONDIZIONI_LEGACY_SENZA_CAMPO
+    const b = CONDIZIONI_LEGACY_SENZA_CAMPO
+    expect(a).toEqual(b)
+    expect(a.validita).toBe('')
   })
 })

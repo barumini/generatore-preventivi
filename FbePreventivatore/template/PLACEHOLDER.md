@@ -258,14 +258,16 @@ prima di esportare. Lo stesso rilevamento alimenta anche l'avviso di coerenza
 `spessore-non-interpolato` (`src/ai/coerenza.ts`), che segnala gli spessori mancanti e
 invita a completare lo step Configurazione.
 
-Lo spessore è un campo **opzionale**: `esportaOfferta()` (`src/documento/export-docx.ts`)
-non si blocca se, dopo l'interpolazione, restano token non risolti nelle descrizioni
-delle voci incluse — il `.docx` viene comunque scritto, con `{{spessoreEsterno}}` (o
-gli altri tre token) ancora testuali nella cella. L'avviso di coerenza
-`spessore-non-interpolato` (`src/ai/coerenza.ts`) e l'evidenziazione in preview restano
-l'unico segnale per l'operatore prima di esportare: **verificare quell'avviso prima di
-inviare un documento a un cliente reale**, il rimedio corretto resta sempre compilare
-il campo spessore mancante nello step "Configurazione".
+`esportaOfferta()` (`src/documento/export-docx.ts`) si blocca comunque per default se,
+dopo l'interpolazione, restano token non risolti nelle descrizioni delle voci incluse,
+e lancia un errore invece di scrivere il `.docx` — un campo spessore lasciato in
+bianco nel wizard resta quindi un residuo bloccante, non un difetto silenzioso. Per
+esportare comunque (solo per un giro di test/dev in cui si lascia deliberatamente uno
+spessore non compilato) va passato l'opt-in esplicito
+`consentiPlaceholderNonRisolti: true` su `InputEsportazione`. **Non usare
+`consentiPlaceholderNonRisolti: true` con un cliente reale**: il rimedio corretto è
+sempre compilare il campo spessore mancante nello step "Configurazione", non bypassare
+il blocco.
 
 ## Cosa NON è stato reso variabile (e perché)
 

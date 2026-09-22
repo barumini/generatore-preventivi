@@ -135,6 +135,9 @@ const input: InputEsportazione = {
   },
   percorsoMaster: path.resolve(import.meta.dirname, '../template/Offerta MHM master.docx'),
   percorsoOutput,
+  // I 4 token {{spessore*}} del catalogo non sono ancora interpolati (follow-up noto):
+  // senza questo opt-in `esportaOfferta` si rifiuta di produrre il documento.
+  consentiPlaceholderNonRisolti: true,
 }
 
 esportaOfferta(input)

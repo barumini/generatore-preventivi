@@ -130,3 +130,23 @@ export function creaCondizioniDefault(): CondizioniForm {
     esclusioni: [{ descrizione: 'Operaio specializzato', importo: '€ 35,00/ora' }],
   }
 }
+
+/**
+ * Fallback per le revisioni salvate PRIMA che questo step esistesse: il loro JSON persistito
+ * non ha la chiave `condizioni` (`deserializzaRevisione` fa un JSON.parse non controllato).
+ * A differenza di `creaCondizioniDefault()` — pensata per un preventivo NUOVO, dove "oggi + 30
+ * giorni" e i valori Crivellaro sono una proposta di partenza legittima — qui vale il vincolo
+ * CLAUDE.md #6: riaprire/ri-esportare una revisione già firmata deve mostrare sempre gli stessi
+ * numeri, non un valore che cambia a seconda del giorno in cui la si riapre. Restare
+ * volutamente vuoto/neutro (non i dati di un altro cliente) fa sì che l'export si blocchi sui
+ * guardrail di `export-docx.ts` finché l'operatore non compila i valori reali di quella
+ * revisione, invece di fabbricarli in silenzio.
+ */
+export const CONDIZIONI_LEGACY_SENZA_CAMPO: CondizioniForm = {
+  consegna: '',
+  caparra: 0,
+  validita: '',
+  sal: SAL_DEFAULT.map((s) => ({ percentuale: s.percentuale, descrizione: s.milestone })),
+  optional: [],
+  esclusioni: [],
+}

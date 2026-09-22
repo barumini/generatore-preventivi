@@ -1,10 +1,10 @@
 // src/documento/costruisci-input-esportazione.test.ts
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { costruisciInputEsportazione } from './costruisci-input-esportazione'
 import { generaAbacoPerCategoria } from '@/ai/abaco'
 import { eseguiCalcolo } from '@/domain/calcolo'
 import { inputCalcoloDaStato, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
-import { creaCondizioniDefault, type CondizioniForm } from './condizioni-default'
+import { CONDIZIONI_LEGACY_SENZA_CAMPO, type CondizioniForm } from './condizioni-default'
 import path from 'node:path'
 
 const CONDIZIONI_CRIVELLARO: CondizioniForm = {
@@ -191,31 +191,30 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
 
   // review finale piano export-docx-wizard (Finding 1): le revisioni salvate prima di questa
   // feature non hanno la chiave `condizioni` nel loro JSON persistito (deserializzaRevisione fa
-  // un JSON.parse non controllato) — costruisciCondizioni deve ricadere su
-  // creaCondizioniDefault() invece di far esplodere la destrutturazione, stesso pattern già
-  // applicato in PannelloPreview.tsx per lo stesso scenario.
-  it('non esplode se una revisione pre-esistente non ha la chiave condizioni: ricade sui default', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 0, 15))
-    try {
-      const statoSenzaCondizioni: StatoForm = { ...STATO_CRIVELLARO, condizioni: undefined as unknown as CondizioniForm }
-      expect(() =>
-        costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO),
-      ).not.toThrow()
+  // un JSON.parse non controllato) — costruisciCondizioni deve ricadere su un valore CONGELATO
+  // (CONDIZIONI_LEGACY_SENZA_CAMPO), mai su creaCondizioniDefault(): quella è pensata per un
+  // preventivo nuovo e ricalcola "oggi + 30 giorni" a ogni chiamata, violando il vincolo
+  // CLAUDE.md #6 (una revisione già firmata deve mostrare sempre gli stessi numeri).
+  it('non esplode se una revisione pre-esistente non ha la chiave condizioni: ricade su un valore congelato, non su creaCondizioniDefault()', () => {
+    const statoSenzaCondizioni: StatoForm = { ...STATO_CRIVELLARO, condizioni: undefined as unknown as CondizioniForm }
+    expect(() =>
+      costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO),
+    ).not.toThrow()
 
-      const input = costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
-      const atteso = creaCondizioniDefault()
-      expect(input.condizioni.consegna).toBe(atteso.consegna)
-      expect(input.condizioni.caparra).toBe(atteso.caparra)
-      expect(input.condizioni.validita).toBe(atteso.validita)
-      expect(input.condizioni.optional).toEqual([
-        { id: 'pratica-genio-civile', lettera: 'A)', descrizione: atteso.optional[0].descrizione, importo: 5000 },
-      ])
-      expect(input.condizioni.esclusioni).toEqual([
-        { id: '', lettera: 'a)', descrizione: 'Operaio specializzato', importo: '€ 35,00/ora' },
-      ])
-    } finally {
-      vi.useRealTimers()
-    }
+    const input = costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
+    expect(input.condizioni.consegna).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.consegna)
+    expect(input.condizioni.caparra).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.caparra)
+    expect(input.condizioni.validita).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.validita)
+    expect(input.condizioni.optional).toEqual([])
+    expect(input.condizioni.esclusioni).toEqual([])
+  })
+
+  // review Task 17 (Finding 5): il golden case Crivellaro include pareti-mhm/cappotto/
+  // copertura-falda, le cui descrizioni portano placeholder di spessore non interpolati
+  // (nessuno spessore compilato in STATO_CRIVELLARO) — costruisciInputEsportazione non decide
+  // da sola di bypassare il guardrail di costruisciBufferOfferta, deve restare a chi esporta.
+  it('non passa consentiPlaceholderNonRisolti — deve bloccarsi in costruisciBufferOfferta, non essere silenziato qui', () => {
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
+    expect(input.consentiPlaceholderNonRisolti).toBeUndefined()
   })
 })
