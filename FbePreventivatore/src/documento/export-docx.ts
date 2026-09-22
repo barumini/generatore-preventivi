@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo, type VoceValorizzata } from '@/domain/calcolo'
+import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo } from '@/domain/calcolo'
 import type { AbacoPerCategoria } from '@/ai/abaco'
 import { formattaImportoItaliano } from './preview/formattazione'
 import { righeVoci, segnoArrotondamento, formattaPercentuale } from './tabella-prezzi'
