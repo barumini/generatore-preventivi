@@ -196,11 +196,12 @@ Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
 - **sconti (percentuale + causale)** → si inseriscono nello step **"5. Condizioni"**, *non* in
   "4. Prezzi" (lì ci sono solo l'override delle voci di listino e il totale)
 - **Totale** → nello step **"4. Prezzi"**, in fondo sotto l'override delle voci. Di default è
-  **calcolato**: il totale senza arrotondamento (Listino − sconti a cascata + voci post-sconto)
-  arrotondato **per difetto** al passo scelto (default 5 000 €), e l'Arrotondamento si risolve di
-  conseguenza (`arrotondaTotalePerDifettoA` in `src/domain/calcolo.ts`). La casella "Imposta il
-  totale a mano" riporta al vecchio totale target digitato. Le bozze salvate prima di questa
-  modifica con un totale target > 0 restano in modalità manuale.
+  **calcolato ed effettivo**: Listino − sconti a cascata + voci post-sconto, con Arrotondamento a
+  0. La spunta **"Arrotonda il totale per difetto"** lo porta per difetto al passo scelto
+  (default 5 000 €) e risolve l'Arrotondamento di conseguenza (`arrotondaTotalePerDifettoA` in
+  `src/domain/calcolo.ts`). La casella "Imposta il totale a mano" riporta al vecchio totale
+  target digitato e ha la precedenza. Le bozze salvate prima della spunta si riaprono arrotondate
+  come allora; quelle con un totale target > 0 restano in modalità manuale.
 
 ### Riprodurre il riscontro (255 000,00 €) dell'offerta rev.02
 
@@ -210,8 +211,9 @@ Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
    - `5` → causale `sconto cliente`
    - `10` → causale `per conferme entro il 31.01.2026`
    (in `nuovo-v3` sono già precompilati di default).
-2. Vai a **"4. Prezzi"**: il **Totale calcolato** mostra già `255 000,00 €` — nessun campo da
-   digitare (256 793,76 € per difetto ai 5 000 €). La tabella prezzi del documento risulta:
+2. Vai a **"4. Prezzi"**: il **Totale calcolato** mostra il totale effettivo `256 793,76 €`
+   (300 343,58 − 5% − 10%). Spunta **"Arrotonda il totale per difetto"**: diventa `255 000,00 €`
+   (per difetto ai 5 000 €), senza digitare nessun importo. La tabella prezzi del documento risulta:
 
    ```
    Listino 2026                              300 343,58 €
@@ -228,9 +230,10 @@ l'Arrotondamento per atterrare esattamente sul target dato. Il valore dell'Arrot
 (−1 793,76 €) **non** coincide con quello scritto a mano in offerta (−2 184,00 €): dipende dal
 Listino di partenza diverso (300 343,58 € proposto dal conteggio contro 300 800,00 € digitato in
 offerta) — è lo stesso scarto voce-per-voce spiegato nella sezione "Nota" più sotto, non un nuovo
-problema. Il 255 000 esce dal calcolo: la stessa regola (per difetto ai 5 000 €) riproduce anche
+problema. Il 255 000 esce dal calcolo con la spunta attiva: la stessa regola (per difetto ai 5 000 €) riproduce anche
 Crivellaro (301 070 → 300 000, arrotondamento 1 070) ed è verificata dall'e2e
-`computo-metrico-golden-cases.spec.ts` (`totale-calcolato`).
+`computo-metrico-golden-cases.spec.ts` (`totale-calcolato`, prima senza spunta sul totale
+effettivo e poi con `arrotonda-totale` spuntata).
 
 ---
 

@@ -123,23 +123,31 @@ Nessuna azione: nel wizard v3 sono già precompilati. Controlla soltanto che ci 
 
 ## 5. Totale calcolato — step "4. Prezzi"
 
-In fondo, riquadro **Totale**:
+In fondo, riquadro **Totale**. Di default il totale è quello **effettivo**, senza arrotondamento:
 
 | Cosa guardare | Valore atteso |
 |---|---|
 | "Imposta il totale a mano" | **non** spuntato |
+| "Arrotonda il totale per difetto" | **non** spuntato |
+| **Totale calcolato (effettivo, non arrotondato)** | **`256 793,76 €`** |
+| Riga sotto | `Arrotondamento calcolato: 0,00 €` |
+
+Il conto che fa il motore: 300 343,58 − 5% − 10% = **256 793,76 €**. Nel documento la riga
+Arrotondamento mostra `- 0,00 €`.
+
+Per riprodurre il totale dell'offerta rev.02, spunta **"Arrotonda il totale per difetto"**:
+
+| Cosa guardare | Valore atteso |
+|---|---|
 | Arrotonda il totale per difetto a | `5 000,00 €` |
 | **Totale calcolato** | **`255 000,00 €`** |
 | Riga sotto | `Arrotondamento calcolato: -1 793,76 €` |
 
-Il conto che fa il motore: 300 343,58 − 5% − 10% = 256 793,76 € → per difetto ai 5 000 € →
-**255 000,00 €**.
-
 Prove facoltative (poi rimetti tutto com'era):
 
-- Passo `1 000,00 €` → totale `256 000,00 €`, arrotondamento `-793,76 €`.
-- Spunta "Imposta il totale a mano" → compare il campo Totale target, **già precompilato con
-  `255000`**. Togli la spunta per tornare al calcolo.
+- Con la spunta, passo `1 000,00 €` → totale `256 000,00 €`, arrotondamento `-793,76 €`.
+- Spunta "Imposta il totale a mano" → compare il campo Totale target, **precompilato col totale
+  appena calcolato**. Togli la spunta per tornare al calcolo.
 
 ### Avvisi sotto ai tab
 
@@ -201,7 +209,7 @@ Il progettista viene salvato nel preventivo ma non compare nel testo del documen
 
 - [ ] La chat compila anagrafica e 4 spessori (§2)
 - [ ] Il computo dà 166 voci e 323 643,58 € (§3)
-- [ ] Il **Totale calcolato** è **255 000,00 €** senza aver digitato nulla (§5)
+- [ ] Il **Totale calcolato** è **256 793,76 €** senza spunta e **255 000,00 €** con "Arrotonda il totale per difetto" (§5)
 - [ ] Nessun avviso sotto ai tab (§5)
 - [ ] La bozza viene salvata (§6)
 - [ ] Il `.docx` si genera e la tabella prezzi termina con TOTALE 255 000,00 € (§7)
