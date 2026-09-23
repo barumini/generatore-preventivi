@@ -195,7 +195,61 @@ due casi senza una ragione nel PDF sorgente, è quasi certamente un regressione 
 
 ---
 
-## 5. Nota: caricare il PDF senza dialog di sistema (senza Playwright)
+## 5. Dal computo all'esportazione (.docx) — Prezzi, Condizioni e i due guardrail
+
+Stesso percorso documentato per Da Croce in
+[`testing-golden-case-dacroce.md`](testing-golden-case-dacroce.md#4-dal-computo-al-preventivo-commerciale--step-4-prezzi--5-condizioni),
+qui **verificato dal vivo anche su Crivellaro** — i campi sono nello stesso posto per entrambi i
+casi, essendo lo stesso `StatoForm`/wizard:
+
+- **sconti (percentuale + causale)** → step **"5. Condizioni"**, non "4. Prezzi"
+- **"Totale target (per risoluzione arrotondamento)"** → step **"4. Prezzi"**, sotto l'override
+  delle voci
+- **"Chiavi in mano nel totale"** (checkbox, default **deselezionata**) → step
+  **"2. Configurazione"**: senza spuntarla, la voce `opere-chiavi-in-mano` resta esclusa (vedi
+  Note in fondo per la voce `garage`, che invece non è mai raggiungibile in questa versione)
+
+Con gli 11 override del golden case, i 2 sconti (10% + 10%) e "Chiavi in mano" spuntata,
+`TOTALE AL NETTO` risolve comunque a **300 000,00 €** (l'Arrotondamento assorbe l'assenza del
+`garage`) — numeri completi nella Nota in fondo alla pagina.
+
+### Guardrail export 1 — spessori non interpolati (step "2. Configurazione")
+
+Identico a Da Croce: coi 4 campi spessore vuoti, `esportaOfferta` si rifiuta con
+`descrizioni con placeholder di spessore non interpolati: {{spessoreEsterno}}, ...`. Per
+Crivellaro, l'offerta reale (`Offerta MHM rev.04_crivellaro.pdf`) usa **lo stesso identico
+wording di Da Croce** (stesso sistema costruttivo FBE standard), quindi gli stessi valori:
+
+| Campo | Valore |
+|---|---|
+| Spessore pareti esterne (mm) | `205` |
+| Spessore pareti interne (mm) | `205-160` |
+| Spessore coibente falda (mm) | `80+60+20` |
+| Spessore cappotto (mm) | `60+40` |
+
+(Da non confondere con gli spessori `205/160/200/140` usati in
+[`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md#31-precompilazione-via-ai--chat-apertura-rapida):
+quelli sono valori di comodo scelti solo per testare la copertura dello schema di estrazione AI,
+non una trascrizione dell'offerta reale — i due file testano cose diverse, non c'è un numero
+"giusto" unico.)
+
+### Guardrail export 2 — placeholder di protocollo in copertina (step "1. Anagrafica")
+
+Col campo `Protocollo` vuoto, la preview mostra l'avviso "È presente un placeholder di protocollo
+non sostituito in copertina" e l'export si blocca allo stesso modo di Da Croce. Per Crivellaro il
+protocollo reale è `2026059` (dall'intestazione dell'offerta rev.04, "PROT 2026059_REV. 04" —
+coincide col valore già usato in `testing-golden-case-crivellaro.md`).
+
+**Verificato dal vivo**: con `Protocollo` e i 4 spessori compilati, entrambi gli avvisi
+scompaiono dalla preview. Non ho completato l'export per questo caso specifico — il database di
+sviluppo aveva già un preventivo salvato con protocollo `2026059` da una sessione precedente, e
+`Salva bozza` rifiuta un secondo preventivo con lo stesso protocollo ("usa aggiungiRevisione per
+aggiungere una revisione, non crearne uno nuovo") — comportamento atteso, non un guardrail rotto,
+ma noto per chi ripete il test partendo da un database non vuoto.
+
+---
+
+## 6. Nota: caricare il PDF senza dialog di sistema (senza Playwright)
 
 Per un test ripetibile, la sezione 3 (Playwright) è il modo giusto: `setInputFiles` carica un file
 reale senza dialog nativi, senza questo escamotage. Questa nota resta utile per un'ispezione
