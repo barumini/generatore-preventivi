@@ -242,10 +242,25 @@ scrivibile via JavaScript per motivi di sicurezza del browser. Percorso alternat
   la voce `garage` (che comunque il conteggio non calcola mai: non è fra gli idMaster prodotti da
   `eseguiConteggio`, va sempre digitata a mano) resta configurabile solo nello step "Prezzi", non
   proponibile automaticamente in nessuna versione del wizard basata sul computo.
+- **Limitazione verificata — la voce `garage` resta esclusa anche con override digitato a mano.**
+  `garage` è condizionata da `garage-presente` (`src/domain/voci.ts`), che dipende da
+  `superficieGarage > 0`. Siccome `nuovo-v3` non ha uno step "Geometria", `superficieGarage` non è
+  mai impostabile e resta 0 per l'intera sessione: digitare un valore nell'override `garage` dello
+  step "Prezzi" (es. `20000`, il valore del golden case Crivellaro) **non basta** — la condizione
+  resta falsa e la riga "Garage" non compare mai nel preventivo, silenziosamente (nessun errore,
+  nessun avviso). Verificato manualmente in browser il 2026-09-23: con tutti gli 11 override del
+  golden case compilati, i 2 sconti a cascata e "Chiavi in mano nel totale" spuntata, il motore
+  ottiene comunque `TOTALE AL NETTO` = 300 000,00 € (risolve correttamente l'arrotondamento
+  inverso, vincolo CLAUDE.md §3), ma con numeri intermedi diversi da quelli "canonici" perché manca
+  l'addendo garage: `Arrotondamento` = **+ 18 930,00 €** (non − 1 070,00 €) e `PARZIALE AL GREZZO
+  AVANZATO` = **210 900,00 €** (non 190 900,00 €). Chi riproduce il golden case commerciale su
+  `nuovo-v3` deve aspettarsi questi due numeri diversi, non un bug del motore — per il golden case
+  "pieno" con la riga Garage, usare `/nuovo` o `/nuovo-v2` (che hanno lo step Geometria).
 - Le sezioni 1–2 del [golden case commerciale](testing-golden-case-crivellaro.md) restano valide
   per testare gli step successivi (4. Prezzi, 5. Condizioni) di `nuovo-v3`: sono lo stesso
   `StatoForm` e lo stesso motore `src/domain/calcolo.ts` di `/nuovo`. La differenza è solo nella
-  provenienza degli override di listino: digitati a mano lì, proposti dal conteggio qui.
+  provenienza degli override di listino: digitati a mano lì, proposti dal conteggio qui — con
+  l'eccezione della voce `garage`, vedi punto precedente.
 - "Ripristina" su una scheda dello step "Computo metrico" annulla solo una correzione manuale
   fatta in quella pagina, non rimuove l'importo dal preventivo (resta comunque nello step
   "Prezzi").
