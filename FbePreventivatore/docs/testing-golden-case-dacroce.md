@@ -432,7 +432,8 @@ modi su Crivellaro.
 Le due offerte sono quindi state compilate a mano in due modi diversi. Su Da Croce le pareti
 risultano calcolate con i valori delle regole e la posa cordolo in trave; solaio (16 900,
 calcolato sui 62 mq lordi del Piano Primo invece dei 56 mq del computo, vedi sotto) e monoblocchi
-(13 200) non vengono dalle regole e probabilmente sono stati inseriti senza rifare il pareggio, il
+(13 200, calcolati con fattore 1,25 sugli alzanti scorrevoli invece dell'1,70 del computo, vedi
+sotto) non vengono dalle regole e probabilmente sono stati inseriti senza rifare il pareggio, il
 che spiegherebbe un Listino di 300 800 invece di circa 300 344. Su
 Crivellaro le pareti sono il residuo delle righe scritte in offerta, compreso l'errore sulla
 copertura dichiarato da FBE, e la posa cordolo resta nelle pareti.
@@ -470,3 +471,43 @@ Il conteggio segue la misura netta del computo. Se il solaio vada fatturato sull
 del piano o su quella netta è una decisione di FBE; se vale la netta, è un errore manuale
 dell'offerta come quelli già dichiarati su copertura, cappotto e monoblocchi. Il Listino non
 cambia: un solaio a 16 873,92 € abbasserebbe le pareti dello stesso importo.
+
+### Perché `monoblocchi` è 14 495,00 € contro 13 200,00 €
+
+Il conteggio somma i totali in euro delle tre tariffe dei monoblocchi (`regolaMonoblocchi`):
+
+| N. | Tariffa | Voce | Pezzi | €/pz | Totale |
+|---:|---|---|---:|---:|---:|
+| 152 | `109.04.12` | monoblocchi finestre | 4 | 600 | 2 400,00 |
+| 153 | `109.04.13` | monoblocchi portefinestre | 12,10 | 800 | 9 680,00 |
+| 154 | `109.04.14` | montaggio monoblocchi | 16,10 | 150 | 2 415,00 |
+| | | | | | **14 495,00** |
+
+I 12,10 pezzi di `109.04.13` sono misurati nel computo come 2 portoncini + 4 portefinestre +
+**3 alzanti scorrevoli × 1,70** + 1 portabalcone; il montaggio conta 4 + 12,10 = 16,10 pezzi.
+Con il fattore degli alzanti a 1,25 invece che a 1,70:
+
+```
+109.04.12   4     × 600 = 2 400,00
+109.04.13  10,75  × 800 = 8 600,00
+109.04.14  14,75  × 150 = 2 212,50
+                          ─────────
+                         13 212,50 → 13 200,00
+```
+
+Provate tutte le varianti semplici — fattore 1 / 1,25 / 1,5 / 1,70 / 2, ciascun gruppo di pezzi di
+`109.04.13` incluso o escluso, con e senza `109.04.12` e `109.04.14` — solo «fattore 1,25, tutto
+incluso» arrotonda a 13 200 (fattore 1 dà 12 500, senza portoncini 12 595, senza montaggio
+12 080). In forma chiusa il totale è 9 650 + 2 850 × fattore: per arrotondare a 13 200 il fattore
+deve stare fra 1,228 e 1,263.
+
+1,25 è il fattore che il computo Crivellaro applica sulla stessa riga (lì senza effetto, perché gli
+alzanti sono 0). È quindi probabile che l'offerta Da Croce sia stata scritta con quel fattore, o
+con un computo precedente che lo aveva ancora, invece che con l'1,70 del computo rev.03:
+l'offerta non mostra il calcolo, ma nessun'altra variante semplice torna.
+
+Il conteggio non ricalcola il fattore: somma i totali del computo, come da regola FBE (vedi il
+commento sopra `TARIFFE_MONOBLOCCHI`). Quale fattore valga per gli alzanti di Da Croce (1,70 del
+computo o 1,25) è una decisione di FBE; se vale il computo, è un errore manuale dell'offerta, e i
+monoblocchi sono già fra le voci che FBE ha dichiarato tali. Il Listino non cambia: 1 295 € in
+meno sui monoblocchi andrebbero sulle pareti.
