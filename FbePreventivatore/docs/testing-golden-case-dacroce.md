@@ -228,7 +228,62 @@ propone da solo.
 
 ---
 
-## 5. Test E2E automatico (Playwright, copre lo stesso caso in un browser reale)
+## 5. Dalla preview all'esportazione (.docx) — campi obbligatori prima di "Genera documento"
+
+Il bottone "Genera documento" (accanto a "Salva bozza", compare solo dopo il primo salvataggio)
+chiama `POST /api/preventivi/[id]/revisioni/[numero]/export`, che passa da
+`esportaOfferta` (`src/documento/export-docx.ts`). Quella funzione ha due guardrail che bloccano
+l'export con un errore esplicito finché non si compilano i campi giusti — **verificato dal vivo**:
+prima di compilarli l'export fallisce con l'errore, dopo restituisce `200 OK` e genera il `.docx`.
+
+### Guardrail 1 — spessori non interpolati (step "2. Configurazione")
+
+Se gli spessori sono vuoti, la preview mostra le descrizioni con i placeholder letterali
+(`{{spessoreEsterno}}` ecc., si vede anche negli avvisi sopra la preview) e l'export si rifiuta
+con:
+
+```
+esportaOfferta: descrizioni con placeholder di spessore non interpolati: {{spessoreEsterno}},
+{{spessoreInterno}}, {{spessoreCoibente}}, {{spessoreCappotto}}. [...]
+```
+
+Si risolve in fondo allo step **"2. Configurazione"**, 4 campi testo libero (non numerici: il
+formato è quello scritto sull'offerta, es. `60+40`, non un singolo mm — vincolo CLAUDE.md sulle
+stringhe libere per i dati "a strati"). Per Da Croce, gli stessi valori scritti nell'offerta
+rev.02 (identici a quelli di Crivellaro, stesso sistema costruttivo FBE standard):
+
+| Campo | Valore |
+|---|---|
+| Spessore pareti esterne (mm) | `205` |
+| Spessore pareti interne (mm) | `205-160` |
+| Spessore coibente falda (mm) | `80+60+20` |
+| Spessore cappotto (mm) | `60+40` |
+
+`consentiPlaceholderNonRisolti: true` sblocca l'export senza compilare nulla, ma è pensato solo
+per un giro di test/dev con uno spessore deliberatamente vuoto — non usarlo per un documento
+destinato a un cliente reale.
+
+### Guardrail 2 — placeholder di protocollo in copertina (step "1. Anagrafica")
+
+Col campo `Protocollo` vuoto, la preview mostra l'avviso "È presente un placeholder di protocollo
+non sostituito in copertina" e l'export si blocca allo stesso modo. Si compila a mano nello step
+**"1. Anagrafica"** — per Da Croce il protocollo reale è `2022077` (dall'intestazione dell'offerta
+rev.02, "PROT 2022077_REV. 02"); non va inventato (CLAUDE.md §7), va preso dal riscontro o da un
+nuovo numero assegnato da chi scrive l'offerta.
+
+### Passi completi per un export pulito
+
+1. Step "1. Anagrafica": compila anche `Protocollo` (`2022077`), oltre a Cliente/Comune/ecc.
+2. Step "2. Configurazione": compila i 4 campi spessore della tabella sopra.
+3. Step "3. Computo metrico": carica il PDF (sezione 3).
+4. Step "5. Condizioni" e "4. Prezzi": sconti e Totale target (sezione 4 sopra).
+5. "Salva bozza" (crea il preventivo/la revisione se non esistono ancora), poi "Genera documento".
+
+Con tutti i campi compilati, l'export restituisce `200 OK` senza nessun avviso residuo in preview.
+
+---
+
+## 6. Test E2E automatico (Playwright, copre lo stesso caso in un browser reale)
 
 ```bash
 npm run test:e2e
