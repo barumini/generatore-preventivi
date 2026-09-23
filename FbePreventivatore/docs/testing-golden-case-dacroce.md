@@ -206,23 +206,43 @@ case Crivellaro di [`CLAUDE.md`](../CLAUDE.md)): per Da Croce non esiste nel rep
 commerciale a valle (con sconti/step Prezzi/Condizioni) — solo questo, a livello di computo
 metrico.
 
-**Attenzione — non confrontare voce per voce con `Offerta MHM rev.02_Dacroce Dalila
-riscontro.pdf`.** Quel PDF è utile per l'anagrafica (comune, provincia) e per confermare
-l'edificio a due piani (pag. 4), ma **non è la stessa revisione** del computo usato per questo
-golden case: il computo committato è `DACROCE DALILA rev.03` (creato 19/12/2025 09:26, si veda
-l'intestazione pag. 1 del PDF sorgente), l'offerta di riscontro è invece `rev.02` (creata lo
-stesso giorno alle 14:59, quindi *dopo* il computo, ma su una revisione precedente del progetto).
-Confrontando i due si vedono scostamenti reali di centinaia o migliaia di euro per singola voce
-(es. `pareti-mhm`: categoria computo 105 987,63 € contro 123 200,00 € in offerta; `trave-larice`:
-10 104,24 € contro 14 500,00 €; `solaio-interpiano`: 15 240,96 € contro 16 900,00 €;
-`monoblocchi`: 14 495,00 € contro 13 200,00 €) — **non è un bug del motore**, è lo scarto fra due
-revisioni diverse dello stesso progetto.
+**Attenzione — non aspettarsi che questi importi coincidano voce per voce con
+`Offerta MHM rev.02_Dacroce Dalila riscontro.pdf`.** Quel PDF resta il riscontro giusto da usare
+per Da Croce (comune, provincia, edificio a due piani a pag. 4) — è il *totale* pareggiato che
+conta, non i singoli importi di riga. (Nota a margine, non è la causa dello scarto sotto: il
+computo committato è `DACROCE DALILA rev.03`, l'offerta è `rev.02`, create lo stesso giorno
+19/12/2025 a poche ore di distanza.)
 
-La controprova è il caso Crivellaro: lì il PDF computo (`Computo Crivellaro rev04.PDF.pdf`) e
-l'offerta di riscontro (`Offerta MHM rev.04_crivellaro.pdf`) condividono la **stessa revisione**
-(rev.04), e infatti gli importi per voce prodotti da `eseguiConteggio` coincidono al centesimo con
-quelli scritti in offerta (vedi tabella in
-[`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md)). Questo conferma che le
-regole di conteggio generalizzano bene quando le revisioni combaciano: per costruire un vero
-golden case commerciale su Da Croce servirebbe un computo rev.02 (o un'offerta rev.03), che oggi
-non è nella cartella `Documentazione addestramento/`.
+Confrontando le voci prodotte da `eseguiConteggio` con quelle scritte in offerta si vedono
+scostamenti reali di centinaia o migliaia di euro: `pareti-mhm` 127 543,28 € proposti contro
+123 200,00 € in offerta, `trave-larice` 10 104,24 € contro 14 500,00 €, `solaio-interpiano`
+15 240,96 € contro 16 900,00 €, `monoblocchi` 14 495,00 € contro 13 200,00 €. **Non è un bug**, e
+non è nemmeno solo "l'AI propone, l'umano poi digita" in astratto: si può mostrare *dove* va il
+denaro. La tariffa `104.01.024` ("POSA cordolo pareti", 4 401,36 € su Dacroce) sta, nel computo
+Primus, dentro la categoria PARETI IN LEGNO — quindi oggi finisce nel totale di `pareti-mhm`
+(`regolaTraveBase` la esclude apposta da `TARIFFE_TRAVE_BASE` per non contarla due volte, vedi il
+commento sopra `TARIFFE_TRAVE_BASE`). Nell'offerta reale, invece, quel costo di posa sembra essere
+stato spostato dalla riga "pareti" (1) alla riga "trave alla base" (1.c) — sommando i due importi
+proposti (127 543,28 + 10 104,24 = 137 647,52 €) e i due dell'offerta (123 200,00 + 14 500,00 =
+137 700,00 €) lo scarto crolla a 52,48 €, contro i 4 343,28 € e i 4 395,76 € che si vedono
+guardando le righe singolarmente. È la prova che il confine "cosa va sotto pareti, cosa sotto
+trave" è una scelta di chi ha scritto l'offerta a mano, non qualcosa che il computo Primus dichiara
+in modo univoco — **e non è una scelta stabile**: lo stesso spostamento applicato a Crivellaro
+peggiora, non migliora, il confronto (dettagli sotto). Non c'è quindi una regola fissa da
+correggere nel codice: è lo stesso principio del vincolo CLAUDE.md §7 ("l'AI non decide i prezzi",
+ogni importo qui è `provenienza: 'calcolato'`, cioè proposto, non quello firmato dal cliente).
+
+**La controprova (corretta) è il caso Crivellaro**, ma dice l'opposto di quanto scritto qui in una
+versione precedente di questa nota: eseguendo `eseguiConteggio` sul *vero* fixture
+`crivellaro.json` (non sui valori digitati a mano nel golden case commerciale di
+[`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md), che sono un test a parte
+sul motore sconti, non l'output della pipeline computo → conteggio) si trovano scostamenti
+paragonabili contro `Offerta MHM rev.04_crivellaro.pdf`: `pareti-mhm` 100 645,84 € proposti contro
+96 100,00 € in offerta, `copertura-falda` 58 849,06 € contro 63 600,00 €, `monoblocchi`
+9 450,00 € contro 10 200,00 €. Qui `104.01.024` vale 2 660,57 €: sommandolo a `trave-larice`
+(5 843,70 € proposti, già vicini ai 5 800,00 € in offerta) il confronto peggiora invece di
+migliorare — la stessa tariffa che "spiega" lo scarto su Da Croce non generalizza a Crivellaro.
+Conclusione verificata su entrambi i casi reali disponibili: gli importi per voce della pipeline
+computo → conteggio sono scostati dall'offerta firmata di qualche punto percentuale in entrambi i
+golden case, non solo su Da Croce — è il comportamento atteso di un valore `proposto` in attesa di
+revisione umana, non un difetto del motore.
