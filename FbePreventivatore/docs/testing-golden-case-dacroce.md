@@ -87,21 +87,61 @@ configurazione (a differenza di Crivellaro, dove `solaio-interpiano` viene esclu
   npm run dev
   ```
 
+### Anagrafica via chat "Apertura rapida"
+
+Prima di caricare il PDF, puoi far compilare lo step **"1. Anagrafica"** dall'AI invece che a
+mano: nella pagina, sopra il wizard, c'è il riquadro "Apertura rapida" (componente
+[`ChatApertura`](../src/app/preventivi/nuovo/ChatApertura.tsx)) — invia un testo libero e
+`POST /api/estrazione` lo trasforma nei campi dello `StatoForm` tramite un modello locale
+(schema e prompt di sistema in [`src/ai/estrazione.ts`](../src/ai/estrazione.ts)).
+
+**Prerequisito**: LM Studio in esecuzione in locale con il server attivo (Impostazioni > Local
+Server > Start Server) e la variabile d'ambiente `LM_STUDIO_MODEL` impostata al nome esatto del
+modello caricato (`LM_STUDIO_BASE_URL` opzionale, default `http://localhost:1234/v1`).
+
+Lo schema `CampiEstratti` copre per l'anagrafica solo: `cliente.nome`, `cliente.comune`,
+`cliente.provincia`, `protocollo`, `progettista`, `luogo` — **non** `oggetto` né `data`, che
+restano sempre da compilare a mano (non sono nello schema di estrazione, indipendentemente dal
+testo inviato).
+
+Incolla questo testo nella chat (dati reali presi dall'intestazione del computo Primus, pag. 1
+di `Computo Dacroce Dalila - senza terrazzo.PDF`: committente, comune, provincia e tecnico
+redattore — vedi fixture [`dacroce.json`](../src/domain/computo/fixtures/dacroce.json)):
+
+```
+Preventivo per il cliente Dacroce Dalila, comune di Rovereto, provincia TN.
+Progettista: Campana Tommaso. Luogo del cantiere: Rovereto.
+```
+
+Verifica dopo l'invio:
+
+- il form si precompila con `Cliente = Dacroce Dalila`, `Comune = Rovereto`,
+  `Provincia = TN`, `Progettista = Campana Tommaso`, `Luogo = Rovereto`
+- il messaggio dell'assistente segnala `protocollo` tra i campi da completare a mano (nel testo
+  sopra non compare apposta: il computo Primus non riporta un numero di protocollo commerciale,
+  solo dati tecnici — non va inventato, vincolo CLAUDE.md §7)
+- `oggetto` e `data` restano vuoti: compilali a mano (l'intestazione del computo riporta
+  `REALIZZAZIONE IN MHM DI n. 1 ABITAZIONE - NO TERRAZZO` come oggetto, se vuoi riprodurlo
+  fedelmente, e la data del computo è `19/12/2025` — quest'ultima è la data del computo, non
+  necessariamente quella da mettere sul preventivo)
+
 ### Passi
 
 1. Apri `http://localhost:3000/preventivi/nuovo-v3`.
-2. Vai allo step **"3. Computo metrico"**.
-3. Carica il PDF Da Croce (drag&drop sulla zona di caricamento, oppure selettore file). Il PDF
+2. (Facoltativo) compila l'Anagrafica via chat come sopra, oppure a mano nello step
+   **"1. Anagrafica"**.
+3. Vai allo step **"3. Computo metrico"**.
+4. Carica il PDF Da Croce (drag&drop sulla zona di caricamento, oppure selettore file). Il PDF
    resta nel browser: l'estrazione con `pdfjs-dist` gira lato client, nessun upload a un server.
-4. Verifica nel riquadro "Computo metrico":
+5. Verifica nel riquadro "Computo metrico":
    - **File letto** → `166 voci`, `8 categorie`, **Totale computo `323 643,58 €`**
    - Alert verde "Verifica superata: la somma delle voci pareggia il riepilogo"
-5. Nella sezione "Riconciliazione fra le voci conteggiate e il totale del computo", verifica i
+6. Nella sezione "Riconciliazione fra le voci conteggiate e il totale del computo", verifica i
    tre numeri della sezione 2 sopra (somma voci / target / delta).
-6. Scorri le schede voce sopra la riconciliazione e confronta ogni importo con la tabella della
+7. Scorri le schede voce sopra la riconciliazione e confronta ogni importo con la tabella della
    sezione 2. In particolare verifica che `solaio-interpiano` mostri **15 240,96 €** (un numero,
    non la scritta `compresa` — è il segnale che l'edificio è stato riconosciuto come multipiano).
-7. Verifica l'avviso sicurezza (giallo, non bloccante) con il testo indicato sopra.
+8. Verifica l'avviso sicurezza (giallo, non bloccante) con il testo indicato sopra.
 
 ### Se non hai un mouse/file-picker (sessione automatizzata)
 
@@ -148,7 +188,8 @@ npm run test:e2e
 [`e2e/computo-metrico-golden-cases.spec.ts`](../e2e/computo-metrico-golden-cases.spec.ts) apre
 `/preventivi/nuovo-v3` in Chromium reale, carica `e2e/fixtures/computo-dacroce.pdf` con un vero
 upload di file e verifica dal DOM gli stessi numeri della sezione 2 — è l'equivalente
-automatico dei passi 1–7 sopra. Al primo utilizzo serve installare il browser:
+automatico dei passi 3–8 sopra (l'anagrafica non fa parte della suite E2E). Al primo utilizzo
+serve installare il browser:
 
 ```bash
 npx playwright install chromium
