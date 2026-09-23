@@ -403,3 +403,40 @@ Conclusione verificata su entrambi i casi reali disponibili: gli importi per voc
 computo → conteggio sono scostati dall'offerta firmata di qualche punto percentuale in entrambi i
 golden case, non solo su Da Croce — è il comportamento atteso di un valore `proposto` in attesa di
 revisione umana, non un difetto del motore.
+
+### Esiste una regola che riproduce le pareti di entrambe le offerte?
+
+Sì per Da Croce, no per tutte e due insieme. Le regole candidate, provate con `eseguiConteggio`
+sui due fixture e arrotondate alle centinaia come fanno le offerte:
+
+| Regola per `pareti-mhm` | Da Croce (offerta 123 200) | Crivellaro (offerta 96 100) |
+|---|---|---|
+| **A**: motore attuale | 127 543,28 ✗ | 100 645,84 ✗ |
+| **B**: posa cordolo `104.01.024` in trave, pareti per eccesso alle centinaia | 123 141,92 → **123 200 ✓** | 97 985,27 → 98 000 ✗ |
+| **C**: target − altre righe *così come scritte in offerta* | 122 743,58 → 122 800 ✗ | 96 060,99 → **96 100 ✓** |
+
+Con l'arrotondamento al centinaio più vicino B dà 123 100 su Da Croce; C dà 96 100 in entrambi i
+modi su Crivellaro.
+
+- **Su Da Croce la posa cordolo è l'unica voce che funziona.** Fra le 166 voci del computo è
+  l'unica con un totale nella finestra di ±100 € attorno allo scarto (4 343,28 €): la regola B
+  non è una combinazione trovata a posteriori.
+- **Nessuna combinazione torna al centesimo.** Nessuna coppia di voci somma esattamente allo
+  scarto, ma entro ±100 € le coppie sono 84 su Da Croce e 74 su Crivellaro. Con tanti numeri e
+  l'arrotondamento alle centinaia una combinazione che "torna" si trova sempre: conta solo una
+  regola che abbia senso e valga su entrambi i casi.
+- **Le pareti non escono dalla sola categoria PARETI IN LEGNO.** Vale 105 987,63 € su Da Croce e
+  79 500,82 € su Crivellaro, sotto gli importi d'offerta: il resto (17 212,37 € e 16 599,18 €)
+  arriva per forza dal pareggio sul totale del computo.
+
+Le due offerte sono quindi state compilate a mano in due modi diversi. Su Da Croce le pareti
+risultano calcolate con i valori delle regole e la posa cordolo in trave; solaio (16 900) e
+monoblocchi (13 200) non vengono dalle regole e probabilmente sono stati cambiati dopo, senza
+rifare il pareggio, il che spiegherebbe un Listino di 300 800 invece di circa 300 344. Su
+Crivellaro le pareti sono il residuo delle righe scritte in offerta, compreso l'errore sulla
+copertura dichiarato da FBE, e la posa cordolo resta nelle pareti.
+
+Adottare B nel motore farebbe tornare Da Croce ma porterebbe Crivellaro a 98 000 invece di
+96 100; C non è una regola applicabile al computo, perché parte dalle righe già scritte in offerta.
+Prima di toccare `TARIFFE_TRAVE_BASE` serve la risposta di FBE: dove va la posa cordolo, e se le
+pareti vanno arrotondate per eccesso alle centinaia.
