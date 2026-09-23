@@ -430,9 +430,10 @@ modi su Crivellaro.
   arriva per forza dal pareggio sul totale del computo.
 
 Le due offerte sono quindi state compilate a mano in due modi diversi. Su Da Croce le pareti
-risultano calcolate con i valori delle regole e la posa cordolo in trave; solaio (16 900) e
-monoblocchi (13 200) non vengono dalle regole e probabilmente sono stati cambiati dopo, senza
-rifare il pareggio, il che spiegherebbe un Listino di 300 800 invece di circa 300 344. Su
+risultano calcolate con i valori delle regole e la posa cordolo in trave; solaio (16 900,
+calcolato sui 62 mq lordi del Piano Primo invece dei 56 mq del computo, vedi sotto) e monoblocchi
+(13 200) non vengono dalle regole e probabilmente sono stati inseriti senza rifare il pareggio, il
+che spiegherebbe un Listino di 300 800 invece di circa 300 344. Su
 Crivellaro le pareti sono il residuo delle righe scritte in offerta, compreso l'errore sulla
 copertura dichiarato da FBE, e la posa cordolo resta nelle pareti.
 
@@ -440,3 +441,32 @@ Adottare B nel motore farebbe tornare Da Croce ma porterebbe Crivellaro a 98 000
 96 100; C non è una regola applicabile al computo, perché parte dalle righe già scritte in offerta.
 Prima di toccare `TARIFFE_TRAVE_BASE` serve la risposta di FBE: dove va la posa cordolo, e se le
 pareti vanno arrotondate per eccesso alle centinaia.
+
+### Perché `solaio-interpiano` è 15 240,96 € contro 16 900,00 €
+
+Il conteggio prende la categoria SOLAIO (`M:001.002`): 56 mq al prezzo del pacchetto solaio del
+computo.
+
+| N. | Tariffa | Voce | €/mq |
+|---:|---|---|---:|
+| 35 | `103.02.01` | solaio lamellare 18 cm | 213,32 |
+| 37 | `103.02.03` | membrana traspirante | 3,22 |
+| 38 | `103.02.04` | isolante acustico | 11,40 |
+| 39 | `103.02.05` | ferramenta | 6,55 |
+| 40 | `103.02.06` | posa | 37,67 |
+| | | **pacchetto solaio** | **272,16** |
+
+- Conteggio: 56 mq × 272,16 = **15 240,96 €**.
+- Offerta: 62 mq × 272,16 = 16 873,92 €, arrotondato a **16 900,00 €** (l'importo d'offerta
+  corrisponde a 62,10 mq).
+
+Tutti e due i numeri sono scritti nei documenti. Nel computo la voce 35 riporta la misura
+`(par.ug.=62-6) 56,00`: il computista parte da 62 mq e ne toglie 6 (probabilmente il foro scala,
+ma il computo non lo dice). Nell'offerta, a pag. 4, la tabella "CARATTERISTICHE FABBRICATO"
+riporta `Piano Primo — Sup. lorda 62 Mq`: chi l'ha compilata ha usato la superficie lorda, prima
+della detrazione. Lo scarto è 6 mq × 272,16 = 1 632,96 €, più 26,08 € di arrotondamento.
+
+Il conteggio segue la misura netta del computo. Se il solaio vada fatturato sulla superficie lorda
+del piano o su quella netta è una decisione di FBE; se vale la netta, è un errore manuale
+dell'offerta come quelli già dichiarati su copertura, cappotto e monoblocchi. Il Listino non
+cambia: un solaio a 16 873,92 € abbasserebbe le pareti dello stesso importo.
