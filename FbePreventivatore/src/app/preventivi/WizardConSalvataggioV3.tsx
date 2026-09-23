@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
 import { eseguiCalcolo } from '@/domain/calcolo'
 import { Button } from './ui/Button'
 import { Alert } from './ui/Alert'
 import { FormStrutturatoV3 } from './nuovo-v3/FormStrutturatoV3'
-import { PannelloPreview } from './nuovo/PannelloPreview'
 import { PulsanteGeneraDocumento } from './ui/PulsanteGeneraDocumento'
 import { inputCalcoloDaStato, type StatoForm } from './nuovo/stato-form'
+import { calcolaAvvisiCoerenza } from './nuovo/avvisi-coerenza'
 
 interface PreventivoEsistente {
   id: string
@@ -27,6 +27,16 @@ export function WizardConSalvataggioV3({ statoIniziale, aggiornamentoEsterno, pr
   const [salvataggio, setSalvataggio] = useState<PreventivoEsistente | null>(preventivoEsistente ?? null)
   const [statoSalvataggio, setStatoSalvataggio] = useState<'inattivo' | 'in-corso' | 'errore'>('inattivo')
   const [messaggioErroreSalvataggio, setMessaggioErroreSalvataggio] = useState('')
+
+  // Senza il pannello preview (rimosso in questa versione) questi erano gli unici avvisi di
+  // coerenza visibili nel wizard (protocollo non sostituito, superfici che non tornano,
+  // arrotondamento fuori soglia...) — restano qui sotto ai tab invece che sparire del tutto.
+  const avvisiCoerenza = useMemo(() => {
+    if (!stato) return []
+    const input = inputCalcoloDaStato(stato)
+    const risultato = eseguiCalcolo(input)
+    return calcolaAvvisiCoerenza(stato, input, risultato)
+  }, [stato])
 
   async function salvaBozza(): Promise<boolean> {
     if (!stato) return false
@@ -76,32 +86,32 @@ export function WizardConSalvataggioV3({ statoIniziale, aggiornamentoEsterno, pr
   }
 
   return (
-    <div className="mx-auto flex max-w-[1400px] gap-6 bg-cream p-6 text-text">
-      <div className="flex flex-[1.1] flex-col">
-        <FormStrutturatoV3 statoIniziale={statoIniziale} aggiornamentoEsterno={aggiornamentoEsterno} onCambiamento={setStato} />
-        <div className="sticky bottom-0 mt-4 flex items-center gap-3 border-t border-border-warm bg-cream py-3">
-          <Button type="button" onClick={salvaBozza} disabled={!stato || statoSalvataggio === 'in-corso'}>
-            <span className="flex items-center gap-2">
-              {statoSalvataggio === 'in-corso' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Salva bozza
-            </span>
-          </Button>
-          {statoSalvataggio === 'errore' && <Alert variant="errore">{messaggioErroreSalvataggio}</Alert>}
-          {salvataggio && (
-            <PulsanteGeneraDocumento
-              preventivoId={salvataggio.id}
-              numero={salvataggio.numero}
-              primaDiGenerare={salvaBozza}
-            />
-          )}
-        </div>
-      </div>
-      <div className="flex-1">
-        {/* Bounded all'altezza del viewport: senza il cap l'elemento sticky è alto
-            quanto il suo containing block e non ha corsa utile, comportandosi come static. */}
-        <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
-          {stato && <PannelloPreview stato={stato} input={inputCalcoloDaStato(stato)} />}
-        </div>
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 bg-cream p-6 text-text">
+      <FormStrutturatoV3 statoIniziale={statoIniziale} aggiornamentoEsterno={aggiornamentoEsterno} onCambiamento={setStato} />
+      {avvisiCoerenza.length > 0 && (
+        <section aria-label="Avvisi di coerenza" className="space-y-2">
+          {avvisiCoerenza.map((avviso, i) => (
+            <div key={`${avviso.tipo}-${i}`} data-tipo-avviso={avviso.tipo}>
+              <Alert variant="avviso">{avviso.messaggio}</Alert>
+            </div>
+          ))}
+        </section>
+      )}
+      <div className="sticky bottom-0 flex items-center gap-3 border-t border-border-warm bg-cream py-3">
+        <Button type="button" onClick={salvaBozza} disabled={!stato || statoSalvataggio === 'in-corso'}>
+          <span className="flex items-center gap-2">
+            {statoSalvataggio === 'in-corso' ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Salva bozza
+          </span>
+        </Button>
+        {statoSalvataggio === 'errore' && <Alert variant="errore">{messaggioErroreSalvataggio}</Alert>}
+        {salvataggio && (
+          <PulsanteGeneraDocumento
+            preventivoId={salvataggio.id}
+            numero={salvataggio.numero}
+            primaDiGenerare={salvaBozza}
+          />
+        )}
       </div>
     </div>
   )

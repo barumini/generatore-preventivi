@@ -26,6 +26,14 @@ export interface InputVerificaCoerenza {
   riferimentiTestuali: RiferimentoTestuale[]
 }
 
+// Riconosce sia il campo lasciato vuoto sia un codice bozza generato in automatico
+// (formato BOZZA-<anno>-<5 cifre>, vedi nuovo-v3/protocollo-bozza.ts): in entrambi i casi
+// il protocollo FBE reale non è ancora stato assegnato, quindi il documento non è pronto
+// per un cliente reale — vedi il vincolo CLAUDE.md sul protocollo in copertina.
+export function isProtocolloPlaceholder(protocollo: string): boolean {
+  return protocollo.trim() === '' || /^BOZZA-\d{4}-\d+$/.test(protocollo.trim())
+}
+
 export function verificaCoerenza(input: InputVerificaCoerenza): Avviso[] {
   const avvisi: Avviso[] = []
 

@@ -2,10 +2,10 @@
 'use client'
 
 import { eseguiCalcolo, type InputCalcolo } from '@/domain/calcolo'
-import { totaleSuperficiLorde, PIANO_GARAGE } from '@/domain/geometria'
+import { PIANO_GARAGE } from '@/domain/geometria'
 import { generaAbacoPerCategoria } from '@/ai/abaco'
-import { verificaCoerenza } from '@/ai/coerenza'
 import { Alert } from '../ui/Alert'
+import { calcolaAvvisiCoerenza } from './avvisi-coerenza'
 import { PaginaCaratteristiche } from '@/documento/preview/PaginaCaratteristiche'
 import { PaginaPrezzi } from '@/documento/preview/PaginaPrezzi'
 import { PaginaAbacoSerramenti } from '@/documento/preview/PaginaAbacoSerramenti'
@@ -35,16 +35,7 @@ export function PannelloPreview({ stato, input }: Props) {
   // Gli avvisi di coerenza stanno PRIMA delle pagine: sono i bug osservati nei
   // documenti FBE reali (superfici che non tornano, protocollo non sostituito,
   // arrotondamento fuori soglia, riferimenti a voci inesistenti).
-  // `sezioniDaDefinire` e `riferimentiTestuali` restano vuoti finché il wizard
-  // non raccoglie quei dati: passare liste finte produrrebbe avvisi finti.
-  const avvisi = verificaCoerenza({
-    superfici: stato.superfici,
-    totaleLordoDichiarato: stato.totaleLordoManuale ?? totaleSuperficiLorde(stato.superfici),
-    risultato,
-    protocolloPlaceholderPresente: stato.protocollo.trim() === '',
-    sezioniDaDefinire: [],
-    riferimentiTestuali: [],
-  })
+  const avvisi = calcolaAvvisiCoerenza(stato, input, risultato)
 
   return (
     <div>

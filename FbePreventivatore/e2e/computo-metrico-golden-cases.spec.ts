@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { RisultatoCalcolo } from '@/domain/calcolo'
+import { formattaImportoItaliano } from '@/documento/preview/formattazione'
 
 // `type: module` in package.json: niente __dirname CommonJS in questo file.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -13,6 +15,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
  * nei test Vitest di src/domain/computo/. Questi numeri sono al livello
  * "pipeline computo → conteggio", diversi da quelli — digitati a mano, tondi —
  * del golden case commerciale in CLAUDE.md e testing-golden-case-crivellaro.md.
+ *
+ * La v03 non ha più un pannello di anteprima (rimosso: il caricamento del computo è
+ * l'unica cosa che questo wizard mostra, il documento si genera direttamente):
+ * la verifica che l'override della voce arrivi fino al Listino finale — quello che
+ * finisce nel documento esportato, non solo nella scheda del conteggio — passa quindi
+ * dal salvataggio della bozza e dal `risultatoCalcolo` persistito, non più da una pagina
+ * di anteprima nel DOM. Vedi il fix reale del 2026 dove un override corretto non
+ * arrivava fin lì per colpa di una configurazione ricostruita da un'altra fonte.
  */
 
 const FIXTURES = path.join(__dirname, 'fixtures')
@@ -121,6 +131,13 @@ for (const caso of CASI) {
       await expect(page.getByTestId('computo-totale')).toContainText(caso.totaleComputo)
       await expect(page.getByText('Verifica superata')).toBeVisible()
 
+      // Cambio tab e ritorno: il caricamento del computo deve sopravvivere, non ripartire
+      // da zero (lo step "Computo metrico" viene smontato/rimontato cambiando tab).
+      await page.getByRole('button', { name: '1. Anagrafica' }).click()
+      await page.getByRole('button', { name: '3. Computo metrico' }).click()
+      await expect(page.getByTestId('computo-voci-lette')).toContainText(caso.vociLette)
+      await expect(page.getByTestId('computo-totale')).toContainText(caso.totaleComputo)
+
       // Riconciliazione pipeline computo -> conteggio
       await expect(page.getByTestId('riconciliazione-somma-voci')).toHaveText(caso.sommaVoci)
       await expect(page.getByTestId('riconciliazione-target')).toHaveText(caso.target)
@@ -152,18 +169,25 @@ for (const caso of CASI) {
       // per un computo Primus reale e ben formato.
       await expect(page.getByText('Non riesco a leggere questo PDF')).toHaveCount(0)
 
-      // Il Listino finale (pannello di anteprima a destra, non solo la scheda del
-      // conteggio a sinistra): questo è il numero che finisce nel documento esportato.
-      // Un fix che scrive l'override giusto ma non lo fa arrivare fin qui (es. perché
-      // eseguiCalcolo rifiltra le voci con una configurazione ricostruita da un'altra
-      // fonte) passerebbe inosservato senza questa verifica — è già successo una volta
-      // in sviluppo con solaio-interpiano.
-      await expect(page.getByTestId('listino-totale')).toHaveText(caso.listinoTotale)
-      const rigaSolaio = page.getByTestId('listino-voce-solaio-interpiano')
+      // Il Listino finale — quello che finisce nel documento esportato, non solo la
+      // scheda del conteggio — si verifica sul `risultatoCalcolo` salvato: un fix che
+      // scrive l'override giusto ma non lo fa arrivare fin qui (es. perché eseguiCalcolo
+      // rifiltra le voci con una configurazione ricostruita da un'altra fonte)
+      // passerebbe inosservato senza questa verifica — è già successo una volta in
+      // sviluppo con solaio-interpiano.
+      const [rispostaSalvataggio] = await Promise.all([
+        page.waitForResponse((r) => r.url().endsWith('/api/preventivi') && r.request().method() === 'POST'),
+        page.getByRole('button', { name: 'Salva bozza' }).click(),
+      ])
+      const preventivoSalvato = await rispostaSalvataggio.json()
+      const risultato: RisultatoCalcolo = JSON.parse(preventivoSalvato.revisioni[0].risultatoCalcolo)
+
+      expect(formattaImportoItaliano(risultato.listinoTotale)).toBe(caso.listinoTotale)
+      const vocesolaio = risultato.vociValorizzate.find((v) => v.id === 'solaio-interpiano')
       if (caso.listinoContieneSolaioInterpiano) {
-        await expect(rigaSolaio).toBeVisible()
+        expect(vocesolaio).toBeDefined()
       } else {
-        await expect(rigaSolaio).toHaveCount(0)
+        expect(vocesolaio).toBeUndefined()
       }
     })
   })

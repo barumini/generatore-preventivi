@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { CaricamentoComputo } from '../../conteggi/CaricamentoComputo'
 import { SchedaVoce } from '../../conteggi/SchedaVoce'
 import { NUMERO_MASTER } from '../../conteggi/page'
@@ -16,15 +16,40 @@ import type { StatoForm } from '../../nuovo/stato-form'
 interface Props {
   stato: StatoForm
   aggiorna: (parziale: Partial<StatoForm>) => void
+  // Sollevato in FormStrutturatoV3 (non nello StatoForm salvato: sono dati derivati/UI, già
+  // proiettati in stato.overrides) perché sopravviva allo smontaggio di questo step quando si
+  // cambia tab — con lo useState locale di prima, tornare su "Computo metrico" perdeva il file
+  // caricato e le correzioni manuali anche se i numeri già scritti in stato.overrides restavano validi.
+  computo: Computo | null
+  setComputo: Dispatch<SetStateAction<Computo | null>>
+  nomeFile: string | null
+  setNomeFile: Dispatch<SetStateAction<string | null>>
+  overrideLocali: Record<string, number>
+  setOverrideLocali: Dispatch<SetStateAction<Record<string, number>>>
+  vociScartate: string[]
+  setVociScartate: Dispatch<SetStateAction<string[]>>
+  vociEscluse: string[]
+  setVociEscluse: Dispatch<SetStateAction<string[]>>
+  idApplicati: string[]
+  setIdApplicati: Dispatch<SetStateAction<string[]>>
 }
 
-export function StepComputoMetrico({ stato, aggiorna }: Props) {
-  const [computo, setComputo] = useState<Computo | null>(null)
-  const [nomeFile, setNomeFile] = useState<string | null>(null)
-  const [overrideLocali, setOverrideLocali] = useState<Record<string, number>>({})
-  const [vociScartate, setVociScartate] = useState<string[]>([])
-  const [vociEscluse, setVociEscluse] = useState<string[]>([])
-  const [idApplicati, setIdApplicati] = useState<string[]>([])
+export function StepComputoMetrico({
+  stato,
+  aggiorna,
+  computo,
+  setComputo,
+  nomeFile,
+  setNomeFile,
+  overrideLocali,
+  setOverrideLocali,
+  vociScartate,
+  setVociScartate,
+  vociEscluse,
+  setVociEscluse,
+  idApplicati,
+  setIdApplicati,
+}: Props) {
 
   // eseguiConteggio può sollevare (voce con tariffa duplicata o mancante: cfr.
   // src/app/preventivi/conteggi/page.tsx), quindi va isolata in un try/catch invece di
@@ -98,7 +123,11 @@ export function StepComputoMetrico({ stato, aggiorna }: Props) {
           (id) => !risultato.vociScartate.includes(id) && !risultato.vociEscluseDallaConfigurazione.includes(id),
         ),
     )
-  }, [esito, aggiorna])
+    // setVociScartate/setVociEscluse/setIdApplicati sono ora prop (sollevate in
+    // FormStrutturatoV3, non più useState locali): la loro identità resta comunque stabile fra
+    // i render, essendo setter di useState nel genitore — includerli in dipendenza non cambia
+    // quando l'effetto rigira, elimina solo il falso positivo di react-hooks/exhaustive-deps.
+  }, [esito, aggiorna, setVociScartate, setVociEscluse, setIdApplicati])
 
   return (
     <Section title="Computo metrico">
