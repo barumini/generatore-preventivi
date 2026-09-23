@@ -24,8 +24,9 @@ euro in più messo su un'altra riga compare come un euro in meno sulle pareti.
 | Pareti strutturali MHM | 127 543,28 | 123 200,00 | −4 343,28 | Riflesso delle righe sopra (voce di pareggio) |
 | **Listino** | **300 343,58** | **300 800,00** | **+456,42** | Solaio e monoblocchi non riassorbiti dalle pareti, più arrotondamenti |
 
-Importi in euro. Progettazione esecutiva (4 000,00) coincide. Il totale commerciale dell'offerta
-(255 000,00) si ottiene anche dal preventivatore con gli stessi sconti.
+Importi in euro. Progettazione esecutiva (4 000,00) coincide. Con gli stessi sconti il
+preventivatore dà un totale effettivo di 256 793,76 €, oppure i 255 000,00 € dell'offerta se si
+spunta l'arrotondamento per difetto ai 5 000 €.
 
 ## 1. Posa cordolo pareti: trave alla base o pareti?
 
@@ -100,8 +101,9 @@ errori di calcolo manuale dell'offerta.
 ## 4. Arrotondamento delle righe alle centinaia
 
 Nelle offerte ogni riga è arrotondata alle centinaia, ma non sempre nella stessa direzione. Il
-preventivatore oggi riporta gli importi al centesimo e lascia l'arrotondamento alla sola riga
-«Arrotondamento», prima del PARZIALE.
+preventivatore oggi riporta gli importi al centesimo. L'unico arrotondamento è sul totale, ed è
+facoltativo: una spunta nello step Prezzi lo porta per difetto al passo scelto, e la riga
+«Arrotondamento» prima del PARZIALE ne riporta l'importo (− 0,00 € senza spunta).
 
 | Voce | Calcolato | Offerta | Direzione |
 |---|---:|---:|---|
@@ -123,7 +125,8 @@ preventivatore oggi riporta gli importi al centesimo e lascia l'arrotondamento a
 ## Cosa è già chiarito
 
 - Il totale commerciale dell'offerta (255 000,00 €) si ottiene anche dal preventivatore con gli
-  stessi sconti (5% + 10% a cascata) e l'arrotondamento per difetto ai 5 000 €.
+  stessi sconti (5% + 10% a cascata), spuntando l'arrotondamento per difetto ai 5 000 €. Senza
+  spunta il totale effettivo è 256 793,76 €.
 - Da Croce e Crivellaro mostrano scarti simili per voce. Su Crivellaro lo scarto sulle pareti
   (−4 545,84 €) viene da copertura, cappotto e monoblocchi, che FBE ha già dichiarato errori di
   calcolo manuale.
