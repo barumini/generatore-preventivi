@@ -14,6 +14,9 @@ Questo file copre **solo** il caso Da Croce. Per Crivellaro e per il golden case
 e [`testing-computo-metrico-nuovo-v3.md`](testing-computo-metrico-nuovo-v3.md) (che copre
 entrambi i casi insieme).
 
+**Per il test manuale completo passo-passo** (chat → computo → totale calcolato → `.docx`) vedi
+[`guida-test-dacroce-completo.md`](guida-test-dacroce-completo.md).
+
 ---
 
 ## 1. Stato dei test automatici (verificato in questa sessione)
