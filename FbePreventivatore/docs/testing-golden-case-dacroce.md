@@ -179,7 +179,56 @@ rm public/_tmp-test.pdf
 
 ---
 
-## 4. Test E2E automatico (Playwright, copre lo stesso caso in un browser reale)
+## 4. Dal computo al preventivo commerciale — step "4. Prezzi" + "5. Condizioni"
+
+Lo step "3. Computo metrico" produce solo gli importi `proposto` (sezione 2 sopra): PARZIALE e
+TOTALE restano a `0,00 €` finché non si passa dagli step successivi — **non è un bug**, è lo
+stato di default prima della revisione umana (CLAUDE.md §7).
+
+Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
+
+- **sconti (percentuale + causale)** → si inseriscono nello step **"5. Condizioni"**, *non* in
+  "4. Prezzi" (lì c'è solo l'override delle voci di listino e il totale target)
+- **"Totale target (per risoluzione arrotondamento)"** → è invece nello step **"4. Prezzi"**, in
+  fondo sotto l'override delle voci
+
+Finché il totale target resta a `0` (default) e non c'è nessuno sconto, `risolviArrotondamento`
+risolve l'Arrotondamento esattamente uguale al Listino — la preview mostra
+`Arrotondamento -300 343,58 €`, `PARZIALE 0,00 €`, `TOTALE 0,00 €`. Verificato dal vivo: è lo
+stesso comportamento già documentato per Crivellaro quando si salta lo step Prezzi (sezione
+"Nota" di [`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md)).
+
+### Riprodurre il riscontro (255 000,00 €) dell'offerta rev.02
+
+1. Dopo aver caricato il computo (sezione 3), vai a **"5. Condizioni"** e aggiungi due sconti
+   (pulsante "Aggiungi sconto" — verificato dal vivo, il primo click sull'unico bottone presente
+   crea la prima riga):
+   - `5` → causale `sconto cliente`
+   - `10` → causale `per conferme entro il 31.01.2026`
+2. Vai a **"4. Prezzi"** e imposta **Totale target = `255000`**.
+3. Nella preview a destra, la tabella prezzi ora mostra:
+
+   ```
+   Listino 2026                              300 343,58 €
+   SCONTO RISERVATO: 5% sconto cliente        - 15 017,18 €
+   SCONTO RISERVATO: 10% per conferme...      - 28 532,64 €
+   Arrotondamento                              - 1 793,76 €
+   PARZIALE AL GREZZO AVANZATO                255 000,00 €
+   COSTI SICUREZZA: OMAGGIO
+   TOTALE AL NETTO esclusa I.V.A.             255 000,00 €
+   ```
+
+`PARZIALE` e `TOTALE` combaciano con l'offerta rev.02 (255 000,00 €), perché il motore risolve
+l'Arrotondamento per atterrare esattamente sul target dato. Il valore dell'Arrotondamento risolto
+(−1 793,76 €) **non** coincide con quello scritto a mano in offerta (−2 184,00 €): dipende dal
+Listino di partenza diverso (300 343,58 € proposto dal conteggio contro 300 800,00 € digitato in
+offerta) — è lo stesso scarto voce-per-voce spiegato nella sezione "Nota" più sotto, non un nuovo
+problema. Il target di 255 000 va scelto a mano guardando l'offerta di riscontro: il motore non lo
+propone da solo.
+
+---
+
+## 5. Test E2E automatico (Playwright, copre lo stesso caso in un browser reale)
 
 ```bash
 npm run test:e2e
@@ -202,9 +251,12 @@ npx playwright install chromium
 I numeri di questo file sono quelli proposti dalla pipeline `computo → conteggio` a partire dal
 PDF reale: valori parametrici, non arrotondati. Non vanno confusi con un preventivo commerciale
 firmato (che avrebbe sconti, arrotondamento manuale e un totale target tondo, come nel golden
-case Crivellaro di [`CLAUDE.md`](../CLAUDE.md)): per Da Croce non esiste nel repo un golden case
-commerciale a valle (con sconti/step Prezzi/Condizioni) — solo questo, a livello di computo
-metrico.
+case Crivellaro di [`CLAUDE.md`](../CLAUDE.md)). La sezione 4 sopra mostra come arrivare dal
+computo al TOTALE commerciale (255 000,00 €, coerente con l'offerta rev.02) passando dagli step
+Prezzi/Condizioni — ma resta un test manuale, non un `describe` automatico come il golden case
+Crivellaro in `calcolo.test.ts`/`persistenza.test.ts`: il Listino di partenza è quello proposto
+dal conteggio (300 343,58 €), non quello digitato in offerta (300 800,00 €), quindi l'Arrotondamento
+risolto differisce da quello reale (si veda sotto il perché).
 
 **Attenzione — non aspettarsi che questi importi coincidano voce per voce con
 `Offerta MHM rev.02_Dacroce Dalila riscontro.pdf`.** Quel PDF resta il riscontro giusto da usare
