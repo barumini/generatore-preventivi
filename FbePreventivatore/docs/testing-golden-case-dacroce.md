@@ -330,9 +330,10 @@ scostamenti reali di centinaia o migliaia di euro: `pareti-mhm` 127 543,28 € p
 non è nemmeno solo "l'AI propone, l'umano poi digita" in astratto: si può mostrare *dove* va il
 denaro. La tariffa `104.01.024` ("POSA cordolo pareti", 4 401,36 € su Dacroce) sta, nel computo
 Primus, dentro la categoria PARETI IN LEGNO — quindi oggi finisce nel totale di `pareti-mhm`
-(`regolaTraveBase` la esclude apposta da `TARIFFE_TRAVE_BASE` per non contarla due volte, vedi il
-commento sopra `TARIFFE_TRAVE_BASE`). Nell'offerta reale, invece, quel costo di posa sembra essere
-stato spostato dalla riga "pareti" (1) alla riga "trave alla base" (1.c) — sommando i due importi
+(`regolaTraveBase` la esclude da `TARIFFE_TRAVE_BASE` perché la regola FBE si ferma a pagina 2,
+vedi il commento sopra `TARIFFE_TRAVE_BASE` e la scomposizione sotto). Nell'offerta reale,
+invece, quel costo di posa sembra essere stato spostato dalla riga "pareti" (1) alla riga "trave
+alla base" (1.c) — sommando i due importi
 proposti (127 543,28 + 10 104,24 = 137 647,52 €) e i due dell'offerta (123 200,00 + 14 500,00 =
 137 700,00 €) lo scarto crolla a 52,48 €, contro i 4 343,28 € e i 4 395,76 € che si vedono
 guardando le righe singolarmente. È la prova che il confine "cosa va sotto pareti, cosa sotto
@@ -341,6 +342,46 @@ in modo univoco — **e non è una scelta stabile**: lo stesso spostamento appli
 peggiora, non migliora, il confronto (dettagli sotto). Non c'è quindi una regola fissa da
 correggere nel codice: è lo stesso principio del vincolo CLAUDE.md §7 ("l'AI non decide i prezzi",
 ogni importo qui è `provenienza: 'calcolato'`, cioè proposto, non quello firmato dal cliente).
+
+### Scomposizione dello scarto su `pareti-mhm` (127 543,28 € contro 123 200,00 €)
+
+`pareti-mhm` non ha un importo proprio: è la voce di pareggio (`vociAPareggio` in
+[`conteggio.ts`](../src/domain/computo/conteggio.ts)). Il suo valore finale è
+
+```
+pareti = target − somma delle altre voci
+       = 300 343,58 − 172 800,30 = 127 543,28 €
+```
+
+La categoria PARETI IN LEGNO (`M:001.001`, 105 987,63 €) entra nella somma e ne esce col delta:
+non pesa sul risultato. Quindi ogni euro che l'offerta mette in più su un'altra riga compare come
+un euro in meno sulle pareti, e lo scarto sulle pareti si ricompone per intero dalle altre righe:
+
+| Voce | Conteggio | Offerta rev.02 | Effetto su `pareti-mhm` |
+|---|---:|---:|---:|
+| `trave-larice` | 10 104,24 | 14 500,00 | −4 395,76 |
+| `solaio-interpiano` | 15 240,96 | 16 900,00 | −1 659,04 |
+| `monoblocchi` | 14 495,00 | 13 200,00 | +1 295,00 |
+| copertura, cappotto, cartongesso, assistenza, infissi | 128 960,10 | 129 000,00 | −39,90 |
+| Listino (target del conteggio contro offerta) | 300 343,58 | 300 800,00 | +456,42 |
+| **`pareti-mhm`** | **127 543,28** | **123 200,00** | **−4 343,28** |
+
+Le prime quattro righe sommano 4 799,70 € in più sulle altre voci; il Listino dell'offerta è
+456,42 € più alto del target. 127 543,28 − 4 799,70 + 456,42 = 123 200,00.
+
+La riga della trave pesa quasi tutto: 10 104,24 + 4 401,36 (`104.01.024`) = 14 505,60 €,
+arrotondato a 14 500,00 in offerta. Spostando solo la posa cordolo, le pareti del conteggio
+scenderebbero da sole a 123 141,92 € (quello che entra in trave esce dalle pareti), a 58,08 €
+dall'offerta. Quei 58,08 € sono il saldo di tutto il resto: solaio, monoblocchi e arrotondamenti
+(+398,34 € sulle altre righe, compresi i 5,60 € fra 14 505,60 e 14 500,00) contro il Listino più
+alto di 456,42 €.
+
+Perché il conteggio non la mette in trave: la regola FBE è «totale a pagina 2 + `104.01.022` +
+`104.01.023`». Nel PDF Da Croce la pagina 2 chiude sulla voce 9 (8 208,13 €) e la posa cordolo è
+la voce 12, a pagina 3: la regola applicata alla lettera dà 10 104,24 €. Dove debba stare la posa
+cordolo è una decisione di FBE, perché le due offerte la trattano in modo diverso (vedi
+Crivellaro sotto). Se andasse in trave, basterebbe aggiungere `'104.01.024'` a
+`TARIFFE_TRAVE_BASE`, ma cambierebbero i golden case di entrambi i computi.
 
 **La controprova (corretta) è il caso Crivellaro**, ma dice l'opposto di quanto scritto qui in una
 versione precedente di questa nota: eseguendo `eseguiConteggio` sul *vero* fixture
@@ -352,6 +393,12 @@ paragonabili contro `Offerta MHM rev.04_crivellaro.pdf`: `pareti-mhm` 100 645,84
 9 450,00 € contro 10 200,00 €. Qui `104.01.024` vale 2 660,57 €: sommandolo a `trave-larice`
 (5 843,70 € proposti, già vicini ai 5 800,00 € in offerta) il confronto peggiora invece di
 migliorare — la stessa tariffa che "spiega" lo scarto su Da Croce non generalizza a Crivellaro.
+Anche qui lo scarto su `pareti-mhm` (−4 545,84 €) si ricompone dalle altre righe: copertura
++4 750,94, cappotto −953,32, monoblocchi +750,00 e arrotondamenti di trave, cartongesso,
+assistenza e infissi +37,23 (in tutto 4 584,85 € in più sulle altre voci), contro un Listino più
+alto di 39,01 € (237 000,00 contro 236 960,99). Copertura, cappotto e monoblocchi sono le tre voci
+che FBE ha dichiarato errori di calcolo manuale nelle offerte (§6 di
+[`2026-09-01-conteggi-da-computo-design.md`](superpowers/specs/2026-09-01-conteggi-da-computo-design.md)).
 Conclusione verificata su entrambi i casi reali disponibili: gli importi per voce della pipeline
 computo → conteggio sono scostati dall'offerta firmata di qualche punto percentuale in entrambi i
 golden case, non solo su Da Croce — è il comportamento atteso di un valore `proposto` in attesa di
