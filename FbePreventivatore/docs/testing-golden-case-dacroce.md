@@ -205,3 +205,24 @@ firmato (che avrebbe sconti, arrotondamento manuale e un totale target tondo, co
 case Crivellaro di [`CLAUDE.md`](../CLAUDE.md)): per Da Croce non esiste nel repo un golden case
 commerciale a valle (con sconti/step Prezzi/Condizioni) — solo questo, a livello di computo
 metrico.
+
+**Attenzione — non confrontare voce per voce con `Offerta MHM rev.02_Dacroce Dalila
+riscontro.pdf`.** Quel PDF è utile per l'anagrafica (comune, provincia) e per confermare
+l'edificio a due piani (pag. 4), ma **non è la stessa revisione** del computo usato per questo
+golden case: il computo committato è `DACROCE DALILA rev.03` (creato 19/12/2025 09:26, si veda
+l'intestazione pag. 1 del PDF sorgente), l'offerta di riscontro è invece `rev.02` (creata lo
+stesso giorno alle 14:59, quindi *dopo* il computo, ma su una revisione precedente del progetto).
+Confrontando i due si vedono scostamenti reali di centinaia o migliaia di euro per singola voce
+(es. `pareti-mhm`: categoria computo 105 987,63 € contro 123 200,00 € in offerta; `trave-larice`:
+10 104,24 € contro 14 500,00 €; `solaio-interpiano`: 15 240,96 € contro 16 900,00 €;
+`monoblocchi`: 14 495,00 € contro 13 200,00 €) — **non è un bug del motore**, è lo scarto fra due
+revisioni diverse dello stesso progetto.
+
+La controprova è il caso Crivellaro: lì il PDF computo (`Computo Crivellaro rev04.PDF.pdf`) e
+l'offerta di riscontro (`Offerta MHM rev.04_crivellaro.pdf`) condividono la **stessa revisione**
+(rev.04), e infatti gli importi per voce prodotti da `eseguiConteggio` coincidono al centesimo con
+quelli scritti in offerta (vedi tabella in
+[`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md)). Questo conferma che le
+regole di conteggio generalizzano bene quando le revisioni combaciano: per costruire un vero
+golden case commerciale su Da Croce servirebbe un computo rev.02 (o un'offerta rev.03), che oggi
+non è nella cartella `Documentazione addestramento/`.
