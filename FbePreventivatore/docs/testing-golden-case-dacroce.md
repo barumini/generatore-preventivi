@@ -188,15 +188,13 @@ stato di default prima della revisione umana (CLAUDE.md §7).
 Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
 
 - **sconti (percentuale + causale)** → si inseriscono nello step **"5. Condizioni"**, *non* in
-  "4. Prezzi" (lì c'è solo l'override delle voci di listino e il totale target)
-- **"Totale target (per risoluzione arrotondamento)"** → è invece nello step **"4. Prezzi"**, in
-  fondo sotto l'override delle voci
-
-Finché il totale target resta a `0` (default) e non c'è nessuno sconto, `risolviArrotondamento`
-risolve l'Arrotondamento esattamente uguale al Listino — la preview mostra
-`Arrotondamento -300 343,58 €`, `PARZIALE 0,00 €`, `TOTALE 0,00 €`. Verificato dal vivo: è lo
-stesso comportamento già documentato per Crivellaro quando si salta lo step Prezzi (sezione
-"Nota" di [`testing-golden-case-crivellaro.md`](testing-golden-case-crivellaro.md)).
+  "4. Prezzi" (lì ci sono solo l'override delle voci di listino e il totale)
+- **Totale** → nello step **"4. Prezzi"**, in fondo sotto l'override delle voci. Di default è
+  **calcolato**: il totale senza arrotondamento (Listino − sconti a cascata + voci post-sconto)
+  arrotondato **per difetto** al passo scelto (default 5 000 €), e l'Arrotondamento si risolve di
+  conseguenza (`arrotondaTotalePerDifettoA` in `src/domain/calcolo.ts`). La casella "Imposta il
+  totale a mano" riporta al vecchio totale target digitato. Le bozze salvate prima di questa
+  modifica con un totale target > 0 restano in modalità manuale.
 
 ### Riprodurre il riscontro (255 000,00 €) dell'offerta rev.02
 
@@ -205,8 +203,9 @@ stesso comportamento già documentato per Crivellaro quando si salta lo step Pre
    crea la prima riga):
    - `5` → causale `sconto cliente`
    - `10` → causale `per conferme entro il 31.01.2026`
-2. Vai a **"4. Prezzi"** e imposta **Totale target = `255000`**.
-3. Nella preview a destra, la tabella prezzi ora mostra:
+   (in `nuovo-v3` sono già precompilati di default).
+2. Vai a **"4. Prezzi"**: il **Totale calcolato** mostra già `255 000,00 €` — nessun campo da
+   digitare (256 793,76 € per difetto ai 5 000 €). La tabella prezzi del documento risulta:
 
    ```
    Listino 2026                              300 343,58 €
@@ -223,8 +222,9 @@ l'Arrotondamento per atterrare esattamente sul target dato. Il valore dell'Arrot
 (−1 793,76 €) **non** coincide con quello scritto a mano in offerta (−2 184,00 €): dipende dal
 Listino di partenza diverso (300 343,58 € proposto dal conteggio contro 300 800,00 € digitato in
 offerta) — è lo stesso scarto voce-per-voce spiegato nella sezione "Nota" più sotto, non un nuovo
-problema. Il target di 255 000 va scelto a mano guardando l'offerta di riscontro: il motore non lo
-propone da solo.
+problema. Il 255 000 esce dal calcolo: la stessa regola (per difetto ai 5 000 €) riproduce anche
+Crivellaro (301 070 → 300 000, arrotondamento 1 070) ed è verificata dall'e2e
+`computo-metrico-golden-cases.spec.ts` (`totale-calcolato`).
 
 ---
 
@@ -276,7 +276,7 @@ nuovo numero assegnato da chi scrive l'offerta.
 1. Step "1. Anagrafica": compila anche `Protocollo` (`2022077`), oltre a Cliente/Comune/ecc.
 2. Step "2. Configurazione": compila i 4 campi spessore della tabella sopra.
 3. Step "3. Computo metrico": carica il PDF (sezione 3).
-4. Step "5. Condizioni" e "4. Prezzi": sconti e Totale target (sezione 4 sopra).
+4. Step "5. Condizioni" e "4. Prezzi": sconti e verifica del Totale calcolato (sezione 4 sopra).
 5. "Salva bozza" (crea il preventivo/la revisione se non esistono ancora), poi "Genera documento".
 
 Con tutti i campi compilati, l'export restituisce `200 OK` senza nessun avviso residuo in preview.

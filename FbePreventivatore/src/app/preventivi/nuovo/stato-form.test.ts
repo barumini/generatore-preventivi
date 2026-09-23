@@ -58,9 +58,29 @@ describe('inputCalcoloDaStato', () => {
     expect(input.configurazione.chiaviInManoNelTotale).toBe(true)
   })
 
-  it('imposta arrotondamento come risoluzione sul totale target', () => {
-    const input = inputCalcoloDaStato(STATO_CRIVELLARO)
+  it('imposta arrotondamento come risoluzione sul totale target quando il totale è manuale', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: true })
     expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('bozze salvate prima del flag: un totaleTarget > 0 resta manuale', () => {
+    const input = inputCalcoloDaStato(STATO_CRIVELLARO) // totaleManuale assente
+    expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('senza totale manuale calcola il totale arrotondando per difetto ai 5 000 €', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('senza flag e con totaleTarget a 0 calcola il totale (default)', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleTarget: 0 })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('usa il passo di arrotondamento scelto nel form', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, passoArrotondamento: 1000 })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 1000 })
   })
 
   it('usa la somma calcolata delle superfici come proposta di default per superficiLordeTotale', () => {

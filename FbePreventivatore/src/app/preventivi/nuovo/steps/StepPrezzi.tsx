@@ -1,7 +1,12 @@
+import { useMemo } from 'react'
 import { CATALOGO_VOCI } from '@/domain/voci'
+import { eseguiCalcolo, PASSO_ARROTONDAMENTO_DEFAULT } from '@/domain/calcolo'
+import { formattaImportoItaliano } from '@/documento/preview/formattazione'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
-import type { StatoForm } from '../stato-form'
+import { inputCalcoloDaStato, totaleManualeAttivo, type StatoForm } from '../stato-form'
+
+const PASSI_ARROTONDAMENTO = [100, 500, 1000, 5000, 10000]
 
 interface Props {
   stato: StatoForm
@@ -37,6 +42,10 @@ function formattaValorizzataSicurezza(valore: number | 'OMAGGIO'): string {
 }
 
 export function StepPrezzi({ stato, aggiorna }: Props) {
+  const manuale = totaleManualeAttivo(stato)
+  const passo = stato.passoArrotondamento ?? PASSO_ARROTONDAMENTO_DEFAULT
+  const risultato = useMemo(() => eseguiCalcolo(inputCalcoloDaStato(stato)), [stato])
+
   return (
     <Section title="Prezzi">
       <Section title="Override voci di listino">
@@ -63,14 +72,54 @@ export function StepPrezzi({ stato, aggiorna }: Props) {
         </div>
       </Section>
 
-      <Field label="Totale target (per risoluzione arrotondamento)">
-        <input
-          type="number"
-          className={controlClassName}
-          value={stato.totaleTarget}
-          onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })}
-        />
-      </Field>
+      <Section title="Totale">
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={manuale}
+            onChange={(e) =>
+              // passando a manuale si parte dal totale appena calcolato, non da 0
+              aggiorna(e.target.checked ? { totaleManuale: true, totaleTarget: risultato.totaleNetto } : { totaleManuale: false })
+            }
+          />
+          Imposta il totale a mano
+        </label>
+        {manuale ? (
+          <Field label="Totale target (per risoluzione arrotondamento)">
+            <input
+              type="number"
+              className={controlClassName}
+              value={stato.totaleTarget}
+              onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })}
+            />
+          </Field>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-4">
+            <Field label="Arrotonda il totale per difetto a">
+              <select
+                className={controlClassName}
+                value={passo}
+                onChange={(e) => aggiorna({ passoArrotondamento: Number(e.target.value) })}
+              >
+                {PASSI_ARROTONDAMENTO.map((p) => (
+                  <option key={p} value={p}>
+                    {formattaImportoItaliano(p)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Totale calcolato">
+              <output data-testid="totale-calcolato" className={`${controlClassName} block bg-transparent`}>
+                {formattaImportoItaliano(risultato.totaleNetto)}
+              </output>
+            </Field>
+          </div>
+        )}
+        <p className="text-xs text-text-secondary">
+          Arrotondamento {manuale ? 'risolto dal totale digitato' : 'calcolato'}:{' '}
+          {formattaImportoItaliano(-risultato.arrotondamento)}
+        </p>
+      </Section>
 
       <Section title="Sicurezza">
         <div className="grid grid-cols-2 gap-x-4">

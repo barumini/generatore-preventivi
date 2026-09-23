@@ -3,6 +3,8 @@ import {
   applicaScontiACascata,
   calcolaParziale,
   risolviArrotondamento,
+  totaleArrotondatoPerDifetto,
+  PASSO_ARROTONDAMENTO_DEFAULT,
   sogliaArrotondamentoSuperata,
   interpolaPlaceholder,
   segmentaPlaceholder,
@@ -64,6 +66,32 @@ describe('sogliaArrotondamentoSuperata', () => {
   })
 })
 
+describe('totaleArrotondatoPerDifetto — il totale commerciale calcolato, non digitato', () => {
+  it('usa 5 000 € come passo di default', () => {
+    expect(PASSO_ARROTONDAMENTO_DEFAULT).toBe(5000)
+  })
+
+  it('Crivellaro: 191 970 + 109 100 = 301 070 → 300 000', () => {
+    expect(totaleArrotondatoPerDifetto(301070, 5000)).toBe(300000)
+  })
+
+  it('Da Croce (listino proposto dal conteggio): 256 793,76 → 255 000', () => {
+    expect(totaleArrotondatoPerDifetto(256793.76, 5000)).toBe(255000)
+  })
+
+  it('Da Croce (listino digitato in offerta rev.02): 257 184 → 255 000', () => {
+    expect(totaleArrotondatoPerDifetto(257184, 5000)).toBe(255000)
+  })
+
+  it('lascia invariato un totale già tondo', () => {
+    expect(totaleArrotondatoPerDifetto(255000, 5000)).toBe(255000)
+  })
+
+  it('con passo non positivo non arrotonda', () => {
+    expect(totaleArrotondatoPerDifetto(256793.76, 0)).toBe(256793.76)
+  })
+})
+
 describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
   const input: InputCalcolo = {
     catalogo: CATALOGO_VOCI,
@@ -107,6 +135,13 @@ describe('eseguiCalcolo — golden case Crivellaro end-to-end', () => {
     expect(risultato.listinoTotale).toBe(237000)
     expect(risultato.sconti[0].importoCalcolato).toBe(23700)
     expect(risultato.sconti[1].importoCalcolato).toBe(21330)
+    expect(risultato.arrotondamento).toBe(1070)
+    expect(risultato.parziale).toBe(190900)
+    expect(risultato.totaleNetto).toBe(300000)
+  })
+
+  it('calcola da solo il totale 300 000 con arrotondaTotalePerDifettoA, senza target digitato', () => {
+    const risultato = eseguiCalcolo({ ...input, arrotondamento: { arrotondaTotalePerDifettoA: 5000 } })
     expect(risultato.arrotondamento).toBe(1070)
     expect(risultato.parziale).toBe(190900)
     expect(risultato.totaleNetto).toBe(300000)

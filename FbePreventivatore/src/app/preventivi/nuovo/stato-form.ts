@@ -2,7 +2,7 @@
 import { totaleSuperficiLorde, superficieGarage, superficieSedime, numeroPianiAbitativi, totaliSerramenti, type SuperficiePiano, type Serramento } from '@/domain/geometria'
 import { CATALOGO_VOCI, type LivelloModulo, type Modulo } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
-import type { InputCalcolo, ParametriSconto, Sicurezza } from '@/domain/calcolo'
+import { PASSO_ARROTONDAMENTO_DEFAULT, type InputCalcolo, type ParametriSconto, type Sicurezza } from '@/domain/calcolo'
 import type { CondizioniForm } from '@/documento/condizioni-default'
 import type { Parete, VoceGeometricaLibera } from '@/domain/importazione-excel'
 
@@ -94,10 +94,17 @@ export interface StatoForm {
   chiaviInManoNelTotale: boolean
   sconti: ParametriSconto[]
   overrides: Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>
-  totaleTarget: number
+  totaleTarget: number // usato solo quando il totale è manuale (vedi totaleManualeAttivo)
+  // Assente nelle bozze salvate prima del totale calcolato: lì vale "manuale se totaleTarget > 0".
+  totaleManuale?: boolean
+  passoArrotondamento?: number // default PASSO_ARROTONDAMENTO_DEFAULT (5 000 €)
   sicurezza: Sicurezza
   caratteristiche: CaratteristicheCostruttive // NUOVO
   condizioni: CondizioniForm // NUOVO — spec §1/§3
+}
+
+export function totaleManualeAttivo(stato: Pick<StatoForm, 'totaleManuale' | 'totaleTarget'>): boolean {
+  return stato.totaleManuale ?? stato.totaleTarget > 0
 }
 
 export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
@@ -122,7 +129,9 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
     overrides: stato.overrides,
     sconti: stato.sconti,
     sicurezza: stato.sicurezza,
-    arrotondamento: { risolviPerTotale: stato.totaleTarget },
+    arrotondamento: totaleManualeAttivo(stato)
+      ? { risolviPerTotale: stato.totaleTarget }
+      : { arrotondaTotalePerDifettoA: stato.passoArrotondamento ?? PASSO_ARROTONDAMENTO_DEFAULT },
     spessori: {
       spessoreEsterno: stato.caratteristiche.spessoreEsterno,
       spessoreInterno: stato.caratteristiche.spessoreInterno,

@@ -42,6 +42,9 @@ interface CasoGolden {
   vociEscluse: string[]
   listinoTotale: string
   listinoContieneSolaioInterpiano: boolean
+  // Totale commerciale calcolato (sconti di default del wizard v3, 5% + 10% a cascata,
+  // per difetto ai 5 000 €) — nessun totale target digitato.
+  totaleCalcolato: string
 }
 
 const CASI: CasoGolden[] = [
@@ -72,6 +75,8 @@ const CASI: CasoGolden[] = [
     // Monopiano: 100645,84+5843,70+58849,06+21253,32+15506,77+2162,30+19250,00+9450,00+4000,00
     listinoTotale: '236 960,99 €',
     listinoContieneSolaioInterpiano: false,
+    // 236 960,99 − 5% − 10% = 202 601,65 → 200 000
+    totaleCalcolato: '200 000,00 €',
   },
   {
     nome: 'Da Croce rev.03',
@@ -107,6 +112,8 @@ const CASI: CasoGolden[] = [
     // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
     listinoTotale: '300 343,58 €',
     listinoContieneSolaioInterpiano: true,
+    // 300 343,58 − 5% − 10% = 256 793,76 → 255 000, come l'offerta rev.02
+    totaleCalcolato: '255 000,00 €',
   },
 ]
 
@@ -169,6 +176,10 @@ for (const caso of CASI) {
       // per un computo Primus reale e ben formato.
       await expect(page.getByText('Non riesco a leggere questo PDF')).toHaveCount(0)
 
+      // Totale commerciale calcolato, non digitato
+      await page.getByRole('button', { name: '4. Prezzi' }).click()
+      await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleCalcolato)
+
       // Il Listino finale — quello che finisce nel documento esportato, non solo la
       // scheda del conteggio — si verifica sul `risultatoCalcolo` salvato: un fix che
       // scrive l'override giusto ma non lo fa arrivare fin qui (es. perché eseguiCalcolo
@@ -183,6 +194,7 @@ for (const caso of CASI) {
       const risultato: RisultatoCalcolo = JSON.parse(preventivoSalvato.revisioni[0].risultatoCalcolo)
 
       expect(formattaImportoItaliano(risultato.listinoTotale)).toBe(caso.listinoTotale)
+      expect(formattaImportoItaliano(risultato.totaleNetto)).toBe(caso.totaleCalcolato)
       const vocesolaio = risultato.vociValorizzate.find((v) => v.id === 'solaio-interpiano')
       if (caso.listinoContieneSolaioInterpiano) {
         expect(vocesolaio).toBeDefined()
