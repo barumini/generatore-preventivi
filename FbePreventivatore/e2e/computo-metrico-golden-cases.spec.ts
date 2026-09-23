@@ -44,6 +44,9 @@ interface CasoGolden {
   listinoContieneSolaioInterpiano: boolean
   // Totale commerciale calcolato (sconti di default del wizard v3, 5% + 10% a cascata,
   // per difetto ai 5 000 €) — nessun totale target digitato.
+  /** Totale di default: effettivo, senza arrotondamento. */
+  totaleEffettivo: string
+  /** Totale con la spunta "Arrotonda il totale per difetto" (passo 5 000 €). */
   totaleCalcolato: string
 }
 
@@ -75,7 +78,8 @@ const CASI: CasoGolden[] = [
     // Monopiano: 100645,84+5843,70+58849,06+21253,32+15506,77+2162,30+19250,00+9450,00+4000,00
     listinoTotale: '236 960,99 €',
     listinoContieneSolaioInterpiano: false,
-    // 236 960,99 − 5% − 10% = 202 601,65 → 200 000
+    // 236 960,99 − 5% − 10% = 202 601,65 → 200 000 con la spunta di arrotondamento
+    totaleEffettivo: '202 601,65 €',
     totaleCalcolato: '200 000,00 €',
   },
   {
@@ -112,7 +116,8 @@ const CASI: CasoGolden[] = [
     // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
     listinoTotale: '300 343,58 €',
     listinoContieneSolaioInterpiano: true,
-    // 300 343,58 − 5% − 10% = 256 793,76 → 255 000, come l'offerta rev.02
+    // 300 343,58 − 5% − 10% = 256 793,76 → 255 000 con la spunta, come l'offerta rev.02
+    totaleEffettivo: '256 793,76 €',
     totaleCalcolato: '255 000,00 €',
   },
 ]
@@ -176,8 +181,12 @@ for (const caso of CASI) {
       // per un computo Primus reale e ben formato.
       await expect(page.getByText('Non riesco a leggere questo PDF')).toHaveCount(0)
 
-      // Totale commerciale calcolato, non digitato
+      // Totale commerciale calcolato, non digitato: di default è quello effettivo, la
+      // spunta lo arrotonda per difetto ai 5 000 €.
       await page.getByRole('button', { name: '4. Prezzi' }).click()
+      await expect(page.getByTestId('arrotonda-totale')).not.toBeChecked()
+      await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleEffettivo)
+      await page.getByTestId('arrotonda-totale').check()
       await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleCalcolato)
 
       // Il Listino finale — quello che finisce nel documento esportato, non solo la

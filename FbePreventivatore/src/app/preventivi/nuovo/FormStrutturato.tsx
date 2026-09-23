@@ -30,6 +30,7 @@ const STATO_INIZIALE: StatoForm = {
   sconti: [],
   overrides: {},
   totaleTarget: 0,
+  arrotondaTotale: false, // totale effettivo; le bozze vecchie senza campo sono normalizzate a true alla riapertura
   sicurezza: { costoDichiarato: 2000, valorizzata: 'OMAGGIO' },
   caratteristiche: CARATTERISTICHE_DEFAULT,
   condizioni: creaCondizioniDefault(),

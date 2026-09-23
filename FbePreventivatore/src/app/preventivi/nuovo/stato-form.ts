@@ -98,6 +98,10 @@ export interface StatoForm {
   // Assente nelle bozze salvate prima del totale calcolato: lì vale "manuale se totaleTarget > 0".
   totaleManuale?: boolean
   passoArrotondamento?: number // default PASSO_ARROTONDAMENTO_DEFAULT (5 000 €)
+  // Spunta "Arrotonda il totale per difetto". I nuovi preventivi partono da false (totale
+  // effettivo); assente = bozza salvata prima della spunta, che arrotondava sempre: resta true
+  // così una revisione già inviata riapre con gli stessi numeri (vincolo CLAUDE.md #6).
+  arrotondaTotale?: boolean
   sicurezza: Sicurezza
   caratteristiche: CaratteristicheCostruttive // NUOVO
   condizioni: CondizioniForm // NUOVO — spec §1/§3
@@ -105,6 +109,10 @@ export interface StatoForm {
 
 export function totaleManualeAttivo(stato: Pick<StatoForm, 'totaleManuale' | 'totaleTarget'>): boolean {
   return stato.totaleManuale ?? stato.totaleTarget > 0
+}
+
+export function arrotondaTotaleAttivo(stato: Pick<StatoForm, 'arrotondaTotale'>): boolean {
+  return stato.arrotondaTotale ?? true
 }
 
 export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
@@ -131,7 +139,9 @@ export function inputCalcoloDaStato(stato: StatoForm): InputCalcolo {
     sicurezza: stato.sicurezza,
     arrotondamento: totaleManualeAttivo(stato)
       ? { risolviPerTotale: stato.totaleTarget }
-      : { arrotondaTotalePerDifettoA: stato.passoArrotondamento ?? PASSO_ARROTONDAMENTO_DEFAULT },
+      : arrotondaTotaleAttivo(stato)
+        ? { arrotondaTotalePerDifettoA: stato.passoArrotondamento ?? PASSO_ARROTONDAMENTO_DEFAULT }
+        : 0,
     spessori: {
       spessoreEsterno: stato.caratteristiche.spessoreEsterno,
       spessoreInterno: stato.caratteristiche.spessoreInterno,

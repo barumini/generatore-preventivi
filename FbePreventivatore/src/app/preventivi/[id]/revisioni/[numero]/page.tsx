@@ -5,7 +5,7 @@ import { PannelloPreview } from '@/app/preventivi/nuovo/PannelloPreview'
 import { WizardConSalvataggio } from '@/app/preventivi/WizardConSalvataggio'
 import { Alert } from '@/app/preventivi/ui/Alert'
 import { PulsanteGeneraDocumento } from '@/app/preventivi/ui/PulsanteGeneraDocumento'
-import type { StatoForm } from '@/app/preventivi/nuovo/stato-form'
+import { arrotondaTotaleAttivo, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
 
 interface Props {
   params: Promise<{ id: string; numero: string }>
@@ -29,7 +29,10 @@ export default async function RiapriRevisione({ params }: Props) {
   )
 
   if (revisione.stato === 'bozza') {
-    return <WizardConSalvataggio statoIniziale={stato} preventivoEsistente={{ id, numero: revisione.numero }} />
+    // Il form parte da arrotondaTotale: false: una bozza salvata prima della spunta non ha il
+    // campo e va riaperta come allora, cioè arrotondata (arrotondaTotaleAttivo → true).
+    const statoRiaperto: StatoForm = { ...stato, arrotondaTotale: arrotondaTotaleAttivo(stato) }
+    return <WizardConSalvataggio statoIniziale={statoRiaperto} preventivoEsistente={{ id, numero: revisione.numero }} />
   }
 
   return (

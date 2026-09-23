@@ -78,6 +78,21 @@ describe('inputCalcoloDaStato', () => {
     expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
   })
 
+  it('senza spunta di arrotondamento il totale resta quello effettivo (arrotondamento 0)', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, arrotondaTotale: false })
+    expect(input.arrotondamento).toBe(0)
+  })
+
+  it('con la spunta di arrotondamento calcola il totale per difetto al passo', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, arrotondaTotale: true })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('il totale manuale ha la precedenza sulla spunta di arrotondamento', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: true, arrotondaTotale: false })
+    expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
   it('usa il passo di arrotondamento scelto nel form', () => {
     const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, passoArrotondamento: 1000 })
     expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 1000 })

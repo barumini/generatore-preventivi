@@ -4,7 +4,7 @@ import { eseguiCalcolo, PASSO_ARROTONDAMENTO_DEFAULT } from '@/domain/calcolo'
 import { formattaImportoItaliano } from '@/documento/preview/formattazione'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
-import { inputCalcoloDaStato, totaleManualeAttivo, type StatoForm } from '../stato-form'
+import { arrotondaTotaleAttivo, inputCalcoloDaStato, totaleManualeAttivo, type StatoForm } from '../stato-form'
 
 const PASSI_ARROTONDAMENTO = [100, 500, 1000, 5000, 10000]
 
@@ -43,6 +43,7 @@ function formattaValorizzataSicurezza(valore: number | 'OMAGGIO'): string {
 
 export function StepPrezzi({ stato, aggiorna }: Props) {
   const manuale = totaleManualeAttivo(stato)
+  const arrotonda = arrotondaTotaleAttivo(stato)
   const passo = stato.passoArrotondamento ?? PASSO_ARROTONDAMENTO_DEFAULT
   const risultato = useMemo(() => eseguiCalcolo(inputCalcoloDaStato(stato)), [stato])
 
@@ -94,26 +95,39 @@ export function StepPrezzi({ stato, aggiorna }: Props) {
             />
           </Field>
         ) : (
-          <div className="grid grid-cols-2 gap-x-4">
-            <Field label="Arrotonda il totale per difetto a">
-              <select
-                className={controlClassName}
-                value={passo}
-                onChange={(e) => aggiorna({ passoArrotondamento: Number(e.target.value) })}
-              >
-                {PASSI_ARROTONDAMENTO.map((p) => (
-                  <option key={p} value={p}>
-                    {formattaImportoItaliano(p)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Totale calcolato">
-              <output data-testid="totale-calcolato" className={`${controlClassName} block bg-transparent`}>
-                {formattaImportoItaliano(risultato.totaleNetto)}
-              </output>
-            </Field>
-          </div>
+          <>
+            <label className="mb-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                data-testid="arrotonda-totale"
+                checked={arrotonda}
+                onChange={(e) => aggiorna({ arrotondaTotale: e.target.checked })}
+              />
+              Arrotonda il totale per difetto
+            </label>
+            <div className="grid grid-cols-2 gap-x-4">
+              {arrotonda && (
+                <Field label="Arrotonda il totale per difetto a">
+                  <select
+                    className={controlClassName}
+                    value={passo}
+                    onChange={(e) => aggiorna({ passoArrotondamento: Number(e.target.value) })}
+                  >
+                    {PASSI_ARROTONDAMENTO.map((p) => (
+                      <option key={p} value={p}>
+                        {formattaImportoItaliano(p)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              <Field label={arrotonda ? 'Totale calcolato' : 'Totale calcolato (effettivo, non arrotondato)'}>
+                <output data-testid="totale-calcolato" className={`${controlClassName} block bg-transparent`}>
+                  {formattaImportoItaliano(risultato.totaleNetto)}
+                </output>
+              </Field>
+            </div>
+          </>
         )}
         <p className="text-xs text-text-secondary">
           Arrotondamento {manuale ? 'risolto dal totale digitato' : 'calcolato'}:{' '}
