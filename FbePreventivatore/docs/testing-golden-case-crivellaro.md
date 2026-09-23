@@ -163,7 +163,8 @@ supera il 2% del Listino"), e sono la causa più comune di totali sbagliati:
       default è deselezionata)
 - [ ] Step 4 Prezzi → tutti e **11 gli override** digitati, nessun campo lasciato vuoto
       (vuoto = il motore usa il valore proposto dal listino, non quello del golden case)
-- [ ] Step 4 Prezzi → **Totale target** = `300000` (di default è `0`)
+- [ ] Step 4 Prezzi → spunta **"Imposta il totale a mano"** e **Totale target** = `300000`
+      (senza spunta il totale è calcolato ed effettivo, non 300 000)
 - [ ] Step 5 Condizioni → **2 righe di sconto** aggiunte (di default la lista è vuota)
 
 **1. Anagrafica**
@@ -276,6 +277,7 @@ Poi imposta:
 
 | Campo | Valore |
 |---|---|
+| Imposta il totale a mano | spuntato |
 | Totale target | 300000 |
 | Sicurezza | costo dichiarato 2000, valorizzata `OMAGGIO` |
 
@@ -297,10 +299,25 @@ manuale in browser):
    non pesa
 6. `TOTALE AL NETTO` = **300 000,00 €**
 
-Se salti lo step Prezzi (nessun override, totale target a 0), osserverai invece: Listino
-≈ 237 031,75 € (proposto dal listino, non tondo), un arrotondamento enorme e negativo che
-cerca comunque di risolvere verso il totale target di 0, un `PARZIALE` negativo e un
-`TOTALE AL NETTO` di 0,00 € — sintomo diretto dello step 4 saltato.
+Se salti lo step Prezzi (nessun override, nessun totale a mano) il motore usa i valori proposti
+dal listino parametrico e il totale **effettivo**, senza arrotondamento (verificato con
+`eseguiCalcolo` sugli stessi dati, sconti 10% + 10% dello step 5):
+
+| Riga | Valore |
+|---|---:|
+| `Listino 2026` | 237 031,75 € |
+| `SCONTO RISERVATO: 10% sconto cliente` | − 23 703,18 € |
+| `SCONTO RISERVATO: 10% per conferme…` | − 21 332,86 € |
+| `Arrotondamento` | − 0,00 € |
+| `PARZIALE AL GREZZO AVANZATO` | 191 995,71 € |
+| `Stima opere chiavi in mano` · `Garage` | 89 033,00 € · 20 008,00 € |
+| `TOTALE AL NETTO` | **301 036,71 €** |
+
+Nessun errore: sono i valori proposti, non quelli digitati del golden case. Con la spunta
+**"Arrotonda il totale per difetto"** (passo 5 000 €) il totale scende a 300 000,00 €, con
+Arrotondamento − 1 036,71 € e PARZIALE 190 959,00 € — quindi un `TOTALE AL NETTO` di 300 000 non
+basta a dire che lo step 4 è stato compilato: controlla Listino (237 000,00) e PARZIALE
+(190 900,00).
 
 Se generi il documento Word, verifica che contenga `Crivellaro Mariano` e `300 000,00`
 (vedi asserzioni in
