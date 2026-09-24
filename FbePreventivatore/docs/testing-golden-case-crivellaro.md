@@ -40,6 +40,7 @@ npm test -- src/documento/export-docx.test.ts
 
 # Primo sistema — estrazione AI e mappatura di pareti/falde/travi/serramenti (chat "Apertura rapida")
 npm test -- src/ai/estrazione.test.ts
+npm test -- src/ai/normalizzazione-estrazione.test.ts
 npm test -- src/app/preventivi/nuovo/mappatura-estrazione.test.ts
 
 # Secondo sistema — parsing del foglio Excel
@@ -52,7 +53,7 @@ successiva. `estrazione.test.ts` e `mappatura-estrazione.test.ts` coprono in par
 round-trip di pareti/falde/travi/serramenti (testo libero → `CampiEstratti` → `StatoForm`)
 con gli stessi valori usati nell'esempio manuale del §3.1.
 
-Suite completa: 26 file, 235 test, tutti verdi (`npm test`, verificato 2026-08-31).
+Suite completa: 44 file, 592 test, tutti verdi (`npm test`, verificato 2026-09-24).
 
 ---
 
@@ -84,14 +85,22 @@ Poi apri `http://localhost:3000/preventivi/nuovo`.
 
 Prima di compilare i campi a mano, puoi usare il riquadro "Apertura rapida" in cima alla
 pagina: invia un testo libero e `POST /api/estrazione` lo trasforma nei campi dello
-`StatoForm` tramite un modello locale (schema e prompt di sistema in
-[`src/ai/estrazione.ts`](../src/ai/estrazione.ts)).
+`StatoForm` tramite un modello linguistico, di norma via OpenRouter. Schema, prompt ed esempi
+sono in [`src/ai/estrazione.ts`](../src/ai/estrazione.ts); lo strato deterministico che
+controlla e normalizza la risposta è in
+[`src/ai/normalizzazione-estrazione.ts`](../src/ai/normalizzazione-estrazione.ts). Come è stato
+scelto il sistema: [`valutazione-modelli-estrazione.md`](valutazione-modelli-estrazione.md).
 
-**Prerequisito**: LM Studio in esecuzione in locale con il server attivo (Impostazioni >
-Local Server > Start Server) e la variabile d'ambiente `LM_STUDIO_MODEL` impostata al nome
-esatto del modello caricato (`LM_STUDIO_BASE_URL` opzionale, default
-`http://localhost:1234/v1`). Senza queste due condizioni la chiamata fallisce con un errore
-leggibile invece di bloccarsi in silenzio.
+**Prerequisito**: `OPENROUTER_API_KEY` impostata in `.env.local`. I modelli di default sono
+`openai/gpt-6-luna`, con riserva `qwen/qwen3.8-flash`, a ragionamento spento; per cambiarli si
+usano `OPENROUTER_MODEL` (elenco separato da virgole) e `OPENROUTER_REASONING=on` (vedi
+[`.env.example`](../.env.example)). Alternativa offline: `AI_PROVIDER=lmstudio`, con LM Studio
+in esecuzione in locale e il server attivo (Impostazioni > Local Server > Start Server), e
+`LM_STUDIO_MODEL` impostata al nome esatto del modello caricato (`LM_STUDIO_BASE_URL`
+opzionale, default `http://localhost:1234/v1`). I modelli di LM Studio non sono stati valutati
+con il sistema attuale. Se manca la configurazione, o se OpenRouter non risponde entro 60 s, la
+chiamata fallisce con un errore leggibile (`Estrazione fallita: …`) invece di bloccarsi in
+silenzio.
 
 L'estrazione copre questi campi dello `StatoForm` (schema `CampiEstratti`):
 cliente (nome/comune/provincia), protocollo, progettista, luogo, superfici per piano,
@@ -124,13 +133,15 @@ Verifica dopo l'invio:
   il piano resta non riconosciuto e va corretto a mano)
 - il pacchetto "grezzo avanzato" imposta `livelli` = struttura completo, involucro
   completo, finiture impoverito (vedi `livelliDaPacchetto`)
-- il messaggio dell'assistente non elenca campi mancanti (a parte eventualmente `luogo`,
-  che va comunque ignorato: si deduce dal comune anche se il modello lo segnala)
+- il messaggio dell'assistente non elenca campi mancanti. L'elenco non viene dal modello: lo
+  calcola il codice dai campi rimasti vuoti, più i piani non riconosciuti. `luogo` non
+  compare mai, perché si deduce dal comune.
 
 Per testare il percorso "campo mancante", rimuovi una frase (es. togli "Protocollo
-2026059") e verifica che l'assistente segnali `protocollo` tra i campi da completare a
+2026059") e verifica che l'assistente segnali il protocollo tra i campi da completare a
 mano, senza inventare un valore (vincolo CLAUDE.md §7 — l'AI non decide mai importi né
-inventa dati non dichiarati).
+inventa dati non dichiarati). Un protocollo che non compare nel testo viene comunque
+scartato dal codice.
 
 Per testare pareti/copertura via chat (verificato con un modello reale su LM Studio),
 aggiungi ad esempio: *"Ha una parete esterna di base 12,5 m, altezza 2,7 m, spessore
