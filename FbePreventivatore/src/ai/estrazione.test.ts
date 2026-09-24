@@ -267,6 +267,8 @@ describe('ClienteEstrazioneOpenRouter', () => {
       expect(corpo.response_format.type).toBe('json_schema')
       expect(corpo.response_format.json_schema.schema.properties.cliente).toBeDefined()
       expect(corpo.provider).toEqual({ require_parameters: true })
+      expect(corpo.reasoning).toEqual({ enabled: true })
+      expect(opzioni.signal).toBeInstanceOf(AbortSignal)
       return new Response(
         JSON.stringify({ choices: [{ message: { content: '{"cliente":{"nome":"Rossi"}}' } }] }),
         { status: 200 },
@@ -316,6 +318,18 @@ describe('ClienteEstrazioneOpenRouter', () => {
     )
 
     await expect(new ClienteEstrazioneOpenRouter().estrai('testo')).rejects.toThrow(/OpenRouter.*connessione/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter non risponde entro il timeout', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+      }),
+    )
+
+    await expect(new ClienteEstrazioneOpenRouter().estrai('testo')).rejects.toThrow(/OpenRouter.*secondi/)
   })
 })
 

@@ -195,11 +195,13 @@ export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
   }
 }
 
-// Modello economico con supporto a JSON Schema su OpenRouter (~0,001 $ a estrazione).
-// Alternative provate come compatibili: 'moonshotai/kimi-k2.5', 'deepseek/deepseek-v4-pro-0813'.
+// Modello economico con supporto a JSON Schema su OpenRouter (~0,003 $ a estrazione).
+// Confrontati sul caso Crivellaro e scartati: 'moonshotai/kimi-k2.5' (lento, risposte
+// non-JSON), 'deepseek/deepseek-v4-pro-0813' (campi persi a ragionamento spento).
 export const MODELLO_OPENROUTER_DEFAULT = 'deepseek/deepseek-v4.1-flash'
 
 const URL_OPENROUTER = 'https://openrouter.ai/api/v1'
+const TIMEOUT_OPENROUTER_MS = 60_000
 
 // Lo schema è in forma "input": i campi con default (superfici, campiMancanti) restano
 // facoltativi per il modello; la validazione Zod in estraiCampi resta la rete di sicurezza.
@@ -227,6 +229,7 @@ export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
     try {
       risposta = await fetch(`${URL_OPENROUTER}/chat/completions`, {
         method: 'POST',
+        signal: AbortSignal.timeout(TIMEOUT_OPENROUTER_MS),
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.chiave}`,
@@ -245,9 +248,19 @@ export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
           },
           // Instrada solo verso fornitori che rispettano davvero response_format.
           provider: { require_parameters: true },
+          // Esplicito per non dipendere dal default del modello. Misurato su Crivellaro
+          // (DeepSeek V4.1 Flash): spento 21/26 controlli in ~3 s, acceso 24-26/26 in
+          // ~11-19 s a ~0,003 $. Da spento perde proprio "non inventare" e "segnala mancante".
+          reasoning: { enabled: true },
         }),
       })
     } catch (errore) {
+      if (errore instanceof DOMException && errore.name === 'TimeoutError') {
+        throw new Error(
+          `Estrazione fallita: OpenRouter non ha risposto entro ${TIMEOUT_OPENROUTER_MS / 1000} secondi — riprova o scegli un altro modello`,
+          { cause: errore },
+        )
+      }
       throw new Error('Estrazione fallita: impossibile raggiungere OpenRouter — verifica la connessione a internet', {
         cause: errore,
       })
