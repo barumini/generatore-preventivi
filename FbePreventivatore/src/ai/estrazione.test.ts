@@ -245,3 +245,100 @@ describe('ClienteEstrazioneLMStudio', () => {
     expect(() => new ClienteEstrazioneLMStudio()).toThrow(/LM_STUDIO_MODEL/)
   })
 })
+
+import { ClienteEstrazioneOpenRouter, creaClienteEstrazione, MODELLO_OPENROUTER_DEFAULT } from './estrazione'
+
+describe('ClienteEstrazioneOpenRouter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  it('chiama OpenRouter con chiave, modello di default e schema JSON dei campi', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubEnv('OPENROUTER_MODEL', undefined)
+    const fetchFinto = vi.fn(async (url: string, opzioni: RequestInit) => {
+      expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
+      const intestazioni = opzioni.headers as Record<string, string>
+      expect(intestazioni.Authorization).toBe('Bearer sk-or-test')
+      const corpo = JSON.parse(opzioni.body as string)
+      expect(corpo.model).toBe(MODELLO_OPENROUTER_DEFAULT)
+      expect(corpo.messages[1]).toEqual({ role: 'user', content: 'casa per Rossi' })
+      expect(corpo.response_format.type).toBe('json_schema')
+      expect(corpo.response_format.json_schema.schema.properties.cliente).toBeDefined()
+      expect(corpo.provider).toEqual({ require_parameters: true })
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: '{"cliente":{"nome":"Rossi"}}' } }] }),
+        { status: 200 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    const risultato = await new ClienteEstrazioneOpenRouter().estrai('casa per Rossi')
+
+    expect(risultato).toBe('{"cliente":{"nome":"Rossi"}}')
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+
+  it('usa OPENROUTER_MODEL quando impostato', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubEnv('OPENROUTER_MODEL', 'moonshotai/kimi-k2.5')
+    const fetchFinto = vi.fn(async (_url: string, opzioni: RequestInit) => {
+      expect(JSON.parse(opzioni.body as string).model).toBe('moonshotai/kimi-k2.5')
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    await new ClienteEstrazioneOpenRouter().estrai('testo')
+
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+
+  it('lancia un errore se OPENROUTER_API_KEY non è impostata', () => {
+    vi.stubEnv('OPENROUTER_API_KEY', undefined)
+    expect(() => new ClienteEstrazioneOpenRouter()).toThrow(/OPENROUTER_API_KEY/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter risponde con uno stato di errore', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('credito esaurito', { status: 402 })))
+
+    await expect(new ClienteEstrazioneOpenRouter().estrai('testo')).rejects.toThrow(/OpenRouter.*402/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter non è raggiungibile', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('fetch failed')
+      }),
+    )
+
+    await expect(new ClienteEstrazioneOpenRouter().estrai('testo')).rejects.toThrow(/OpenRouter.*connessione/)
+  })
+})
+
+describe('creaClienteEstrazione', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('sceglie OpenRouter quando la chiave è impostata', () => {
+    vi.stubEnv('AI_PROVIDER', undefined)
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneOpenRouter)
+  })
+
+  it('ricade su LM Studio senza chiave OpenRouter', () => {
+    vi.stubEnv('AI_PROVIDER', undefined)
+    vi.stubEnv('OPENROUTER_API_KEY', undefined)
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneLMStudio)
+  })
+
+  it('rispetta AI_PROVIDER=lmstudio anche con la chiave OpenRouter impostata', () => {
+    vi.stubEnv('AI_PROVIDER', 'lmstudio')
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneLMStudio)
+  })
+})

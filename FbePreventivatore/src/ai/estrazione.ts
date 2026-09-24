@@ -194,3 +194,83 @@ export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
     return (dati as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? ''
   }
 }
+
+// Modello economico con supporto a JSON Schema su OpenRouter (~0,001 $ a estrazione).
+// Alternative provate come compatibili: 'moonshotai/kimi-k2.5', 'deepseek/deepseek-v4-pro-0813'.
+export const MODELLO_OPENROUTER_DEFAULT = 'deepseek/deepseek-v4.1-flash'
+
+const URL_OPENROUTER = 'https://openrouter.ai/api/v1'
+
+// Lo schema è in forma "input": i campi con default (superfici, campiMancanti) restano
+// facoltativi per il modello; la validazione Zod in estraiCampi resta la rete di sicurezza.
+const SCHEMA_JSON_CAMPI = z.toJSONSchema(SchemaCampiEstratti, { io: 'input' })
+
+// Stesso vincolo del client LM Studio: l'AI estrae solo campi anagrafici/geometrici,
+// mai prezzi o importi (vincolo CLAUDE.md #7).
+export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
+  private chiave: string
+  private modello: string
+
+  constructor(
+    chiave: string | undefined = process.env.OPENROUTER_API_KEY,
+    modello: string = process.env.OPENROUTER_MODEL || MODELLO_OPENROUTER_DEFAULT,
+  ) {
+    if (!chiave) {
+      throw new Error('Estrazione fallita: variabile OPENROUTER_API_KEY non impostata — inserisci la chiave API di OpenRouter')
+    }
+    this.chiave = chiave
+    this.modello = modello
+  }
+
+  async estrai(testo: string): Promise<string> {
+    let risposta: Response
+    try {
+      risposta = await fetch(`${URL_OPENROUTER}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.chiave}`,
+          'X-Title': 'FBE Preventivatore',
+        },
+        body: JSON.stringify({
+          model: this.modello,
+          messages: [
+            { role: 'system', content: PROMPT_SISTEMA },
+            { role: 'user', content: testo },
+          ],
+          temperature: 0.1,
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'campi_preventivo', schema: SCHEMA_JSON_CAMPI },
+          },
+          // Instrada solo verso fornitori che rispettano davvero response_format.
+          provider: { require_parameters: true },
+        }),
+      })
+    } catch (errore) {
+      throw new Error('Estrazione fallita: impossibile raggiungere OpenRouter — verifica la connessione a internet', {
+        cause: errore,
+      })
+    }
+
+    if (!risposta.ok) {
+      const corpo = await risposta.text()
+      throw new Error(`Estrazione fallita: OpenRouter ha risposto ${risposta.status} — ${corpo.slice(0, 300)}`)
+    }
+
+    let dati: unknown
+    try {
+      dati = await risposta.json()
+    } catch {
+      throw new Error(`Estrazione fallita: OpenRouter ha risposto con un corpo non-JSON (status ${risposta.status})`)
+    }
+    return (dati as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? ''
+  }
+}
+
+// AI_PROVIDER forza la scelta ('openrouter' | 'lmstudio'); senza, vince OpenRouter se c'è
+// la chiave, altrimenti LM Studio (uso offline).
+export function creaClienteEstrazione(): ClienteEstrazione {
+  const fornitore = process.env.AI_PROVIDER ?? (process.env.OPENROUTER_API_KEY ? 'openrouter' : 'lmstudio')
+  return fornitore === 'openrouter' ? new ClienteEstrazioneOpenRouter() : new ClienteEstrazioneLMStudio()
+}
