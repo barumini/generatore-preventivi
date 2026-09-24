@@ -34,8 +34,8 @@ const SUPERFICI_ATTESE = [
   { piano: 'Garage', valoreLordo: '41' },
 ]
 
-// "luogo" non conta: il prompt chiede di non segnalarlo e la chat lo scarta comunque
-// (si deduce dal comune, vedi ChatApertura.tsx).
+// "luogo" non conta: il codice non lo segnala e la chat lo scarta comunque
+// (si deduce dal comune, vedi messaggioAssistente in conversazione-apertura.ts).
 function mancantiVisibili(campi: CampiEstratti): string[] {
   return campi.campiMancanti.filter((campo) => campo !== 'luogo')
 }
