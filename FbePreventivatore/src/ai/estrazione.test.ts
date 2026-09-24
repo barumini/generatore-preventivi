@@ -296,6 +296,20 @@ describe('ClienteEstrazioneOpenRouter', () => {
     expect(fetchFinto).toHaveBeenCalledTimes(1)
   })
 
+  it('spegne il ragionamento con OPENROUTER_REASONING=off', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubEnv('OPENROUTER_REASONING', 'off')
+    const fetchFinto = vi.fn(async (_url: string, opzioni: RequestInit) => {
+      expect(JSON.parse(opzioni.body as string).reasoning).toEqual({ enabled: false })
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    await new ClienteEstrazioneOpenRouter().estrai('testo')
+
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+
   it('lancia un errore se OPENROUTER_API_KEY non è impostata', () => {
     vi.stubEnv('OPENROUTER_API_KEY', undefined)
     expect(() => new ClienteEstrazioneOpenRouter()).toThrow(/OPENROUTER_API_KEY/)

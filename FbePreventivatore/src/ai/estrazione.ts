@@ -212,16 +212,19 @@ const SCHEMA_JSON_CAMPI = z.toJSONSchema(SchemaCampiEstratti, { io: 'input' })
 export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
   private chiave: string
   private modello: string
+  private ragionamento: boolean
 
   constructor(
     chiave: string | undefined = process.env.OPENROUTER_API_KEY,
     modello: string = process.env.OPENROUTER_MODEL || MODELLO_OPENROUTER_DEFAULT,
+    ragionamento: boolean = process.env.OPENROUTER_REASONING !== 'off',
   ) {
     if (!chiave) {
       throw new Error('Estrazione fallita: variabile OPENROUTER_API_KEY non impostata — inserisci la chiave API di OpenRouter')
     }
     this.chiave = chiave
     this.modello = modello
+    this.ragionamento = ragionamento
   }
 
   async estrai(testo: string): Promise<string> {
@@ -251,7 +254,7 @@ export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
           // Esplicito per non dipendere dal default del modello. Misurato su Crivellaro
           // (DeepSeek V4.1 Flash): spento 21/26 controlli in ~3 s, acceso 24-26/26 in
           // ~11-19 s a ~0,003 $. Da spento perde proprio "non inventare" e "segnala mancante".
-          reasoning: { enabled: true },
+          reasoning: { enabled: this.ragionamento },
         }),
       })
     } catch (errore) {
