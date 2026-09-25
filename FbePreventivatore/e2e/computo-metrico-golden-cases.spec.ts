@@ -1,0 +1,215 @@
+import { test, expect, type Page } from '@playwright/test'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { RisultatoCalcolo } from '@/domain/calcolo'
+import { formattaImportoItaliano } from '@/documento/preview/formattazione'
+
+// `type: module` in package.json: niente __dirname CommonJS in questo file.
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+/**
+ * Suite E2E per lo step "3. Computo metrico" di /preventivi/nuovo-v3: carica un
+ * PDF Primus reale nel browser (pdfjs-dist gira lato client, come per un utente
+ * vero) e verifica i due golden case di dominio — vedi
+ * docs/testing-computo-metrico-nuovo-v3.md per i numeri attesi e la loro origine
+ * nei test Vitest di src/domain/computo/. Questi numeri sono al livello
+ * "pipeline computo → conteggio", diversi da quelli — digitati a mano, tondi —
+ * del golden case commerciale in CLAUDE.md e testing-golden-case-crivellaro.md.
+ *
+ * La v03 non ha più un pannello di anteprima (rimosso: il caricamento del computo è
+ * l'unica cosa che questo wizard mostra, il documento si genera direttamente):
+ * la verifica che l'override della voce arrivi fino al Listino finale — quello che
+ * finisce nel documento esportato, non solo nella scheda del conteggio — passa quindi
+ * dal salvataggio della bozza e dal `risultatoCalcolo` persistito, non più da una pagina
+ * di anteprima nel DOM. Vedi il fix reale del 2026 dove un override corretto non
+ * arrivava fin lì per colpa di una configurazione ricostruita da un'altra fonte.
+ */
+
+const FIXTURES = path.join(__dirname, 'fixtures')
+
+interface CasoGolden {
+  nome: string
+  file: string
+  vociLette: string
+  categorie: string
+  totaleComputo: string
+  sommaVoci: string
+  target: string
+  delta: string
+  importi: Record<string, string>
+  avvisoSicurezza: string
+  vociScartate: string[]
+  vociEscluse: string[]
+  listinoTotale: string
+  listinoContieneSolaioInterpiano: boolean
+  // Totale commerciale calcolato (sconti di default del wizard v3, 5% + 10% a cascata,
+  // per difetto ai 5 000 €) — nessun totale target digitato.
+  /** Totale di default: effettivo, senza arrotondamento. */
+  totaleEffettivo: string
+  /** Totale con la spunta "Arrotonda il totale per difetto" (passo 5 000 €). */
+  totaleCalcolato: string
+}
+
+const CASI: CasoGolden[] = [
+  {
+    nome: 'Crivellaro rev.04',
+    file: 'computo-crivellaro.pdf',
+    vociLette: '166',
+    categorie: '8',
+    totaleComputo: '260 260,99 €',
+    sommaVoci: '215 815,97 €',
+    target: '236 960,99 €',
+    delta: '21 145,02 €',
+    importi: {
+      'pareti-mhm': '100 645,84 €',
+      'trave-larice': '5 843,70 €',
+      'solaio-interpiano': 'compresa',
+      'copertura-falda': '58 849,06 €',
+      'cappotto': '21 253,32 €',
+      'cartongesso-q2': '15 506,77 €',
+      'assistenza-cartongessisti': '2 162,30 €',
+      'infissi-pvc': '19 250,00 €',
+      'monoblocchi': '9 450,00 €',
+      'progettazione-esecutiva': '4 000,00 €',
+    },
+    avvisoSicurezza: '23 352,50',
+    vociScartate: ['copertura-piana', 'veletta-perimetrale'],
+    vociEscluse: ['solaio-interpiano'],
+    // Monopiano: 100645,84+5843,70+58849,06+21253,32+15506,77+2162,30+19250,00+9450,00+4000,00
+    listinoTotale: '236 960,99 €',
+    listinoContieneSolaioInterpiano: false,
+    // 236 960,99 − 5% − 10% = 202 601,65 → 200 000 con la spunta di arrotondamento
+    totaleEffettivo: '202 601,65 €',
+    totaleCalcolato: '200 000,00 €',
+  },
+  {
+    nome: 'Da Croce rev.03',
+    file: 'computo-dacroce.pdf',
+    vociLette: '166',
+    categorie: '8',
+    totaleComputo: '323 643,58 €',
+    sommaVoci: '278 787,93 €',
+    target: '300 343,58 €',
+    delta: '21 555,65 €',
+    importi: {
+      'pareti-mhm': '127 543,28 €',
+      'trave-larice': '10 104,24 €',
+      'solaio-interpiano': '15 240,96 €',
+      'copertura-falda': '54 474,19 €',
+      'cappotto': '21 624,51 €',
+      'cartongesso-q2': '18 975,90 €',
+      'assistenza-cartongessisti': '2 655,50 €',
+      'infissi-pvc': '31 230,00 €',
+      'monoblocchi': '14 495,00 €',
+      'progettazione-esecutiva': '4 000,00 €',
+    },
+    avvisoSicurezza: '23 352,50',
+    vociScartate: ['copertura-piana', 'veletta-perimetrale'],
+    // A differenza di Crivellaro (monopiano, SOLAIO a zero nel computo): Da Croce è un
+    // edificio Piano Terra + Piano Primo reale (Offerta MHM rev.02_Dacroce Dalila
+    // riscontro.pdf, pag. 4), e numeroPianiAbitativiDalComputo lo riconosce dalla
+    // categoria SOLAIO valorizzata nel computo stesso — solaio-interpiano entra nel
+    // Listino, non resta escluso.
+    vociEscluse: [],
+    // Bipiano, solaio-interpiano incluso: somma di tutte le voci, che infatti atterra
+    // esattamente sul target di riconciliazione sopra (300 343,58 €) — vedi
+    // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
+    listinoTotale: '300 343,58 €',
+    listinoContieneSolaioInterpiano: true,
+    // 300 343,58 − 5% − 10% = 256 793,76 → 255 000 con la spunta, come l'offerta rev.02
+    totaleEffettivo: '256 793,76 €',
+    totaleCalcolato: '255 000,00 €',
+  },
+]
+
+async function apriStepComputoMetrico(page: Page) {
+  await page.goto('/preventivi/nuovo-v3')
+  await page.getByRole('button', { name: '3. Computo metrico' }).click()
+}
+
+for (const caso of CASI) {
+  test.describe(`Computo metrico — golden case ${caso.nome}`, () => {
+    test('estrae, conteggia e riconcilia i numeri attesi', async ({ page }) => {
+      await apriStepComputoMetrico(page)
+
+      await page.setInputFiles('input[type="file"]', path.join(FIXTURES, caso.file))
+
+      // Estrazione: pdfjs-dist gira lato client, il parsing di un PDF di ~750 KB
+      // può richiedere qualche secondo in più del timeout di default di expect().
+      await expect(page.getByTestId('computo-voci-lette')).toContainText(caso.vociLette, {
+        timeout: 15_000,
+      })
+      await expect(page.getByTestId('computo-categorie')).toContainText(caso.categorie)
+      await expect(page.getByTestId('computo-totale')).toContainText(caso.totaleComputo)
+      await expect(page.getByText('Verifica superata')).toBeVisible()
+
+      // Cambio tab e ritorno: il caricamento del computo deve sopravvivere, non ripartire
+      // da zero (lo step "Computo metrico" viene smontato/rimontato cambiando tab).
+      await page.getByRole('button', { name: '1. Anagrafica' }).click()
+      await page.getByRole('button', { name: '3. Computo metrico' }).click()
+      await expect(page.getByTestId('computo-voci-lette')).toContainText(caso.vociLette)
+      await expect(page.getByTestId('computo-totale')).toContainText(caso.totaleComputo)
+
+      // Riconciliazione pipeline computo -> conteggio
+      await expect(page.getByTestId('riconciliazione-somma-voci')).toHaveText(caso.sommaVoci)
+      await expect(page.getByTestId('riconciliazione-target')).toHaveText(caso.target)
+      await expect(page.getByTestId('riconciliazione-delta')).toHaveText(caso.delta)
+
+      // Importo calcolato per ogni voce del catalogo
+      for (const [idMaster, importoAtteso] of Object.entries(caso.importi)) {
+        await expect(page.getByTestId(`importo-voce-${idMaster}`)).toHaveText(importoAtteso)
+      }
+
+      // Avviso: sicurezza dichiarata nel computo diversa dal forfettario di conteggio
+      await expect(page.getByTestId('avviso-sicurezza-diversa')).toContainText(caso.avvisoSicurezza)
+
+      // Voci non applicate al preventivo (fuori catalogo o escluse dalla configurazione)
+      const alertScartate = page.getByRole('alert').filter({ hasText: 'non hanno una voce corrispondente' })
+      for (const idMaster of caso.vociScartate) {
+        await expect(alertScartate).toContainText(idMaster)
+      }
+      const alertEscluse = page.getByRole('alert').filter({ hasText: 'escluse dalla configurazione' })
+      if (caso.vociEscluse.length === 0) {
+        await expect(alertEscluse).toHaveCount(0)
+      } else {
+        for (const idMaster of caso.vociEscluse) {
+          await expect(alertEscluse).toContainText(idMaster)
+        }
+      }
+
+      // Nessun errore bloccante: solo avvisi, mai un banner "errore" di livello critico
+      // per un computo Primus reale e ben formato.
+      await expect(page.getByText('Non riesco a leggere questo PDF')).toHaveCount(0)
+
+      // Totale commerciale calcolato, non digitato: di default è quello effettivo, la
+      // spunta lo arrotonda per difetto ai 5 000 €.
+      await page.getByRole('button', { name: '4. Prezzi' }).click()
+      await expect(page.getByTestId('arrotonda-totale')).not.toBeChecked()
+      await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleEffettivo)
+      await page.getByTestId('arrotonda-totale').check()
+      await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleCalcolato)
+
+      // Il Listino finale — quello che finisce nel documento esportato, non solo la
+      // scheda del conteggio — si verifica sul `risultatoCalcolo` salvato: un fix che
+      // scrive l'override giusto ma non lo fa arrivare fin qui (es. perché eseguiCalcolo
+      // rifiltra le voci con una configurazione ricostruita da un'altra fonte)
+      // passerebbe inosservato senza questa verifica — è già successo una volta in
+      // sviluppo con solaio-interpiano.
+      const [rispostaSalvataggio] = await Promise.all([
+        page.waitForResponse((r) => r.url().endsWith('/api/preventivi') && r.request().method() === 'POST'),
+        page.getByRole('button', { name: 'Salva bozza' }).click(),
+      ])
+      const preventivoSalvato = await rispostaSalvataggio.json()
+      const risultato: RisultatoCalcolo = JSON.parse(preventivoSalvato.revisioni[0].risultatoCalcolo)
+
+      expect(formattaImportoItaliano(risultato.listinoTotale)).toBe(caso.listinoTotale)
+      expect(formattaImportoItaliano(risultato.totaleNetto)).toBe(caso.totaleCalcolato)
+      const vocesolaio = risultato.vociValorizzate.find((v) => v.id === 'solaio-interpiano')
+      if (caso.listinoContieneSolaioInterpiano) {
+        expect(vocesolaio).toBeDefined()
+      } else {
+        expect(vocesolaio).toBeUndefined()
+      }
+    })
+  })
+}

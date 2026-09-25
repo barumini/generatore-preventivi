@@ -31,6 +31,16 @@ export default function Home() {
               Carica il file dei conteggi invece di descrivere il progetto
             </span>
           </Link>
+          <Link
+            href="/preventivi/nuovo-v3"
+            className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
+          >
+            <span className="text-lg font-semibold text-text">Nuovo preventivo (da computo metrico)</span>
+            <span className="text-sm text-text-secondary">
+              Chat di apertura come nel wizard classico, con gli importi delle voci
+              ricavati dal computo Primus invece che dalla geometria
+            </span>
+          </Link>
         </div>
       </section>
 

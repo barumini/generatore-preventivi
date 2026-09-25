@@ -47,6 +47,23 @@ export function risolviArrotondamento(
   return arrotondaCentesimi(parzialeSenzaArrotondamento - parzialeRichiesto)
 }
 
+/**
+ * Passo di default per il totale commerciale calcolato: 5 000 €. È la regola che riproduce
+ * entrambi i golden case senza digitare il totale — Crivellaro 301 070 → 300 000 (arr. 1 070),
+ * Da Croce 256 793,76 → 255 000 (e 257 184 → 255 000 col listino dell'offerta rev.02).
+ */
+export const PASSO_ARROTONDAMENTO_DEFAULT = 5000
+
+/**
+ * Arrotonda per difetto al multiplo di `passo`: il cliente non vede mai il prezzo salire per
+ * effetto dell'arrotondamento. Passo non positivo = nessun arrotondamento.
+ */
+export function totaleArrotondatoPerDifetto(totaleNaturale: number, passo: number): number {
+  if (!(passo > 0)) return totaleNaturale
+  // tolleranza sui centesimi: un totale già tondo (255 000,00) non deve scendere di un passo
+  return Math.floor(arrotondaCentesimi(totaleNaturale) / passo + 1e-9) * passo
+}
+
 export function sogliaArrotondamentoSuperata(arrotondamento: number, listinoTotale: number, sogliaPercentuale = 0.02): boolean {
   return Math.abs(arrotondamento) / listinoTotale > sogliaPercentuale
 }
@@ -76,7 +93,9 @@ export interface InputCalcolo {
   overrides: Record<string, number | 'comprese' | 'escluso' | 'escluse' | 'OMAGGIO'>
   sconti: ParametriSconto[]
   sicurezza: Sicurezza
-  arrotondamento: number | { risolviPerTotale: number }
+  // number = arrotondamento digitato; risolviPerTotale = totale target digitato;
+  // arrotondaTotalePerDifettoA = totale calcolato (totale senza arrotondamento, per difetto al passo).
+  arrotondamento: number | { risolviPerTotale: number } | { arrotondaTotalePerDifettoA: number }
   // Valori per interpolare i placeholder {{chiave}} nelle descrizioni voce (src/domain/voci.ts,
   // id pareti-mhm/copertura-falda/cappotto). Assente o senza una chiave = quel token resta
   // {{...}} nella descrizione finale, e il guardrail export lo blocca — vedi interpolaPlaceholder.
@@ -214,12 +233,22 @@ export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
   const listinoTotale = sommaNumerica(vociGrezzo)
   const sommaVociPostSconto = sommaNumerica(vociPostSconto) + (typeof input.sicurezza.valorizzata === 'number' ? input.sicurezza.valorizzata : 0)
 
-  const arrotondamento =
-    typeof input.arrotondamento === 'number'
-      ? input.arrotondamento
-      : risolviArrotondamento(listinoTotale, input.sconti, input.arrotondamento.risolviPerTotale, sommaVociPostSconto)
-
   const sconti = applicaScontiACascata(listinoTotale, input.sconti)
+
+  let arrotondamento: number
+  if (typeof input.arrotondamento === 'number') {
+    arrotondamento = input.arrotondamento
+  } else {
+    const totaleTarget =
+      'risolviPerTotale' in input.arrotondamento
+        ? input.arrotondamento.risolviPerTotale
+        : totaleArrotondatoPerDifetto(
+            calcolaParziale(listinoTotale, sconti, 0) + sommaVociPostSconto,
+            input.arrotondamento.arrotondaTotalePerDifettoA,
+          )
+    arrotondamento = risolviArrotondamento(listinoTotale, input.sconti, totaleTarget, sommaVociPostSconto)
+  }
+
   const parziale = calcolaParziale(listinoTotale, sconti, arrotondamento)
   const totaleNetto = arrotondaCentesimi(parziale + sommaVociPostSconto)
 

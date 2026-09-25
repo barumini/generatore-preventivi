@@ -41,11 +41,9 @@ export function ChatApertura({ onEstrazioneCompletata }: Props) {
       }
       const campi = (await risposta.json()) as CampiEstratti
       onEstrazioneCompletata(statoFormDaCampiEstratti(campi))
-      // Il prompt chiede al modello di non elencare "luogo" tra i campiMancanti perché
-      // si deduce dal comune (mappatura-estrazione.ts): un modello che non rispetta
-      // l'istruzione non deve comunque far ripetere all'utente un dato già risolto.
-      const mancantiVisibili = campi.campiMancanti.filter((campo) => campo !== 'luogo')
-      setMessaggi([...cronologia, { ruolo: 'assistente', testo: messaggioAssistente(mancantiVisibili) }])
+      // campiMancanti sono id calcolati in codice: messaggioAssistente li traduce in
+      // etichette leggibili e non chiede mai il luogo (si deduce dal comune).
+      setMessaggi([...cronologia, { ruolo: 'assistente', testo: messaggioAssistente(campi.campiMancanti) }])
     } catch (e) {
       const testoErrore = e instanceof Error ? e.message : 'Errore imprevisto'
       setMessaggi([...cronologia, { ruolo: 'assistente', testo: testoErrore, errore: true }])

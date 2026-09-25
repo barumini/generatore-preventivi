@@ -40,6 +40,7 @@ npm test -- src/documento/export-docx.test.ts
 
 # Primo sistema — estrazione AI e mappatura di pareti/falde/travi/serramenti (chat "Apertura rapida")
 npm test -- src/ai/estrazione.test.ts
+npm test -- src/ai/normalizzazione-estrazione.test.ts
 npm test -- src/app/preventivi/nuovo/mappatura-estrazione.test.ts
 
 # Secondo sistema — parsing del foglio Excel
@@ -52,7 +53,7 @@ successiva. `estrazione.test.ts` e `mappatura-estrazione.test.ts` coprono in par
 round-trip di pareti/falde/travi/serramenti (testo libero → `CampiEstratti` → `StatoForm`)
 con gli stessi valori usati nell'esempio manuale del §3.1.
 
-Suite completa: 26 file, 235 test, tutti verdi (`npm test`, verificato 2026-08-31).
+Suite completa: 44 file, 592 test, tutti verdi (`npm test`, verificato 2026-09-24).
 
 ---
 
@@ -84,14 +85,18 @@ Poi apri `http://localhost:3000/preventivi/nuovo`.
 
 Prima di compilare i campi a mano, puoi usare il riquadro "Apertura rapida" in cima alla
 pagina: invia un testo libero e `POST /api/estrazione` lo trasforma nei campi dello
-`StatoForm` tramite un modello locale (schema e prompt di sistema in
-[`src/ai/estrazione.ts`](../src/ai/estrazione.ts)).
+`StatoForm` tramite un modello linguistico via OpenRouter. Schema, prompt ed esempi
+sono in [`src/ai/estrazione.ts`](../src/ai/estrazione.ts); lo strato deterministico che
+controlla e normalizza la risposta è in
+[`src/ai/normalizzazione-estrazione.ts`](../src/ai/normalizzazione-estrazione.ts). Come è stato
+scelto il sistema: [`valutazione-modelli-estrazione.md`](valutazione-modelli-estrazione.md).
 
-**Prerequisito**: LM Studio in esecuzione in locale con il server attivo (Impostazioni >
-Local Server > Start Server) e la variabile d'ambiente `LM_STUDIO_MODEL` impostata al nome
-esatto del modello caricato (`LM_STUDIO_BASE_URL` opzionale, default
-`http://localhost:1234/v1`). Senza queste due condizioni la chiamata fallisce con un errore
-leggibile invece di bloccarsi in silenzio.
+**Prerequisito**: `OPENROUTER_API_KEY` impostata in `.env.local`. I modelli di default sono
+`openai/gpt-6-luna`, con riserva `qwen/qwen3.8-flash`, a ragionamento spento; per cambiarli si
+usano `OPENROUTER_MODEL` (elenco separato da virgole) e `OPENROUTER_REASONING=on` (vedi
+[`.env.example`](../.env.example)). Se manca la chiave, o se OpenRouter non risponde entro 60 s, la
+chiamata fallisce con un errore leggibile (`Estrazione fallita: …`) invece di bloccarsi in
+silenzio.
 
 L'estrazione copre questi campi dello `StatoForm` (schema `CampiEstratti`):
 cliente (nome/comune/provincia), protocollo, progettista, luogo, superfici per piano,
@@ -124,15 +129,17 @@ Verifica dopo l'invio:
   il piano resta non riconosciuto e va corretto a mano)
 - il pacchetto "grezzo avanzato" imposta `livelli` = struttura completo, involucro
   completo, finiture impoverito (vedi `livelliDaPacchetto`)
-- il messaggio dell'assistente non elenca campi mancanti (a parte eventualmente `luogo`,
-  che va comunque ignorato: si deduce dal comune anche se il modello lo segnala)
+- il messaggio dell'assistente non elenca campi mancanti. L'elenco non viene dal modello: lo
+  calcola il codice dai campi rimasti vuoti, più i piani non riconosciuti. `luogo` non
+  compare mai, perché si deduce dal comune.
 
 Per testare il percorso "campo mancante", rimuovi una frase (es. togli "Protocollo
-2026059") e verifica che l'assistente segnali `protocollo` tra i campi da completare a
+2026059") e verifica che l'assistente segnali il protocollo tra i campi da completare a
 mano, senza inventare un valore (vincolo CLAUDE.md §7 — l'AI non decide mai importi né
-inventa dati non dichiarati).
+inventa dati non dichiarati). Un protocollo che non compare nel testo viene comunque
+scartato dal codice.
 
-Per testare pareti/copertura via chat (verificato con un modello reale su LM Studio),
+Per testare pareti/copertura via chat (verificato con un modello reale),
 aggiungi ad esempio: *"Ha una parete esterna di base 12,5 m, altezza 2,7 m, spessore
 20 mm. La copertura ha una falda con notazione 5,8x16,5 x17,1."* — atteso: una riga in
 "Pareti" con tipo Esterna/12.5/2.7/20, e una riga in "Copertura" con la notazione
@@ -163,7 +170,8 @@ supera il 2% del Listino"), e sono la causa più comune di totali sbagliati:
       default è deselezionata)
 - [ ] Step 4 Prezzi → tutti e **11 gli override** digitati, nessun campo lasciato vuoto
       (vuoto = il motore usa il valore proposto dal listino, non quello del golden case)
-- [ ] Step 4 Prezzi → **Totale target** = `300000` (di default è `0`)
+- [ ] Step 4 Prezzi → spunta **"Imposta il totale a mano"** e **Totale target** = `300000`
+      (senza spunta il totale è calcolato ed effettivo, non 300 000)
 - [ ] Step 5 Condizioni → **2 righe di sconto** aggiunte (di default la lista è vuota)
 
 **1. Anagrafica**
@@ -276,6 +284,7 @@ Poi imposta:
 
 | Campo | Valore |
 |---|---|
+| Imposta il totale a mano | spuntato |
 | Totale target | 300000 |
 | Sicurezza | costo dichiarato 2000, valorizzata `OMAGGIO` |
 
@@ -297,10 +306,25 @@ manuale in browser):
    non pesa
 6. `TOTALE AL NETTO` = **300 000,00 €**
 
-Se salti lo step Prezzi (nessun override, totale target a 0), osserverai invece: Listino
-≈ 237 031,75 € (proposto dal listino, non tondo), un arrotondamento enorme e negativo che
-cerca comunque di risolvere verso il totale target di 0, un `PARZIALE` negativo e un
-`TOTALE AL NETTO` di 0,00 € — sintomo diretto dello step 4 saltato.
+Se salti lo step Prezzi (nessun override, nessun totale a mano) il motore usa i valori proposti
+dal listino parametrico e il totale **effettivo**, senza arrotondamento (verificato con
+`eseguiCalcolo` sugli stessi dati, sconti 10% + 10% dello step 5):
+
+| Riga | Valore |
+|---|---:|
+| `Listino 2026` | 237 031,75 € |
+| `SCONTO RISERVATO: 10% sconto cliente` | − 23 703,18 € |
+| `SCONTO RISERVATO: 10% per conferme…` | − 21 332,86 € |
+| `Arrotondamento` | − 0,00 € |
+| `PARZIALE AL GREZZO AVANZATO` | 191 995,71 € |
+| `Stima opere chiavi in mano` · `Garage` | 89 033,00 € · 20 008,00 € |
+| `TOTALE AL NETTO` | **301 036,71 €** |
+
+Nessun errore: sono i valori proposti, non quelli digitati del golden case. Con la spunta
+**"Arrotonda il totale per difetto"** (passo 5 000 €) il totale scende a 300 000,00 €, con
+Arrotondamento − 1 036,71 € e PARZIALE 190 959,00 € — quindi un `TOTALE AL NETTO` di 300 000 non
+basta a dire che lo step 4 è stato compilato: controlla Listino (237 000,00) e PARZIALE
+(190 900,00).
 
 Se generi il documento Word, verifica che contenga `Crivellaro Mariano` e `300 000,00`
 (vedi asserzioni in

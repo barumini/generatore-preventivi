@@ -18,10 +18,45 @@ describe('testoCumulativo', () => {
 })
 
 describe('messaggioAssistente', () => {
-  it('elenca i campi mancanti separati da virgola quando ce ne sono', () => {
-    expect(messaggioAssistente(['progettista', 'comune'])).toBe(
-      'Ho capito quasi tutto — mi manca ancora: progettista, comune.',
+  it('elenca i campi mancanti con etichette leggibili, nell\'ordine ricevuto', () => {
+    expect(messaggioAssistente(['cliente.comune', 'progettista', 'tipoCopertura', 'spessoreCappotto'])).toBe(
+      'Ho capito quasi tutto — mi manca ancora: comune, progettista, tipo di copertura, spessore cappotto.',
     )
+  })
+
+  it('ha un\'etichetta leggibile per ogni campo che l\'estrazione può segnalare', () => {
+    const tutti = [
+      'cliente.nome',
+      'cliente.comune',
+      'cliente.provincia',
+      'protocollo',
+      'progettista',
+      'tipoCopertura',
+      'finituraEsterna',
+      'pacchetto',
+      'spessoreEsterno',
+      'spessoreInterno',
+      'spessoreCoibente',
+      'spessoreCappotto',
+      'superfici',
+    ]
+
+    expect(messaggioAssistente(tutti)).toBe(
+      'Ho capito quasi tutto — mi manca ancora: nome del cliente, comune, provincia, protocollo, progettista, ' +
+        'tipo di copertura, finitura esterna, pacchetto, spessore esterno, spessore interno, spessore coibente, ' +
+        'spessore cappotto, superfici dei piani.',
+    )
+  })
+
+  it('tratta un id non riconosciuto come un piano da correggere', () => {
+    expect(messaggioAssistente(['protocollo', 'Cantina'])).toBe(
+      'Ho capito quasi tutto — mi manca ancora: protocollo, piano "Cantina" da correggere.',
+    )
+  })
+
+  it('non chiede mai il luogo: si deduce dal comune del cliente', () => {
+    expect(messaggioAssistente(['luogo', 'protocollo'])).toBe('Ho capito quasi tutto — mi manca ancora: protocollo.')
+    expect(messaggioAssistente(['luogo'])).toBe('Perfetto, ho tutto quello che serve.')
   })
 
   it('conferma il completamento quando non manca nulla', () => {

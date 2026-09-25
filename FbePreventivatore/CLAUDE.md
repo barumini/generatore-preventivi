@@ -55,7 +55,7 @@ Se questi numeri non escono, il motore è rotto. Sono test, non documentazione.
 
 ## Convenzioni
 
-- `app/domain/` è TypeScript puro: nessun import di React, Prisma o rete. È dove sta la
+- `src/domain/` è TypeScript puro: nessun import di React, Prisma o rete. È dove sta la
   logica e dove stanno i test.
 - Formato importi italiano: `96 100,00 €` (spazio per le migliaia, virgola decimale).
   Il computo Primus usa invece l'apostrofo: `260´260,99`.

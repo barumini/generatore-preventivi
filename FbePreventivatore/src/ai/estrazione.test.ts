@@ -1,151 +1,207 @@
-import { describe, expect, it } from 'vitest'
-import { estraiCampi, PROMPT_SISTEMA, type ClienteEstrazione } from './estrazione'
+import { createHash } from 'node:crypto'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
+import {
+  ClienteEstrazioneOpenRouter,
+  creaClienteEstrazione,
+  estraiCampi,
+  messaggiEstrazione,
+  messaggioUnico,
+  MODELLI_OPENROUTER_DEFAULT,
+  PROMPT_SISTEMA,
+  type ClienteEstrazione,
+  type MessaggioChat,
+} from './estrazione'
+import { CHIAVI_ATTESE, controllaForma } from './normalizzazione-estrazione'
 import { PIANI_CANONICI } from '@/domain/geometria'
 
-function clienteFinto(rispostaJson: string): ClienteEstrazione {
+const TESTO = `Preventivo per il cliente Crivellaro Mariano, comune di Trissino, provincia VI.
+Protocollo 2026059. Progettista: arch. Paolo Bianchi.
+Superfici: Piano Terra 134 mq, Portico 13+14 mq, Garage 41 mq.
+Copertura a falde, finitura esterna a intonaco. Pacchetto grezzo avanzato.
+Spessori: esterno 205 mm, interno 160 mm, coibente 200 mm, cappotto 140 mm.`
+
+const RISPOSTA = {
+  cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
+  protocollo: '2026059',
+  progettista: 'arch. Paolo Bianchi',
+  luogo: null,
+  superfici: [
+    { piano: 'Piano Terra', valoreLordo: '134' },
+    { piano: 'Portico', valoreLordo: '13+14' },
+    { piano: 'Garage', valoreLordo: '41' },
+  ],
+  tipoCopertura: 'falde',
+  finituraEsterna: 'intonaco',
+  pacchetto: 'grezzo avanzato',
+  spessoreEsterno: '205',
+  spessoreInterno: '160',
+  spessoreCoibente: '200',
+  spessoreCappotto: '140',
+  pareti: [],
+  falde: [],
+  travi: [],
+  serramenti: [],
+}
+
+// Client finto: restituisce (o lancia) le risposte in ordine e registra i messaggi ricevuti.
+function clienteFinto(...risposte: (string | Error)[]): ClienteEstrazione & { chiamate: MessaggioChat[][] } {
+  const chiamate: MessaggioChat[][] = []
   return {
-    async estrai() {
-      return rispostaJson
+    chiamate,
+    async completa(messaggi) {
+      chiamate.push(messaggi)
+      const risposta = risposte[Math.min(chiamate.length, risposte.length) - 1]
+      if (risposta instanceof Error) throw risposta
+      return risposta
     },
   }
 }
 
 describe('estraiCampi', () => {
-  it('valida e restituisce i campi quando il client risponde con JSON corretto', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
-      protocollo: '2026059',
-      superfici: [{ piano: 'Piano Terra', valoreLordo: '134' }],
-      tipoCopertura: 'falde',
-      finituraEsterna: 'intonaco',
-      pacchetto: 'grezzo avanzato',
-      campiMancanti: ['progettista', 'serramenti'],
-    })
+  afterEach(() => vi.useRealTimers())
 
-    const campi = await estraiCampi('casa per Crivellaro Mariano a Trissino...', clienteFinto(risposta))
+  it('manda prompt ed esempi e restituisce i campi normalizzati quando la risposta è corretta', async () => {
+    const cliente = clienteFinto(JSON.stringify(RISPOSTA))
+
+    const campi = await estraiCampi(TESTO, cliente)
+
+    expect(cliente.chiamate).toEqual([messaggiEstrazione(TESTO)])
+    expect(campi.cliente).toEqual({ nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' })
+    expect(campi.protocollo).toBe('2026059')
+    expect(campi.superfici).toEqual(RISPOSTA.superfici)
+    expect(campi.spessoreCappotto).toBe('140')
+    expect(campi.serramenti).toBeUndefined()
+    expect(campi.campiMancanti).toEqual([])
+  })
+
+  it('applica lo strato deterministico: niente valori senza riscontro, mancanti calcolati in codice', async () => {
+    const risposta = { ...RISPOSTA, protocollo: '2026060', progettista: null, campiMancanti: ['luogo'] }
+
+    const campi = await estraiCampi(TESTO, clienteFinto(JSON.stringify(risposta)))
+
+    expect(campi.protocollo).toBeUndefined()
+    expect(campi.campiMancanti).toEqual(['protocollo', 'progettista'])
+  })
+
+  it('tollera le recinzioni markdown attorno al JSON', async () => {
+    const campi = await estraiCampi(TESTO, clienteFinto('```json\n' + JSON.stringify(RISPOSTA) + '\n```'))
 
     expect(campi.cliente.nome).toBe('Crivellaro Mariano')
-    expect(campi.protocollo).toBe('2026059')
-    expect(campi.superfici).toEqual([{ piano: 'Piano Terra', valoreLordo: '134' }])
-    expect(campi.campiMancanti).toContain('progettista')
   })
 
-  it('accetta progettista e luogo quando presenti nella risposta', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Rossi' },
-      superfici: [],
-      progettista: 'Mario Rossi',
-      luogo: 'Bassano del Grappa',
-      campiMancanti: [],
+  it('dopo una risposta con la forma sbagliata riprova con il messaggio unico autosufficiente', async () => {
+    const cliente = clienteFinto(JSON.stringify({ ...RISPOSTA, cliente: 'Crivellaro Mariano' }), JSON.stringify(RISPOSTA))
+
+    const campi = await estraiCampi(TESTO, cliente)
+
+    expect(campi.cliente.nome).toBe('Crivellaro Mariano')
+    expect(cliente.chiamate).toHaveLength(2)
+    expect(cliente.chiamate[1]).toEqual(
+      messaggioUnico(TESTO, '"cliente" deve essere un oggetto {"nome","comune","provincia"}'),
+    )
+  })
+
+  it('riprova se il nome del cliente non compare nel testo (il modello ha risposto ad altro)', async () => {
+    const esempioRipetuto = JSON.parse(messaggiEstrazione('')[2].content)
+    const cliente = clienteFinto(JSON.stringify(esempioRipetuto), JSON.stringify(RISPOSTA))
+
+    const campi = await estraiCampi(TESTO, cliente)
+
+    expect(campi.cliente.nome).toBe('Crivellaro Mariano')
+    expect(cliente.chiamate[1][0].content).toContain('il cliente "Zanella Giorgia" non compare nel testo')
+  })
+
+  it('dopo due tentativi falliti lancia un errore leggibile con il motivo dell\'ultimo', async () => {
+    const cliente = clienteFinto('non è json')
+
+    await expect(estraiCampi(TESTO, cliente)).rejects.toThrow('Estrazione fallita: risposta non JSON: non è json')
+    expect(cliente.chiamate).toHaveLength(2)
+  })
+
+  it('dopo un errore di rete ripete la stessa richiesta, dopo una breve pausa', async () => {
+    vi.useFakeTimers()
+    const cliente = clienteFinto(new Error('Estrazione fallita: OpenRouter ha risposto 503 — occupato'), JSON.stringify(RISPOSTA))
+
+    const promessa = estraiCampi(TESTO, cliente)
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(cliente.chiamate).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(cliente.chiamate).toHaveLength(2)
+    const campi = await promessa
+
+    expect(campi.cliente.nome).toBe('Crivellaro Mariano')
+    expect(cliente.chiamate).toEqual([messaggiEstrazione(TESTO), messaggiEstrazione(TESTO)])
+  })
+
+  it('dopo due errori di rete propaga il messaggio del client, senza ripetere il prefisso', async () => {
+    vi.useFakeTimers()
+    const cliente = clienteFinto(new Error('Estrazione fallita: OpenRouter ha risposto 402 — credito esaurito'))
+
+    const attesa = expect(estraiCampi(TESTO, cliente)).rejects.toThrow(
+      /^Estrazione fallita: OpenRouter ha risposto 402 — credito esaurito$/,
+    )
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(cliente.chiamate).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await attesa
+    expect(cliente.chiamate).toHaveLength(2)
+  })
+
+  it('non riprova dopo il timeout: propaga subito il messaggio leggibile', async () => {
+    const timeout = new Error('Estrazione fallita: OpenRouter non ha risposto entro 60 secondi — riprova tra qualche istante', {
+      cause: new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
     })
+    const cliente = clienteFinto(timeout, JSON.stringify(RISPOSTA))
 
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
+    await expect(estraiCampi(TESTO, cliente)).rejects.toThrow(/^Estrazione fallita: OpenRouter non ha risposto entro 60 secondi/)
+    expect(cliente.chiamate).toHaveLength(1)
+  })
+})
 
-    expect(campi.progettista).toBe('Mario Rossi')
-    expect(campi.luogo).toBe('Bassano del Grappa')
+describe('messaggi al modello', () => {
+  // Fedeltà al sistema misurato: gli hash sono calcolati su sistema-v2 (json-libero-esempi,
+  // PREFISSO_UNICO=0), valutato su ~150 estrazioni per modello. Se un hash cambia, il
+  // prompt o gli esempi non sono più quelli misurati: prima di aggiornarlo va rifatta la misura.
+  it('usa byte per byte prompt, esempi e messaggio unico del sistema misurato', () => {
+    const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+
+    expect(sha256(PROMPT_SISTEMA)).toBe('91262fb66992d1ad912600858b82b05feee9564bb702b6758100f8395cbbfbf5')
+    expect(sha256(JSON.stringify(messaggiEstrazione('')))).toBe(
+      'f54e053f6c1712dad331055a9edd2ebaea4d612eed303674c2b05fb03cee457b',
+    )
+    expect(sha256(JSON.stringify(messaggioUnico('', '')))).toBe(
+      'f9686334d1f1fbe9ecb6c1c16264e57f9d4319d76da1f486ee9005af9df9bf2f',
+    )
   })
 
-  it('accetta una risposta senza progettista né luogo (entrambi opzionali)', async () => {
-    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
+  it('mette gli esempi few-shot come turni di chat prima del testo dell\'operatore', () => {
+    const messaggi = messaggiEstrazione('casa per Rossi')
 
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.progettista).toBeUndefined()
-    expect(campi.luogo).toBeUndefined()
+    expect(messaggi.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user', 'assistant', 'user'])
+    expect(messaggi[0].content).toBe(PROMPT_SISTEMA)
+    expect(messaggi.at(-1)).toEqual({ role: 'user', content: 'casa per Rossi' })
   })
 
-  it('lancia un errore leggibile se il client risponde con JSON malformato', async () => {
-    await expect(estraiCampi('testo qualsiasi', clienteFinto('non è json'))).rejects.toThrow(/estrazione/i)
+  it('usa esempi che hanno la forma chiesta dal prompt (tutte le chiavi presenti)', () => {
+    const [, , primo, , secondo] = messaggiEstrazione('')
+
+    for (const esempio of [primo, secondo]) {
+      const oggetto = JSON.parse(esempio.content)
+      expect(Object.keys(oggetto)).toEqual([...CHIAVI_ATTESE])
+      expect(() => controllaForma(oggetto)).not.toThrow()
+    }
   })
 
-  it('lancia un errore se manca un campo obbligatorio nella risposta', async () => {
-    // cliente.nome è l'unico campo davvero obbligatorio dello schema: qui è assente.
-    const rispostaIncompleta = JSON.stringify({ cliente: { comune: 'Trissino' } })
-    await expect(estraiCampi('testo qualsiasi', clienteFinto(rispostaIncompleta))).rejects.toThrow()
-  })
+  it('compone il messaggio unico con istruzioni, esempi, motivo e testo in un solo turno', () => {
+    const [messaggio, ...altri] = messaggioUnico('casa per Rossi', 'x'.repeat(300))
 
-  it('accetta pareti, falde e travi quando presenti nella risposta', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Rossi' },
-      superfici: [],
-      pareti: [{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }],
-      falde: [{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }],
-      travi: [{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }],
-      campiMancanti: [],
-    })
-
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.pareti).toEqual([{ n: 1, tipo: 'E', b: 12.5, h: 2.7, spessore: 20 }])
-    expect(campi.falde).toEqual([{ etichetta: 'Una falda', notazione: '5,8x16,5 x17,1' }])
-    expect(campi.travi).toEqual([{ etichetta: 'Colmo', notazione: '16,5x0,2x0,32' }])
-  })
-
-  it('accetta una risposta senza pareti/falde/travi (tutti opzionali)', async () => {
-    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
-
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.pareti).toBeUndefined()
-    expect(campi.falde).toBeUndefined()
-    expect(campi.travi).toBeUndefined()
-  })
-
-  it('accetta serramenti quando presenti nella risposta', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Rossi' },
-      superfici: [],
-      serramenti: [
-        { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
-        { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
-      ],
-      campiMancanti: [],
-    })
-
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.serramenti).toEqual([
-      { n: 1, piano: 'PT', tipologia: 'porta di ingresso', categoria: 'portoncino', b: 1.0, h: 2.2 },
-      { n: 2, piano: 'PT', tipologia: 'finestra', categoria: 'finestra-battente', b: 2.0, h: 1.8 },
-    ])
-  })
-
-  it('accetta una risposta senza serramenti (opzionale)', async () => {
-    const risposta = JSON.stringify({ cliente: { nome: 'Rossi' }, superfici: [], campiMancanti: [] })
-
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.serramenti).toBeUndefined()
-  })
-
-  it('rifiuta un serramento con categoria non tra quelle ammesse', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Rossi' },
-      superfici: [],
-      serramenti: [{ n: 1, piano: 'PT', tipologia: 'oblò', categoria: 'oblo-rotondo', b: 0.5, h: 0.5 }],
-      campiMancanti: [],
-    })
-
-    await expect(estraiCampi('testo qualsiasi', clienteFinto(risposta))).rejects.toThrow()
-  })
-
-  it('accetta gli spessori come testo libero, anche composito', async () => {
-    const risposta = JSON.stringify({
-      cliente: { nome: 'Rossi' },
-      superfici: [],
-      spessoreEsterno: '205-160',
-      spessoreInterno: '160',
-      spessoreCoibente: '200',
-      spessoreCappotto: '60+40',
-      campiMancanti: [],
-    })
-
-    const campi = await estraiCampi('testo qualsiasi', clienteFinto(risposta))
-
-    expect(campi.spessoreEsterno).toBe('205-160')
-    expect(campi.spessoreInterno).toBe('160')
-    expect(campi.spessoreCoibente).toBe('200')
-    expect(campi.spessoreCappotto).toBe('60+40')
+    expect(altri).toEqual([])
+    expect(messaggio.role).toBe('user')
+    expect(messaggio.content.startsWith(PROMPT_SISTEMA)).toBe(true)
+    expect(messaggio.content).toContain('ESEMPIO 1')
+    expect(messaggio.content).toContain('ESEMPIO 2')
+    expect(messaggio.content).toContain(`(${'x'.repeat(200)}): usa esattamente le chiavi indicate.`)
+    expect(messaggio.content.endsWith('Testo:\ncasa per Rossi\nJSON:')).toBe(true)
   })
 })
 
@@ -157,62 +213,152 @@ describe('PROMPT_SISTEMA', () => {
   })
 
   it('istruisce a non scartare un piano non riconosciuto', () => {
-    expect(PROMPT_SISTEMA).toMatch(/campiMancanti/)
+    expect(PROMPT_SISTEMA).toContain('se non corrisponde a nessuna, riporta il nome come scritto')
   })
 })
 
-// aggiunta a src/ai/estrazione.test.ts
-import { afterEach, vi } from 'vitest'
-import { ClienteEstrazioneLMStudio } from './estrazione'
+function rispostaChat(contenuto: string, extra: object = {}): Response {
+  return new Response(JSON.stringify({ choices: [{ message: { content: contenuto } }], ...extra }), { status: 200 })
+}
 
-describe('ClienteEstrazioneLMStudio', () => {
+// Una Response nuova a ogni chiamata: il corpo si legge una volta sola.
+function stubFetch(crea: () => Response): Mock<typeof fetch> {
+  const fetchFinto = vi.fn<typeof fetch>(async () => crea())
+  vi.stubGlobal('fetch', fetchFinto)
+  return fetchFinto
+}
+
+function corpoInviato(fetchFinto: Mock<typeof fetch>, chiamata = 0) {
+  return JSON.parse(fetchFinto.mock.calls[chiamata][1]?.body as string)
+}
+
+function intestazioniInviate(fetchFinto: Mock<typeof fetch>) {
+  return fetchFinto.mock.calls[0][1]?.headers as Record<string, string>
+}
+
+describe('ClienteEstrazioneOpenRouter', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
   })
 
-  it('costruisce la richiesta HTTP verso l\'endpoint di default e restituisce il testo della risposta', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'qwen2.5-7b-instruct')
-    vi.stubEnv('LM_STUDIO_BASE_URL', undefined)
-    const fetchFinto = vi.fn(async (url: string, opzioni: RequestInit) => {
-      expect(url).toBe('http://localhost:1234/v1/chat/completions')
-      const corpo = JSON.parse(opzioni.body as string)
-      expect(corpo.model).toBe('qwen2.5-7b-instruct')
-      expect(corpo.temperature).toBe(0.1)
-      expect(corpo.messages).toEqual([
-        { role: 'system', content: expect.any(String) },
-        { role: 'user', content: 'casa per Rossi a Vicenza' },
-      ])
-      return new Response(
-        JSON.stringify({ choices: [{ message: { content: '{"cliente":{"nome":"Rossi"}}' } }] }),
-        { status: 200 },
-      )
-    })
-    vi.stubGlobal('fetch', fetchFinto)
+  const MESSAGGI: MessaggioChat[] = [{ role: 'user', content: 'casa per Rossi' }]
 
-    const cliente = new ClienteEstrazioneLMStudio()
-    const risultato = await cliente.estrai('casa per Rossi a Vicenza')
+  function stubAmbiente(ambiente: Record<string, string | undefined> = {}) {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    vi.stubEnv('OPENROUTER_MODEL', undefined)
+    vi.stubEnv('OPENROUTER_REASONING', undefined)
+    for (const [nome, valore] of Object.entries(ambiente)) vi.stubEnv(nome, valore)
+  }
+
+  it('chiama OpenRouter con i modelli di ripiego, json_object e i parametri misurati', async () => {
+    stubAmbiente()
+    const fetchFinto = stubFetch(() => rispostaChat('{"cliente":{"nome":"Rossi"}}'))
+
+    const risultato = await new ClienteEstrazioneOpenRouter().completa(MESSAGGI)
 
     expect(risultato).toBe('{"cliente":{"nome":"Rossi"}}')
-    expect(fetchFinto).toHaveBeenCalledTimes(1)
-  })
-
-  it('usa LM_STUDIO_BASE_URL personalizzato quando impostato', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    vi.stubEnv('LM_STUDIO_BASE_URL', 'http://192.168.1.50:1234/v1')
-    const fetchFinto = vi.fn(async (url: string) => {
-      expect(url).toBe('http://192.168.1.50:1234/v1/chat/completions')
-      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' } }] }), { status: 200 })
+    const [url, opzioni] = fetchFinto.mock.calls[0]
+    expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(intestazioniInviate(fetchFinto).Authorization).toBe('Bearer sk-or-test')
+    expect(opzioni?.signal).toBeInstanceOf(AbortSignal)
+    expect(corpoInviato(fetchFinto)).toEqual({
+      models: ['openai/gpt-6-luna', 'qwen/qwen3.8-flash'],
+      messages: MESSAGGI,
+      temperature: 0,
+      max_tokens: 2500,
+      response_format: { type: 'json_object' },
+      reasoning: { enabled: false },
+      provider: { ignore: ['streamlake'], data_collection: 'deny' },
     })
-    vi.stubGlobal('fetch', fetchFinto)
-
-    await new ClienteEstrazioneLMStudio().estrai('testo')
-
-    expect(fetchFinto).toHaveBeenCalledTimes(1)
+    expect(corpoInviato(fetchFinto)).not.toHaveProperty('model')
+    expect(MODELLI_OPENROUTER_DEFAULT).toEqual(['openai/gpt-6-luna', 'qwen/qwen3.8-flash'])
   })
 
-  it('lancia un errore leggibile se LM Studio non è raggiungibile', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
+  it('accende il ragionamento solo con OPENROUTER_REASONING=on', async () => {
+    const fetchFinto = stubFetch(() => rispostaChat('{}'))
+
+    stubAmbiente({ OPENROUTER_REASONING: 'on' })
+    await new ClienteEstrazioneOpenRouter().completa(MESSAGGI)
+    stubAmbiente({ OPENROUTER_REASONING: 'off' })
+    await new ClienteEstrazioneOpenRouter().completa(MESSAGGI)
+
+    expect(corpoInviato(fetchFinto, 0).reasoning).toEqual({ enabled: true })
+    expect(corpoInviato(fetchFinto, 1).reasoning).toEqual({ enabled: false })
+  })
+
+  it('legge da OPENROUTER_MODEL un elenco separato da virgole, scartando le voci vuote', async () => {
+    stubAmbiente({ OPENROUTER_MODEL: ' moonshotai/kimi-k2.5 , ,deepseek/deepseek-v4-pro,' })
+    const fetchFinto = stubFetch(() => rispostaChat('{}'))
+
+    await new ClienteEstrazioneOpenRouter().completa(MESSAGGI)
+
+    expect(corpoInviato(fetchFinto).models).toEqual(['moonshotai/kimi-k2.5', 'deepseek/deepseek-v4-pro'])
+  })
+
+  it('usa le opzioni del costruttore al posto dell\'ambiente', async () => {
+    stubAmbiente({ OPENROUTER_API_KEY: undefined, OPENROUTER_MODEL: 'ignorato/modello', OPENROUTER_REASONING: 'on' })
+    const fetchFinto = stubFetch(() => rispostaChat('{}'))
+
+    await new ClienteEstrazioneOpenRouter({ chiave: 'sk-or-opzione', modelli: ['qwen/qwen3.8-flash'], ragionamento: false }).completa(MESSAGGI)
+
+    expect(intestazioniInviate(fetchFinto).Authorization).toBe('Bearer sk-or-opzione')
+    expect(corpoInviato(fetchFinto).models).toEqual(['qwen/qwen3.8-flash'])
+    expect(corpoInviato(fetchFinto).reasoning).toEqual({ enabled: false })
+  })
+
+  it('con soloFornitori fissa i fornitori e vieta il ripiego (per le valutazioni)', async () => {
+    stubAmbiente()
+    const fetchFinto = stubFetch(() => rispostaChat('{}'))
+
+    await new ClienteEstrazioneOpenRouter({ soloFornitori: ['openai'] }).completa(MESSAGGI)
+
+    expect(corpoInviato(fetchFinto).provider).toEqual({
+      ignore: ['streamlake'],
+      data_collection: 'deny',
+      only: ['openai'],
+      allow_fallbacks: false,
+    })
+  })
+
+  it('registra modello, fornitore e costo dell\'ultima risposta', async () => {
+    stubAmbiente()
+    stubFetch(() => rispostaChat('{}', { model: 'qwen/qwen3.8-flash', provider: 'Alibaba', usage: { cost: 0.0004 } }))
+    const cliente = new ClienteEstrazioneOpenRouter()
+
+    await cliente.completa(MESSAGGI)
+
+    expect(cliente.ultimaRisposta).toEqual({ modello: 'qwen/qwen3.8-flash', fornitore: 'Alibaba', costo: 0.0004 })
+  })
+
+  it('lancia un errore se OPENROUTER_API_KEY non è impostata', () => {
+    stubAmbiente({ OPENROUTER_API_KEY: undefined })
+    expect(() => new ClienteEstrazioneOpenRouter()).toThrow(/OPENROUTER_API_KEY/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter risponde con uno stato di errore', async () => {
+    stubAmbiente()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('credito esaurito', { status: 402 })))
+
+    await expect(new ClienteEstrazioneOpenRouter().completa(MESSAGGI)).rejects.toThrow(/Estrazione fallita: OpenRouter.*402/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter segnala un errore nel corpo di una risposta 200', async () => {
+    stubAmbiente()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { message: 'Provider returned error' } }))))
+
+    await expect(new ClienteEstrazioneOpenRouter().completa(MESSAGGI)).rejects.toThrow(/OpenRouter.*Provider returned error/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter risponde 200 con un corpo non-JSON', async () => {
+    stubAmbiente()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('non è json', { status: 200 })))
+
+    await expect(new ClienteEstrazioneOpenRouter().completa(MESSAGGI)).rejects.toThrow(/OpenRouter.*non-JSON/)
+  })
+
+  it('lancia un errore leggibile se OpenRouter non è raggiungibile', async () => {
+    stubAmbiente()
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -220,28 +366,77 @@ describe('ClienteEstrazioneLMStudio', () => {
       }),
     )
 
-    const cliente = new ClienteEstrazioneLMStudio()
-    await expect(cliente.estrai('testo')).rejects.toThrow(/LM Studio.*in esecuzione/)
+    await expect(new ClienteEstrazioneOpenRouter().completa(MESSAGGI)).rejects.toThrow(/OpenRouter.*connessione/)
   })
 
-  it('lancia un errore leggibile se LM Studio risponde con uno stato di errore', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-inesistente')
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('modello non trovato', { status: 404 })))
+  it('lancia un errore leggibile se OpenRouter non risponde entro il timeout', async () => {
+    stubAmbiente()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+      }),
+    )
 
-    const cliente = new ClienteEstrazioneLMStudio()
-    await expect(cliente.estrai('testo')).rejects.toThrow(/404/)
+    await expect(new ClienteEstrazioneOpenRouter().completa(MESSAGGI)).rejects.toThrow(/OpenRouter.*60 secondi/)
   })
 
-  it('lancia un errore leggibile se LM Studio risponde 200 con un corpo non-JSON', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('non è json', { status: 200 })))
+  // AbortSignal.timeout interrompe anche la lettura del corpo: le intestazioni arrivano
+  // entro il minuto, il JSON no.
+  function corpoInTimeout(status: number): Response {
+    const corpo = new ReadableStream({
+      start(controller) {
+        controller.error(new DOMException('The operation was aborted due to timeout', 'TimeoutError'))
+      },
+    })
+    return new Response(corpo, { status })
+  }
 
-    const cliente = new ClienteEstrazioneLMStudio()
-    await expect(cliente.estrai('testo')).rejects.toThrow(/Estrazione fallita/)
+  it('con estraiCampi, il timeout durante la lettura del corpo non viene ritentato', async () => {
+    stubAmbiente()
+    const fetchFinto = stubFetch(() => corpoInTimeout(200))
+
+    await expect(estraiCampi(TESTO, new ClienteEstrazioneOpenRouter())).rejects.toThrow(
+      /^Estrazione fallita: OpenRouter non ha risposto entro 60 secondi — riprova tra qualche istante$/,
+    )
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
   })
 
-  it('lancia un errore se LM_STUDIO_MODEL non è impostata', () => {
-    vi.stubEnv('LM_STUDIO_MODEL', undefined)
-    expect(() => new ClienteEstrazioneLMStudio()).toThrow(/LM_STUDIO_MODEL/)
+  it('anche con uno stato di errore, il timeout sul corpo dà il messaggio leggibile', async () => {
+    stubAmbiente()
+    stubFetch(() => corpoInTimeout(503))
+
+    const errore = await new ClienteEstrazioneOpenRouter().completa(MESSAGGI).catch((e: unknown) => e)
+
+    expect(errore).toBeInstanceOf(Error)
+    expect((errore as Error).message).toMatch(/OpenRouter non ha risposto entro 60 secondi/)
+    expect(((errore as Error).cause as DOMException).name).toBe('TimeoutError')
+  })
+
+  it('con estraiCampi, il timeout del client non viene ritentato', async () => {
+    stubAmbiente()
+    const fetchFinto = vi.fn(async () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    })
+    vi.stubGlobal('fetch', fetchFinto)
+
+    await expect(estraiCampi(TESTO, new ClienteEstrazioneOpenRouter())).rejects.toThrow(
+      /^Estrazione fallita: OpenRouter non ha risposto entro 60 secondi/,
+    )
+    expect(fetchFinto).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('creaClienteEstrazione', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('usa OpenRouter', () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
+    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneOpenRouter)
+  })
+
+  it('senza chiave OpenRouter lancia un errore leggibile', () => {
+    vi.stubEnv('OPENROUTER_API_KEY', undefined)
+    expect(() => creaClienteEstrazione()).toThrow(/OPENROUTER_API_KEY/)
   })
 })

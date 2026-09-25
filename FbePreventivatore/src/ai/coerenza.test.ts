@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { verificaCoerenza } from './coerenza'
+import { isProtocolloPlaceholder, verificaCoerenza } from './coerenza'
 import { eseguiCalcolo, type InputCalcolo } from '@/domain/calcolo'
 import { CATALOGO_VOCI } from '@/domain/voci'
 import { LISTINO_2026 } from '@/domain/listino'
@@ -128,6 +128,21 @@ describe('verificaCoerenza', () => {
     const trovato = avvisi.find((a) => a.tipo === 'riferimento-voce-inesistente')
     expect(trovato).toBeDefined()
     expect(trovato?.messaggio).toContain('9')
+  })
+})
+
+describe('isProtocolloPlaceholder', () => {
+  it('considera placeholder una stringa vuota o solo spazi', () => {
+    expect(isProtocolloPlaceholder('')).toBe(true)
+    expect(isProtocolloPlaceholder('   ')).toBe(true)
+  })
+
+  it('considera placeholder un codice bozza generato in automatico', () => {
+    expect(isProtocolloPlaceholder('BOZZA-2026-04821')).toBe(true)
+  })
+
+  it('non considera placeholder un protocollo FBE reale', () => {
+    expect(isProtocolloPlaceholder('2026059')).toBe(false)
   })
 })
 

@@ -4,7 +4,7 @@ import { costruisciInputEsportazione } from './costruisci-input-esportazione'
 import { generaAbacoPerCategoria } from '@/ai/abaco'
 import { eseguiCalcolo } from '@/domain/calcolo'
 import { inputCalcoloDaStato, type StatoForm } from '@/app/preventivi/nuovo/stato-form'
-import { CONDIZIONI_DEFAULT, type CondizioniForm } from './condizioni-default'
+import { CONDIZIONI_LEGACY_SENZA_CAMPO, type CondizioniForm } from './condizioni-default'
 import path from 'node:path'
 
 const CONDIZIONI_CRIVELLARO: CondizioniForm = {
@@ -189,27 +189,32 @@ describe('costruisciInputEsportazione — golden case Crivellaro', () => {
     expect(input.risultato.totaleNetto).toBe(300000)
   })
 
-  it('non passa consentiPlaceholderNonRisolti — il golden case Crivellaro ha placeholder di spessore non interpolati e deve bloccarsi in costruisciBufferOfferta, non essere silenziato qui', () => {
-    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
-    expect(input.consentiPlaceholderNonRisolti).toBeUndefined()
-  })
-
   // review finale piano export-docx-wizard (Finding 1): le revisioni salvate prima di questa
   // feature non hanno la chiave `condizioni` nel loro JSON persistito (deserializzaRevisione fa
-  // un JSON.parse non controllato) — costruisciCondizioni deve ricadere su CONDIZIONI_DEFAULT
-  // invece di far esplodere la destrutturazione, stesso pattern già applicato in
-  // PannelloPreview.tsx per lo stesso scenario.
-  it('non esplode se una revisione pre-esistente non ha la chiave condizioni: ricade su CONDIZIONI_DEFAULT', () => {
+  // un JSON.parse non controllato) — costruisciCondizioni deve ricadere su un valore CONGELATO
+  // (CONDIZIONI_LEGACY_SENZA_CAMPO), mai su creaCondizioniDefault(): quella è pensata per un
+  // preventivo nuovo e ricalcola "oggi + 30 giorni" a ogni chiamata, violando il vincolo
+  // CLAUDE.md #6 (una revisione già firmata deve mostrare sempre gli stessi numeri).
+  it('non esplode se una revisione pre-esistente non ha la chiave condizioni: ricade su un valore congelato, non su creaCondizioniDefault()', () => {
     const statoSenzaCondizioni: StatoForm = { ...STATO_CRIVELLARO, condizioni: undefined as unknown as CondizioniForm }
     expect(() =>
       costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO),
     ).not.toThrow()
 
     const input = costruisciInputEsportazione(statoSenzaCondizioni, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
-    expect(input.condizioni.consegna).toBe(CONDIZIONI_DEFAULT.consegna)
-    expect(input.condizioni.caparra).toBe(CONDIZIONI_DEFAULT.caparra)
-    expect(input.condizioni.validita).toBe(CONDIZIONI_DEFAULT.validita)
+    expect(input.condizioni.consegna).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.consegna)
+    expect(input.condizioni.caparra).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.caparra)
+    expect(input.condizioni.validita).toBe(CONDIZIONI_LEGACY_SENZA_CAMPO.validita)
     expect(input.condizioni.optional).toEqual([])
     expect(input.condizioni.esclusioni).toEqual([])
+  })
+
+  // review Task 17 (Finding 5): il golden case Crivellaro include pareti-mhm/cappotto/
+  // copertura-falda, le cui descrizioni portano placeholder di spessore non interpolati
+  // (nessuno spessore compilato in STATO_CRIVELLARO) — costruisciInputEsportazione non decide
+  // da sola di bypassare il guardrail di costruisciBufferOfferta, deve restare a chi esporta.
+  it('non passa consentiPlaceholderNonRisolti — deve bloccarsi in costruisciBufferOfferta, non essere silenziato qui', () => {
+    const input = costruisciInputEsportazione(STATO_CRIVELLARO, { numero: 1, protocollo: '2026059' }, CALCOLO_CRIVELLARO)
+    expect(input.consentiPlaceholderNonRisolti).toBeUndefined()
   })
 })

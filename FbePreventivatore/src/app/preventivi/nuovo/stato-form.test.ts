@@ -1,7 +1,7 @@
 // src/app/preventivi/nuovo/stato-form.test.ts
 import { describe, expect, it } from 'vitest'
 import { inputCalcoloDaStato, livelliDaPacchetto, pacchettoDaLivelli, type StatoForm } from './stato-form'
-import { CONDIZIONI_DEFAULT } from '@/documento/condizioni-default'
+import { creaCondizioniDefault } from '@/documento/condizioni-default'
 
 const STATO_CRIVELLARO: StatoForm = {
   cliente: { nome: 'Crivellaro Mariano', comune: 'Trissino', provincia: 'VI' },
@@ -33,7 +33,7 @@ const STATO_CRIVELLARO: StatoForm = {
     spessoreCoibente: '',
     spessoreCappotto: '',
   },
-  condizioni: CONDIZIONI_DEFAULT,
+  condizioni: creaCondizioniDefault(),
 }
 
 describe('inputCalcoloDaStato', () => {
@@ -58,9 +58,44 @@ describe('inputCalcoloDaStato', () => {
     expect(input.configurazione.chiaviInManoNelTotale).toBe(true)
   })
 
-  it('imposta arrotondamento come risoluzione sul totale target', () => {
-    const input = inputCalcoloDaStato(STATO_CRIVELLARO)
+  it('imposta arrotondamento come risoluzione sul totale target quando il totale è manuale', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: true })
     expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('bozze salvate prima del flag: un totaleTarget > 0 resta manuale', () => {
+    const input = inputCalcoloDaStato(STATO_CRIVELLARO) // totaleManuale assente
+    expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('senza totale manuale calcola il totale arrotondando per difetto ai 5 000 €', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('senza flag e con totaleTarget a 0 calcola il totale (default)', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleTarget: 0 })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('senza spunta di arrotondamento il totale resta quello effettivo (arrotondamento 0)', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, arrotondaTotale: false })
+    expect(input.arrotondamento).toBe(0)
+  })
+
+  it('con la spunta di arrotondamento calcola il totale per difetto al passo', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, arrotondaTotale: true })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 5000 })
+  })
+
+  it('il totale manuale ha la precedenza sulla spunta di arrotondamento', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: true, arrotondaTotale: false })
+    expect(input.arrotondamento).toEqual({ risolviPerTotale: 300000 })
+  })
+
+  it('usa il passo di arrotondamento scelto nel form', () => {
+    const input = inputCalcoloDaStato({ ...STATO_CRIVELLARO, totaleManuale: false, passoArrotondamento: 1000 })
+    expect(input.arrotondamento).toEqual({ arrotondaTotalePerDifettoA: 1000 })
   })
 
   it('usa la somma calcolata delle superfici come proposta di default per superficiLordeTotale', () => {

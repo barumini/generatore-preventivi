@@ -6,7 +6,7 @@ import { pacchettoDaLivelli, type StatoForm } from '@/app/preventivi/nuovo/stato
 import { suggerisciTotaleLordoTesto } from '@/domain/geometria'
 import { formattaDataItaliana } from './formatta-data-italiana'
 import type { InputEsportazione, SuperficiOfferta, CondizioniOfferta, VoceOpzionale } from './export-docx'
-import { CONDIZIONI_DEFAULT, type VoceEsclusioneForm, type VoceOptionalForm } from './condizioni-default'
+import { CONDIZIONI_LEGACY_SENZA_CAMPO, type VoceEsclusioneForm, type VoceOptionalForm } from './condizioni-default'
 
 const NUMERO_SAL_PRIMI = 3
 
@@ -41,9 +41,10 @@ function costruisciSuperfici(stato: StatoForm): SuperficiOfferta {
 function costruisciCondizioni(stato: StatoForm): CondizioniOfferta {
   // Le revisioni salvate prima di questa feature non hanno la chiave `condizioni` nel loro
   // JSON: CLAUDE.md vincolo 6 impone che restino apribili con gli stessi numeri firmati, quindi
-  // qui serve un fallback esplicito (stesso pattern di PannelloPreview.tsx, che affronta lo
-  // stesso scenario per la preview).
-  const condizioni = stato.condizioni ?? CONDIZIONI_DEFAULT
+  // qui serve un fallback esplicito e CONGELATO (stesso pattern di PannelloPreview.tsx, che
+  // affronta lo stesso scenario per la preview) — non creaCondizioniDefault(), pensata per un
+  // preventivo nuovo e non stabile fra due chiamate (validità = oggi + 30 giorni).
+  const condizioni = stato.condizioni ?? CONDIZIONI_LEGACY_SENZA_CAMPO
   const { sal, optional, esclusioni, consegna, caparra, validita } = condizioni
   return {
     consegna,

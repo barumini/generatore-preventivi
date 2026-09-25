@@ -92,10 +92,14 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
       {computo && integrita && (
         <div className="mt-6">
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Dato etichetta="File" valore={nomeFile ?? '—'} />
-            <Dato etichetta="Voci lette" valore={String(computo.voci.length)} />
-            <Dato etichetta="Categorie" valore={String(Object.keys(computo.riepilogo).length)} />
-            <Dato etichetta="Totale computo" valore={formattaEuro(computo.totale)} />
+            <Dato etichetta="File" valore={nomeFile ?? '—'} testId="computo-file" />
+            <Dato etichetta="Voci lette" valore={String(computo.voci.length)} testId="computo-voci-lette" />
+            <Dato
+              etichetta="Categorie"
+              valore={String(Object.keys(computo.riepilogo).length)}
+              testId="computo-categorie"
+            />
+            <Dato etichetta="Totale computo" valore={formattaEuro(computo.totale)} testId="computo-totale" />
           </dl>
 
           {integrita.coerente ? (
@@ -151,9 +155,9 @@ export function CaricamentoComputo({ computo, onComputo, nomeFile }: Props) {
   )
 }
 
-function Dato({ etichetta, valore }: { etichetta: string; valore: string }) {
+function Dato({ etichetta, valore, testId }: { etichetta: string; valore: string; testId?: string }) {
   return (
-    <div>
+    <div data-testid={testId}>
       <dt className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">{etichetta}</dt>
       {/* title: il testo può troncare (es. un nome file lungo), il valore intero resta leggibile all'hover. */}
       <dd className="mt-1 truncate text-sm font-semibold text-text" title={valore}>

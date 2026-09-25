@@ -35,7 +35,6 @@ const COL_PARETI = { N: 2, TIPO: 3, B: 4, H: 5, SP: 6 } as const
 const COL_FALDE = { N: 2, ETICHETTA: 3, NOTAZIONE: 5 } as const
 const COL_TRAVI = { ETICHETTA: 2, NOTAZIONE: 5 } as const
 const COL_COPERTURA_TOTALE_LORDA = 11
-const COL_COPERTURA_TOTALE_NETTA = 16
 
 function testoCella(cella: Cella): string {
   if (cella === null || cella === undefined) return ''

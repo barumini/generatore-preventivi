@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
-import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo, type VoceValorizzata } from '@/domain/calcolo'
+import { rilevaPlaceholderSpessoreNonInterpolati, type RisultatoCalcolo } from '@/domain/calcolo'
 import type { AbacoPerCategoria } from '@/ai/abaco'
 import { formattaImportoItaliano } from './preview/formattazione'
 import { righeVoci, segnoArrotondamento, formattaPercentuale } from './tabella-prezzi'
@@ -131,11 +131,12 @@ export function costruisciBufferOfferta(input: InputEsportazione): Buffer {
   const arrotondamentoTesto = `${segno} ${formattaImportoItaliano(Math.abs(input.risultato.arrotondamento))}`
 
   // review finale piano export-docx-wizard (Finding 3): consegna/validità vuote e caparra a 0
-  // sono legittime come stato iniziale del wizard (CONDIZIONI_DEFAULT), ma un export con questi
-  // campi ancora così produce un documento firmabile con dati mancanti o — peggio, per la
-  // caparra — un "€ 0,00" plausibile ma sbagliato (formattaNumeroItaliano(0) = "0,00", il master
-  // ha già "€ " davanti al tag). Stessa filosofia degli altri guardrail di questo file: si
-  // rifiuta l'export invece di produrlo silenziosamente incompleto.
+  // sono legittime come fallback per una revisione legacy senza condizioni salvate
+  // (CONDIZIONI_LEGACY_SENZA_CAMPO in condizioni-default.ts), ma un export con questi campi
+  // ancora così produce un documento firmabile con dati mancanti o — peggio, per la caparra —
+  // un "€ 0,00" plausibile ma sbagliato (formattaNumeroItaliano(0) = "0,00", il master ha già
+  // "€ " davanti al tag). Stessa filosofia degli altri guardrail di questo file: si rifiuta
+  // l'export invece di produrlo silenziosamente incompleto.
   if (input.condizioni.consegna.trim() === '') {
     throw new Error('esportaOfferta: campo "consegna" mancante — obbligatorio per un documento firmabile dal cliente.')
   }

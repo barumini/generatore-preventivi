@@ -20,13 +20,13 @@ export function PaginaPrezzi({ risultato, annoListino }: Props) {
       <table>
         <tbody>
           {vociGrezzo.map((v) => (
-            <tr key={v.id} data-provenienza={v.provenienza}>
+            <tr key={v.id} data-provenienza={v.provenienza} data-testid={`listino-voce-${v.id}`}>
               <td>{v.numero}</td>
               <td><DescrizioneVoce descrizione={v.descrizione} /></td>
               <td className="importo">{formattaImportoItaliano(v.importo)}</td>
             </tr>
           ))}
-          <tr><td /><td><strong>Listino {annoListino}</strong></td><td className="importo">{formattaImportoItaliano(risultato.listinoTotale)}</td></tr>
+          <tr><td /><td><strong>Listino {annoListino}</strong></td><td className="importo" data-testid="listino-totale">{formattaImportoItaliano(risultato.listinoTotale)}</td></tr>
           {risultato.sconti.map((s) => (
             <tr key={s.ordine}>
               <td />
