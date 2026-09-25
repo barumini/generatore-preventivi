@@ -85,7 +85,7 @@ Poi apri `http://localhost:3000/preventivi/nuovo`.
 
 Prima di compilare i campi a mano, puoi usare il riquadro "Apertura rapida" in cima alla
 pagina: invia un testo libero e `POST /api/estrazione` lo trasforma nei campi dello
-`StatoForm` tramite un modello linguistico, di norma via OpenRouter. Schema, prompt ed esempi
+`StatoForm` tramite un modello linguistico via OpenRouter. Schema, prompt ed esempi
 sono in [`src/ai/estrazione.ts`](../src/ai/estrazione.ts); lo strato deterministico che
 controlla e normalizza la risposta è in
 [`src/ai/normalizzazione-estrazione.ts`](../src/ai/normalizzazione-estrazione.ts). Come è stato
@@ -94,11 +94,7 @@ scelto il sistema: [`valutazione-modelli-estrazione.md`](valutazione-modelli-est
 **Prerequisito**: `OPENROUTER_API_KEY` impostata in `.env.local`. I modelli di default sono
 `openai/gpt-6-luna`, con riserva `qwen/qwen3.8-flash`, a ragionamento spento; per cambiarli si
 usano `OPENROUTER_MODEL` (elenco separato da virgole) e `OPENROUTER_REASONING=on` (vedi
-[`.env.example`](../.env.example)). Alternativa offline: `AI_PROVIDER=lmstudio`, con LM Studio
-in esecuzione in locale e il server attivo (Impostazioni > Local Server > Start Server), e
-`LM_STUDIO_MODEL` impostata al nome esatto del modello caricato (`LM_STUDIO_BASE_URL`
-opzionale, default `http://localhost:1234/v1`). I modelli di LM Studio non sono stati valutati
-con il sistema attuale. Se manca la configurazione, o se OpenRouter non risponde entro 60 s, la
+[`.env.example`](../.env.example)). Se manca la chiave, o se OpenRouter non risponde entro 60 s, la
 chiamata fallisce con un errore leggibile (`Estrazione fallita: …`) invece di bloccarsi in
 silenzio.
 
@@ -143,7 +139,7 @@ mano, senza inventare un valore (vincolo CLAUDE.md §7 — l'AI non decide mai i
 inventa dati non dichiarati). Un protocollo che non compare nel testo viene comunque
 scartato dal codice.
 
-Per testare pareti/copertura via chat (verificato con un modello reale su LM Studio),
+Per testare pareti/copertura via chat (verificato con un modello reale),
 aggiungi ad esempio: *"Ha una parete esterna di base 12,5 m, altezza 2,7 m, spessore
 20 mm. La copertura ha una falda con notazione 5,8x16,5 x17,1."* — atteso: una riga in
 "Pareti" con tipo Esterna/12.5/2.7/20, e una riga in "Copertura" con la notazione

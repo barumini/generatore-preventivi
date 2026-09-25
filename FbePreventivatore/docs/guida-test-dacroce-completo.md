@@ -16,10 +16,7 @@ Per il dettaglio tecnico del caso (origine dei numeri, scarti rispetto all'offer
 
 1. **`OPENROUTER_API_KEY` impostata in `.env.local`.** Con la chiave presente la chat usa
    OpenRouter (modello `openai/gpt-6-luna`, riserva `qwen/qwen3.8-flash`); non serve altro.
-   Alternativa offline: `AI_PROVIDER=lmstudio`, con LM Studio acceso, server locale avviato
-   (Impostazioni › Local Server › Start Server) e `LM_STUDIO_MODEL` uguale al modello caricato —
-   i modelli di LM Studio però non sono stati valutati con il sistema attuale. Se l'estrazione
-   non è configurata o non risponde entro 60 s, la chat mostra un errore rosso
+   Se la chiave manca o OpenRouter non risponde entro 60 s, la chat mostra un errore rosso
    (`Estrazione fallita: …`): puoi comunque proseguire compilando a mano (vedi §2, "Piano B").
 2. **Server di sviluppo avviato** dalla cartella del progetto:
 

@@ -59,7 +59,7 @@ export type MessaggioChat = { role: 'system' | 'user' | 'assistant'; content: st
 
 // Il client fa solo il trasporto: riceve i messaggi già composti e restituisce il testo
 // grezzo della risposta. Prompt, nuovi tentativi e normalizzazione stanno in estraiCampi,
-// così OpenRouter e LM Studio si comportano allo stesso modo.
+// e i test possono sostituire il trasporto con un finto client.
 export interface ClienteEstrazione {
   completa(messaggi: MessaggioChat[]): Promise<string>
 }
@@ -259,64 +259,6 @@ export async function estraiCampi(testo: string, cliente: ClienteEstrazione): Pr
 // Client
 // ---------------------------------------------------------------------------------------
 
-function leggiModelloRichiesto(): string {
-  const modello = process.env.LM_STUDIO_MODEL
-  if (!modello) {
-    throw new Error(
-      'Estrazione fallita: variabile LM_STUDIO_MODEL non impostata — imposta il nome esatto del modello caricato in LM Studio',
-    )
-  }
-  return modello
-}
-
-// NOTA: l'estrazione LLM qui riguarda SOLO campi anagrafici/geometrici dal testo libero
-// iniziale (nome cliente, comune, superfici dichiarate, tipo copertura, ecc.).
-// L'AI non decide MAI prezzi o importi (vincolo CLAUDE.md #7): quelli vengono dal
-// listino parametrico o sono digitati altrove nel flusso.
-export class ClienteEstrazioneLMStudio implements ClienteEstrazione {
-  private baseUrl: string
-  private modello: string
-
-  constructor(
-    baseUrl: string = process.env.LM_STUDIO_BASE_URL ?? 'http://localhost:1234/v1',
-    modello: string = leggiModelloRichiesto(),
-  ) {
-    this.baseUrl = baseUrl
-    this.modello = modello
-  }
-
-  // Niente response_format: LM Studio non accetta {"type":"json_object"}. Il prompt chiede
-  // comunque solo JSON e parsaJsonTollerante regge recinzioni e testo attorno.
-  async completa(messaggi: MessaggioChat[]): Promise<string> {
-    let risposta: Response
-    try {
-      risposta = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.modello, messages: messaggi, temperature: 0 }),
-      })
-    } catch (errore) {
-      throw new Error(
-        `Estrazione fallita: impossibile raggiungere LM Studio su ${this.baseUrl} — verifica che LM Studio sia in esecuzione con il server locale attivo (Impostazioni > Local Server > Start Server)`,
-        { cause: errore },
-      )
-    }
-
-    if (!risposta.ok) {
-      const corpo = await risposta.text()
-      throw new Error(`Estrazione fallita: LM Studio ha risposto ${risposta.status} — ${corpo.slice(0, 300)}`)
-    }
-
-    let dati: unknown
-    try {
-      dati = await risposta.json()
-    } catch {
-      throw new Error(`Estrazione fallita: LM Studio ha risposto con un corpo non-JSON (status ${risposta.status})`)
-    }
-    return (dati as { choices?: { message?: { content?: string | null } }[] }).choices?.[0]?.message?.content ?? ''
-  }
-}
-
 // Misurati col sistema v2 a ragionamento spento, senza errori su ~150 estrazioni ciascuno.
 // OpenRouter prova il primo e passa al secondo solo se il primo non risponde.
 export const MODELLI_OPENROUTER_DEFAULT = ['openai/gpt-6-luna', 'qwen/qwen3.8-flash'] as const
@@ -362,8 +304,10 @@ interface RispostaOpenRouter {
   error?: { message?: string }
 }
 
-// Stesso vincolo del client LM Studio: l'AI estrae solo campi anagrafici/geometrici,
-// mai prezzi o importi (vincolo CLAUDE.md #7).
+// NOTA: l'estrazione LLM qui riguarda SOLO campi anagrafici/geometrici dal testo libero
+// iniziale (nome cliente, comune, superfici dichiarate, tipo copertura, ecc.).
+// L'AI non decide MAI prezzi o importi (vincolo CLAUDE.md #7): quelli vengono dal
+// listino parametrico o sono digitati altrove nel flusso.
 export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
   private chiave: string
   private modelli: string[]
@@ -446,9 +390,6 @@ export class ClienteEstrazioneOpenRouter implements ClienteEstrazione {
   }
 }
 
-// AI_PROVIDER forza la scelta ('openrouter' | 'lmstudio'); senza, vince OpenRouter se c'è
-// la chiave, altrimenti LM Studio (uso offline).
 export function creaClienteEstrazione(): ClienteEstrazione {
-  const fornitore = process.env.AI_PROVIDER ?? (process.env.OPENROUTER_API_KEY ? 'openrouter' : 'lmstudio')
-  return fornitore === 'openrouter' ? new ClienteEstrazioneOpenRouter() : new ClienteEstrazioneLMStudio()
+  return new ClienteEstrazioneOpenRouter()
 }

@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
-  ClienteEstrazioneLMStudio,
   ClienteEstrazioneOpenRouter,
   creaClienteEstrazione,
   estraiCampi,
@@ -428,87 +427,16 @@ describe('ClienteEstrazioneOpenRouter', () => {
   })
 })
 
-describe('ClienteEstrazioneLMStudio', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    vi.unstubAllEnvs()
-  })
-
-  it('manda gli stessi messaggi all\'endpoint di default, a temperatura 0 e senza response_format', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'qwen2.5-7b-instruct')
-    vi.stubEnv('LM_STUDIO_BASE_URL', undefined)
-    const fetchFinto = stubFetch(() => rispostaChat('{"cliente":{"nome":"Rossi"}}'))
-    const messaggi = messaggiEstrazione('casa per Rossi a Vicenza')
-
-    const risultato = await new ClienteEstrazioneLMStudio().completa(messaggi)
-
-    expect(risultato).toBe('{"cliente":{"nome":"Rossi"}}')
-    expect(fetchFinto.mock.calls[0][0]).toBe('http://localhost:1234/v1/chat/completions')
-    expect(corpoInviato(fetchFinto)).toEqual({ model: 'qwen2.5-7b-instruct', messages: messaggi, temperature: 0 })
-  })
-
-  it('usa LM_STUDIO_BASE_URL personalizzato quando impostato', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    vi.stubEnv('LM_STUDIO_BASE_URL', 'http://192.168.1.50:1234/v1')
-    const fetchFinto = stubFetch(() => rispostaChat('{}'))
-
-    await new ClienteEstrazioneLMStudio().completa([])
-
-    expect(fetchFinto.mock.calls[0][0]).toBe('http://192.168.1.50:1234/v1/chat/completions')
-  })
-
-  it('lancia un errore leggibile se LM Studio non è raggiungibile', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        throw new Error('fetch failed')
-      }),
-    )
-
-    await expect(new ClienteEstrazioneLMStudio().completa([])).rejects.toThrow(/LM Studio.*in esecuzione/)
-  })
-
-  it('lancia un errore leggibile se LM Studio risponde con uno stato di errore', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-inesistente')
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('modello non trovato', { status: 404 })))
-
-    await expect(new ClienteEstrazioneLMStudio().completa([])).rejects.toThrow(/404/)
-  })
-
-  it('lancia un errore leggibile se LM Studio risponde 200 con un corpo non-JSON', async () => {
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('non è json', { status: 200 })))
-
-    await expect(new ClienteEstrazioneLMStudio().completa([])).rejects.toThrow(/Estrazione fallita/)
-  })
-
-  it('lancia un errore se LM_STUDIO_MODEL non è impostata', () => {
-    vi.stubEnv('LM_STUDIO_MODEL', undefined)
-    expect(() => new ClienteEstrazioneLMStudio()).toThrow(/LM_STUDIO_MODEL/)
-  })
-})
-
 describe('creaClienteEstrazione', () => {
   afterEach(() => vi.unstubAllEnvs())
 
-  it('sceglie OpenRouter quando la chiave è impostata', () => {
-    vi.stubEnv('AI_PROVIDER', undefined)
+  it('usa OpenRouter', () => {
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
     expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneOpenRouter)
   })
 
-  it('ricade su LM Studio senza chiave OpenRouter', () => {
-    vi.stubEnv('AI_PROVIDER', undefined)
+  it('senza chiave OpenRouter lancia un errore leggibile', () => {
     vi.stubEnv('OPENROUTER_API_KEY', undefined)
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneLMStudio)
-  })
-
-  it('rispetta AI_PROVIDER=lmstudio anche con la chiave OpenRouter impostata', () => {
-    vi.stubEnv('AI_PROVIDER', 'lmstudio')
-    vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test')
-    vi.stubEnv('LM_STUDIO_MODEL', 'modello-test')
-    expect(creaClienteEstrazione()).toBeInstanceOf(ClienteEstrazioneLMStudio)
+    expect(() => creaClienteEstrazione()).toThrow(/OPENROUTER_API_KEY/)
   })
 })

@@ -26,7 +26,7 @@ describe('statoFormDaCampiEstratti', () => {
   })
 
   it('mappa tipoCopertura, finituraEsterna e pacchetto nei campi da cui il motore prezzi li legge davvero', () => {
-    // Bug reale trovato testando il wizard con LM Studio: il modello estraeva questi tre
+    // Bug reale trovato testando il wizard con un modello locale: il modello estraeva questi tre
     // campi correttamente (non finivano in campiMancanti) ma il form restava sui default,
     // perché prima non venivano proprio mappati — con dati errati non segnalati all'operatore.
     const campi: CampiEstratti = {

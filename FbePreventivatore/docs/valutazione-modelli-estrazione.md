@@ -9,7 +9,7 @@ Misure del 2026-09-24 su OpenRouter.
 
 | File | Contenuto |
 |---|---|
-| [`src/ai/estrazione.ts`](../src/ai/estrazione.ts) | prompt, esempi, clienti OpenRouter / LM Studio, ciclo dei tentativi |
+| [`src/ai/estrazione.ts`](../src/ai/estrazione.ts) | prompt, esempi, client OpenRouter, ciclo dei tentativi |
 | [`src/ai/normalizzazione-estrazione.ts`](../src/ai/normalizzazione-estrazione.ts) | strato deterministico (TypeScript puro, testato senza rete) |
 | [`src/ai/valutazione/insiemi.ts`](../src/ai/valutazione/insiemi.ts) | i tre insiemi di casi della valutazione |
 | [`scripts/valuta-estrazione.ts`](../scripts/valuta-estrazione.ts) | valutazione dal vivo contro OpenRouter |
@@ -51,8 +51,7 @@ Cambia anche la configurazione (vedi [`.env.example`](../.env.example)):
 ```
 
 Nessuno schema vincolato. Timeout di 60 s. Il campo `models` (non `model`) fa passare OpenRouter
-al secondo modello se il primo non risponde. LM Studio riceve gli stessi messaggi con
-`temperature: 0` ma senza `response_format`, perché non accetta `json_object`.
+al secondo modello se il primo non risponde.
 
 `messaggiEstrazione(testo)` compone sei messaggi:
 

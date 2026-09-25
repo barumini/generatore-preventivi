@@ -101,9 +101,8 @@ mano: nella pagina, sopra il wizard, c'è il riquadro "Apertura rapida" (compone
 `POST /api/estrazione` lo trasforma nei campi dello `StatoForm` tramite un modello locale
 (schema e prompt di sistema in [`src/ai/estrazione.ts`](../src/ai/estrazione.ts)).
 
-**Prerequisito**: LM Studio in esecuzione in locale con il server attivo (Impostazioni > Local
-Server > Start Server) e la variabile d'ambiente `LM_STUDIO_MODEL` impostata al nome esatto del
-modello caricato (`LM_STUDIO_BASE_URL` opzionale, default `http://localhost:1234/v1`).
+**Prerequisito**: `OPENROUTER_API_KEY` impostata in `.env.local` (modelli e opzioni in
+[`.env.example`](../.env.example)).
 
 Lo schema `CampiEstratti` copre per l'anagrafica solo: `cliente.nome`, `cliente.comune`,
 `cliente.provincia`, `protocollo`, `progettista`, `luogo` — **non** `oggetto` né `data`, che
