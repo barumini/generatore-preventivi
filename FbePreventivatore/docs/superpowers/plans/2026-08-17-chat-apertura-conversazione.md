@@ -549,7 +549,7 @@ Invia di nuovo. Verifica che il tab Anagrafica mostri ora **Protocollo = "202609
 
 - [ ] **Step 4: Verifica il caso di errore**
 
-Ferma temporaneamente LM Studio (o disattiva il server locale) e invia un nuovo messaggio. Verifica che compaia una bolla assistente di errore (stile visivamente distinto, es. testo rosso) invece di un crash o di un riquadro Alert separato. Riavvia LM Studio prima di continuare.
+Commenta temporaneamente `OPENROUTER_API_KEY` in `.env.local`, riavvia il server di sviluppo e invia un nuovo messaggio. Verifica che compaia una bolla assistente di errore (stile visivamente distinto, es. testo rosso) invece di un crash o di un riquadro Alert separato. Ripristina la chiave e riavvia il server prima di continuare.
 
 - [ ] **Step 5: Rilancia l'intera suite una ultima volta**
 
