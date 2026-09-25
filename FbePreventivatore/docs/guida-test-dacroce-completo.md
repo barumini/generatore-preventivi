@@ -4,8 +4,8 @@ Test end-to-end da fare in autonomia su `/preventivi/nuovo-v3`: anagrafica e spe
 dalla chat "Apertura rapida", computo metrico caricato da PDF, totale commerciale **calcolato**
 (255 000,00 €, nessun campo da digitare), bozza salvata e documento `.docx` generato.
 
-Tempo: circa 5 minuti. Eseguito dal vivo il 2026-09-23 con esito positivo — i numeri attesi qui
-sotto sono quelli ottenuti in quel giro.
+Tempo: circa 5 minuti. Eseguito dal vivo il 2026-09-23 e ripetuto il 2026-09-25 (estrazione via
+OpenRouter) con esito positivo — i numeri attesi qui sotto sono quelli ottenuti in quei giri.
 
 Per il dettaglio tecnico del caso (origine dei numeri, scarti rispetto all'offerta firmata) vedi
 [`testing-golden-case-dacroce.md`](testing-golden-case-dacroce.md).
@@ -14,10 +14,13 @@ Per il dettaglio tecnico del caso (origine dei numeri, scarti rispetto all'offer
 
 ## 0. Prerequisiti
 
-1. **LM Studio acceso**, con il server locale avviato (Impostazioni › Local Server › Start Server)
-   e il modello caricato che corrisponde a `LM_STUDIO_MODEL` in `.env.local`
-   (oggi `google/gemma-4-12b`). Senza LM Studio la chat risponde con un errore rosso: puoi
-   comunque proseguire compilando a mano (vedi §2, "Piano B").
+1. **`OPENROUTER_API_KEY` impostata in `.env.local`.** Con la chiave presente la chat usa
+   OpenRouter (modello `openai/gpt-6-luna`, riserva `qwen/qwen3.8-flash`); non serve altro.
+   Alternativa offline: `AI_PROVIDER=lmstudio`, con LM Studio acceso, server locale avviato
+   (Impostazioni › Local Server › Start Server) e `LM_STUDIO_MODEL` uguale al modello caricato —
+   i modelli di LM Studio però non sono stati valutati con il sistema attuale. Se l'estrazione
+   non è configurata o non risponde entro 60 s, la chat mostra un errore rosso
+   (`Estrazione fallita: …`): puoi comunque proseguire compilando a mano (vedi §2, "Piano B").
 2. **Server di sviluppo avviato** dalla cartella del progetto:
 
    ```bash
@@ -49,10 +52,11 @@ Nel riquadro **"Apertura rapida"** in alto incolla questo testo e premi **Invio*
 Preventivo per la cliente Dacroce Dalila, comune di Rovereto, provincia TN. Protocollo 2022077. Progettista: Campana Tommaso. Pacchetto grezzo avanzato, copertura a falde, finitura esterna a intonaco. Spessori: pareti esterne 205 mm, pareti interne 205-160 mm, coibente falda 80+60+20 mm, cappotto 60+40 mm.
 ```
 
-Attendi che sparisca "Sto leggendo..." (da qualche secondo a circa un minuto, dipende dal modello).
+Attendi che sparisca "Sto leggendo..." (con OpenRouter circa 10 secondi; il timeout è 60 s).
 
-**Risposta attesa della chat:** qualcosa come *"mi manca ancora: superfici, pareti, falde, travi,
-serramenti"*. **Ignorala**: in questo wizard quei dati arrivano dal computo metrico, non servono.
+**Risposta attesa della chat:** qualcosa come *"Ho capito quasi tutto — mi manca ancora: superfici
+dei piani"* (la lista esatta può variare). **Ignorala**: in questo wizard quei dati arrivano dal
+computo metrico, non servono.
 
 ### Verifica — step "1. Anagrafica"
 
@@ -82,7 +86,7 @@ serramenti"*. **Ignorala**: in questo wizard quei dati arrivano dal computo metr
 Gli **spessori sono l'unico dato che blocca davvero** la generazione del documento: se uno
 resta vuoto, "Genera documento" fallisce. Se il modello ne ha saltato qualcuno, scrivilo a mano.
 
-### Piano B — senza LM Studio
+### Piano B — senza estrazione AI
 
 Compila a mano gli stessi valori delle due tabelle qui sopra, negli step 1 e 2.
 
