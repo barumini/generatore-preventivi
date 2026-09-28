@@ -1,9 +1,11 @@
+import { connection } from 'next/server'
 import { prisma } from '@/server/prisma'
 import { elencaPreventivi } from '@/server/preventivi-repo'
 import { TabellaPreventivi } from './TabellaPreventivi'
 import { Breadcrumb } from './ui/Breadcrumb'
 
 export default async function ElencoPreventivi() {
+  await connection() // elenco sempre letto alla richiesta, mai congelato alla build
   const preventivi = await elencaPreventivi(prisma)
 
   return (

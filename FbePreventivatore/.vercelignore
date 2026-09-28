@@ -1,0 +1,11 @@
+# Non caricare su Vercel: documenti FBE, copie di lavoro dello spike, output locali.
+Documentazione addestramento
+template/spike
+.worktrees
+.superpowers
+test-results
+playwright-report
+node_modules
+.next
+*.db
+.env*
