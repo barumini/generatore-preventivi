@@ -62,6 +62,15 @@ Se questi numeri non escono, il motore è rotto. Sono test, non documentazione.
 - Le superfici nella tabella `CARATTERISTICHE FABBRICATO` sono **stringhe libere**
   (`13+14`), non numeri: va conservata la forma scritta oltre al valore.
 
+## Database e deploy
+
+- Postgres (Neon) via `@prisma/adapter-pg`; i test usano PGlite in memoria (`src/server/test-db.ts`).
+  In locale serve `DATABASE_URL`: `vercel env pull .env.local` (Next la legge; per i comandi
+  `prisma` esportarla a mano).
+- Deploy su Vercel (progetto `fbe-preventivatore`, team DIH Vicenza): `vercel.json` esegue
+  `prisma migrate deploy` prima della build. Accesso protetto da Basic Auth
+  (`BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD`, vedi `src/proxy.ts`).
+
 ## Workflow
 
 - **Commit automatico per ogni modifica logica completata.** Non chiedere conferma per

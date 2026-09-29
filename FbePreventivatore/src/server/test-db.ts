@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { PrismaClient } from '@prisma/client'
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { PGlite } from '@electric-sql/pglite'
+import { PrismaPGlite } from 'pglite-prisma-adapter'
 
 const CARTELLA_MIGRAZIONI = path.join(process.cwd(), 'prisma', 'migrations')
 
@@ -14,8 +15,9 @@ function sqlDiTutteLeMigrazioni(): string[] {
     .map((cartella) => fs.readFileSync(path.join(CARTELLA_MIGRAZIONI, cartella, 'migration.sql'), 'utf-8'))
 }
 
+// Postgres vero in memoria (PGlite, WASM): stesso dialetto della produzione, niente server.
 export function creaClientDiTest(): PrismaClient {
-  const adapter = new PrismaBetterSqlite3({ url: ':memory:' })
+  const adapter = new PrismaPGlite(new PGlite())
   return new PrismaClient({ adapter })
 }
 
