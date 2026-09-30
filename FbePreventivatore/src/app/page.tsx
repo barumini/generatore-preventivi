@@ -13,35 +13,17 @@ export default function Home() {
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-accent">
           Genera un preventivo
         </h2>
-        <p className="mb-5 text-sm text-text-secondary">Scegli come partire con un nuovo preventivo</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/preventivi/nuovo"
-            className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
-          >
-            <span className="text-lg font-semibold text-text">Nuovo preventivo</span>
-            <span className="text-sm text-text-secondary">Avvia il wizard guidato per crearne uno</span>
-          </Link>
-          <Link
-            href="/preventivi/nuovo-v2"
-            className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
-          >
-            <span className="text-lg font-semibold text-text">Nuovo preventivo (import Excel)</span>
-            <span className="text-sm text-text-secondary">
-              Carica il file dei conteggi invece di descrivere il progetto
-            </span>
-          </Link>
-          <Link
-            href="/preventivi/nuovo-v3"
-            className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
-          >
-            <span className="text-lg font-semibold text-text">Nuovo preventivo (da computo metrico)</span>
-            <span className="text-sm text-text-secondary">
-              Chat di apertura come nel wizard classico, con gli importi delle voci
-              ricavati dal computo Primus invece che dalla geometria
-            </span>
-          </Link>
-        </div>
+        <p className="mb-5 text-sm text-text-secondary">Crea un nuovo preventivo</p>
+        <Link
+          href="/preventivi/nuovo-v3"
+          className="flex flex-col gap-2 rounded-lg border border-border-warm bg-white p-6 transition-colors hover:border-accent"
+        >
+          <span className="text-lg font-semibold text-text">Nuovo preventivo (da computo metrico)</span>
+          <span className="text-sm text-text-secondary">
+            Chat di apertura come nel wizard classico, con gli importi delle voci
+            ricavati dal computo Primus invece che dalla geometria
+          </span>
+        </Link>
       </section>
 
       <section className="mt-8 w-full max-w-2xl">
