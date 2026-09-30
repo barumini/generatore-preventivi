@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
+import { CampoNumerico } from '../../ui/CampoNumerico'
 import { Button } from '../../ui/Button'
 import { aggiornaRiga, rimuoviRiga } from '../riga-utils'
 import type { StatoForm } from '../stato-form'
@@ -38,11 +39,9 @@ export function StepCondizioniContrattuali({ stato, aggiorna }: Props) {
           <input className={controlClassName} value={condizioni.consegna} onChange={(e) => aggiornaCondizioni({ consegna: e.target.value })} />
         </Field>
         <Field label="Caparra">
-          <input
-            type="number"
-            className={controlClassName}
-            value={condizioni.caparra}
-            onChange={(e) => aggiornaCondizioni({ caparra: Number(e.target.value) })}
+          <CampoNumerico
+            valore={condizioni.caparra}
+            onCambia={(v) => aggiornaCondizioni({ caparra: v })}
           />
         </Field>
         <Field label="Validità offerta">
@@ -55,11 +54,9 @@ export function StepCondizioniContrattuali({ stato, aggiorna }: Props) {
           <div key={i} className="mb-2 flex items-end gap-2">
             <div className="w-24">
               <Field label="%">
-                <input
-                  type="number"
-                  className={controlClassName}
-                  value={riga.percentuale * 100}
-                  onChange={(e) => aggiornaCondizioni({ sal: aggiornaRiga(condizioni.sal, i, { percentuale: Number(e.target.value) / 100 }) })}
+                <CampoNumerico
+                  valore={riga.percentuale * 100}
+                  onCambia={(v) => aggiornaCondizioni({ sal: aggiornaRiga(condizioni.sal, i, { percentuale: v / 100 }) })}
                 />
               </Field>
             </div>

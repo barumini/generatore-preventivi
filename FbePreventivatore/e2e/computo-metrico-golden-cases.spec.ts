@@ -42,8 +42,8 @@ interface CasoGolden {
   vociEscluse: string[]
   listinoTotale: string
   listinoContieneSolaioInterpiano: boolean
-  // Totale commerciale calcolato (sconti di default del wizard v3, 5% + 10% a cascata,
-  // per difetto ai 5 000 €) — nessun totale target digitato.
+  // Totale commerciale calcolato (il wizard v3 parte senza sconti, per difetto ai 5 000 €
+  // con la spunta) — nessun totale target digitato, nessuno sconto aggiunto.
   /** Totale di default: effettivo, senza arrotondamento. */
   totaleEffettivo: string
   /** Totale con la spunta "Arrotonda il totale per difetto" (passo 5 000 €). */
@@ -78,9 +78,9 @@ const CASI: CasoGolden[] = [
     // Monopiano: 100645,84+5843,70+58849,06+21253,32+15506,77+2162,30+19250,00+9450,00+4000,00
     listinoTotale: '236 960,99 €',
     listinoContieneSolaioInterpiano: false,
-    // 236 960,99 − 5% − 10% = 202 601,65 → 200 000 con la spunta di arrotondamento
-    totaleEffettivo: '202 601,65 €',
-    totaleCalcolato: '200 000,00 €',
+    // Nessuno sconto di default: 236 960,99 → 235 000 con la spunta di arrotondamento
+    totaleEffettivo: '236 960,99 €',
+    totaleCalcolato: '235 000,00 €',
   },
   {
     nome: 'Da Croce rev.03',
@@ -116,9 +116,9 @@ const CASI: CasoGolden[] = [
     // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
     listinoTotale: '300 343,58 €',
     listinoContieneSolaioInterpiano: true,
-    // 300 343,58 − 5% − 10% = 256 793,76 → 255 000 con la spunta, come l'offerta rev.02
-    totaleEffettivo: '256 793,76 €',
-    totaleCalcolato: '255 000,00 €',
+    // Nessuno sconto di default: 300 343,58 → 300 000 con la spunta di arrotondamento
+    totaleEffettivo: '300 343,58 €',
+    totaleCalcolato: '300 000,00 €',
   },
 ]
 

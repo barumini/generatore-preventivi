@@ -111,7 +111,8 @@ forfettari): non blocca nulla.
 
 ## 4. Sconti — step "5. Condizioni"
 
-Nessuna azione: nel wizard v3 sono già precompilati. Controlla soltanto che ci siano:
+Il wizard v3 parte **senza sconti**: aggiungili con "Aggiungi sconto", uno per riga e in
+quest'ordine:
 
 | Percentuale | Causale |
 |---|---|
@@ -209,6 +210,7 @@ Il progettista viene salvato nel preventivo ma non compare nel testo del documen
 ## Riepilogo — test superato se
 
 - [ ] La chat compila anagrafica e 4 spessori (§2)
+- [ ] I due sconti 5% + 10% aggiunti a mano in Condizioni (§4)
 - [ ] Il computo dà 166 voci e 323 643,58 € (§3)
 - [ ] Il **Totale calcolato** è **256 793,76 €** senza spunta e **255 000,00 €** con "Arrotonda il totale per difetto" (§5)
 - [ ] Nessun avviso sotto ai tab (§5)
@@ -216,4 +218,5 @@ Il progettista viene salvato nel preventivo ma non compare nel testo del documen
 - [ ] Il `.docx` si genera e la tabella prezzi termina con TOTALE 255 000,00 € (§7)
 
 Se un numero non torna, annota lo step e il valore visto: il motore è verificato anche dai test
-automatici (`npm test`) e dall'e2e (`npm run test:e2e`), che controlla lo stesso 255 000,00 €.
+automatici (`npm test`) e dall'e2e (`npm run test:e2e`). L'e2e non aggiunge sconti: senza il
+§4 il totale è 300 343,58 € (300 000,00 € con la spunta), non 255 000,00 €.

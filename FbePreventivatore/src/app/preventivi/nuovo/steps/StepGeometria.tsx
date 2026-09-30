@@ -11,6 +11,7 @@ import {
 import type { Parete, VoceGeometricaLibera } from '@/domain/importazione-excel'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
+import { CampoNumerico } from '../../ui/CampoNumerico'
 import { Button } from '../../ui/Button'
 import { aggiornaRiga, rimuoviRiga } from '../riga-utils'
 import type { StatoForm } from '../stato-form'
@@ -104,11 +105,9 @@ export function StepGeometria({ stato, aggiorna }: Props) {
         </div>
 
         <Field label="Perimetro (ml)">
-          <input
-            type="number"
-            className={controlClassName}
-            value={stato.perimetro}
-            onChange={(e) => aggiorna({ perimetro: Number(e.target.value) })}
+          <CampoNumerico
+            valore={stato.perimetro}
+            onCambia={(v) => aggiorna({ perimetro: v })}
           />
         </Field>
       </Section>
@@ -146,21 +145,17 @@ export function StepGeometria({ stato, aggiorna }: Props) {
               </select>
             </Field>
             <Field label="Base (m)">
-              <input
-                type="number"
-                className={controlClassName}
-                value={riga.b}
-                onChange={(e) => aggiorna({ serramenti: aggiornaRiga(stato.serramenti, i, { b: Number(e.target.value) }) })}
+              <CampoNumerico
+                valore={riga.b}
+                onCambia={(v) => aggiorna({ serramenti: aggiornaRiga(stato.serramenti, i, { b: v }) })}
               />
             </Field>
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Field label="Altezza (m)">
-                  <input
-                    type="number"
-                    className={controlClassName}
-                    value={riga.h}
-                    onChange={(e) => aggiorna({ serramenti: aggiornaRiga(stato.serramenti, i, { h: Number(e.target.value) }) })}
+                  <CampoNumerico
+                    valore={riga.h}
+                    onCambia={(v) => aggiorna({ serramenti: aggiornaRiga(stato.serramenti, i, { h: v }) })}
                   />
                 </Field>
               </div>
@@ -208,27 +203,21 @@ export function StepGeometria({ stato, aggiorna }: Props) {
               </select>
             </Field>
             <Field label="Base (m)">
-              <input
-                type="number"
-                className={controlClassName}
-                value={riga.b}
-                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { b: Number(e.target.value) }) })}
+              <CampoNumerico
+                valore={riga.b}
+                onCambia={(v) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { b: v }) })}
               />
             </Field>
             <Field label="Altezza (m)">
-              <input
-                type="number"
-                className={controlClassName}
-                value={riga.h}
-                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { h: Number(e.target.value) }) })}
+              <CampoNumerico
+                valore={riga.h}
+                onCambia={(v) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { h: v }) })}
               />
             </Field>
             <Field label="Spessore (mm)">
-              <input
-                type="number"
-                className={controlClassName}
-                value={riga.spessore}
-                onChange={(e) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { spessore: Number(e.target.value) }) })}
+              <CampoNumerico
+                valore={riga.spessore}
+                onCambia={(v) => aggiorna({ pareti: aggiornaRiga(stato.pareti ?? [], i, { spessore: v }) })}
               />
             </Field>
             <Button
