@@ -4,6 +4,7 @@ import { eseguiCalcolo, PASSO_ARROTONDAMENTO_DEFAULT } from '@/domain/calcolo'
 import { formattaImportoItaliano } from '@/documento/preview/formattazione'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
+import { CampoNumerico } from '../../ui/CampoNumerico'
 import { arrotondaTotaleAttivo, inputCalcoloDaStato, totaleManualeAttivo, type StatoForm } from '../stato-form'
 
 const PASSI_ARROTONDAMENTO = [100, 500, 1000, 5000, 10000]
@@ -87,11 +88,9 @@ export function StepPrezzi({ stato, aggiorna }: Props) {
         </label>
         {manuale ? (
           <Field label="Totale target (per risoluzione arrotondamento)">
-            <input
-              type="number"
-              className={controlClassName}
-              value={stato.totaleTarget}
-              onChange={(e) => aggiorna({ totaleTarget: Number(e.target.value) })}
+            <CampoNumerico
+              valore={stato.totaleTarget}
+              onCambia={(v) => aggiorna({ totaleTarget: v })}
             />
           </Field>
         ) : (
@@ -138,11 +137,9 @@ export function StepPrezzi({ stato, aggiorna }: Props) {
       <Section title="Sicurezza">
         <div className="grid grid-cols-2 gap-x-4">
           <Field label="Costo dichiarato">
-            <input
-              type="number"
-              className={controlClassName}
-              value={stato.sicurezza.costoDichiarato}
-              onChange={(e) => aggiorna({ sicurezza: { ...stato.sicurezza, costoDichiarato: Number(e.target.value) } })}
+            <CampoNumerico
+              valore={stato.sicurezza.costoDichiarato}
+              onCambia={(v) => aggiorna({ sicurezza: { ...stato.sicurezza, costoDichiarato: v } })}
             />
           </Field>
           <Field label="Valorizzata (importo oppure OMAGGIO)">

@@ -21,9 +21,8 @@ import type { Computo } from '@/domain/computo/estrai-voci'
 // oggetto vuoto (a differenza di v1/v2, che precompilano OGGETTO_STANDARD): richiesta esplicita
 // per questo wizard, l'operatore lo compila a mano in Anagrafica.
 //
-// sconti precompilati con la scontistica standard del golden case Da Croce (5% "sconto
-// cliente" + 10% "per conferme entro il 31.01.2026", a cascata — non additivi, vedi CLAUDE.md
-// vincolo 1): restano il punto di partenza più comune, editabile riga per riga in "Condizioni".
+// sconti vuoti: nessuno sconto di default, l'operatore li aggiunge a mano in "Condizioni"
+// (richiesta esplicita: un default precompilato finiva nel totale senza che nessuno lo scegliesse).
 const STATO_INIZIALE: StatoForm = {
   cliente: { nome: '', comune: '', provincia: '' },
   protocollo: '',
@@ -36,10 +35,7 @@ const STATO_INIZIALE: StatoForm = {
   perimetro: 0,
   livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
   chiaviInManoNelTotale: false,
-  sconti: [
-    { percentuale: 0.05, causale: 'sconto cliente' },
-    { percentuale: 0.1, causale: 'per conferme entro il 31.01.2026' },
-  ],
+  sconti: [],
   overrides: {},
   totaleTarget: 0,
   arrotondaTotale: false, // totale effettivo; le bozze vecchie senza campo sono normalizzate a true alla riapertura

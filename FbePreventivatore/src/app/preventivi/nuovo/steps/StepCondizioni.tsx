@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { Field, controlClassName } from '../../ui/Field'
 import { Section } from '../../ui/Section'
+import { CampoNumerico } from '../../ui/CampoNumerico'
 import { Button } from '../../ui/Button'
 import { aggiornaRiga, rimuoviRiga } from '../riga-utils'
 import type { StatoForm } from '../stato-form'
@@ -18,11 +19,9 @@ export function StepCondizioni({ stato, aggiorna }: Props) {
           <div key={i} className="mb-2 flex items-end gap-2">
             <div className="flex-1">
               <Field label="Percentuale (%)">
-                <input
-                  type="number"
-                  className={controlClassName}
-                  value={sconto.percentuale * 100}
-                  onChange={(e) => aggiorna({ sconti: aggiornaRiga(stato.sconti, i, { percentuale: Number(e.target.value) / 100 }) })}
+                <CampoNumerico
+                  valore={sconto.percentuale * 100}
+                  onCambia={(v) => aggiorna({ sconti: aggiornaRiga(stato.sconti, i, { percentuale: v / 100 }) })}
                 />
               </Field>
             </div>
