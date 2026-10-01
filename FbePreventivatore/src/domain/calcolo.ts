@@ -68,7 +68,7 @@ export function sogliaArrotondamentoSuperata(arrotondamento: number, listinoTota
   return Math.abs(arrotondamento) / listinoTotale > sogliaPercentuale
 }
 
-import { vociIncluse, numeraVoci, type VoceCatalogo, type ConfigurazioneVoci } from './voci'
+import { voceInclusa, numeraVoci, type VoceCatalogo, type ConfigurazioneVoci } from './voci'
 import { driverPer, proponiValore, type ListinoAnno, type InputGeometricoListino } from './listino'
 
 export interface VoceValorizzata {
@@ -179,7 +179,14 @@ function sommaNumerica(voci: VoceValorizzata[]): number {
 }
 
 export function eseguiCalcolo(input: InputCalcolo): RisultatoCalcolo {
-  const incluse = vociIncluse(input.catalogo, input.configurazione)
+  // Un importo numerico digitato su una voce condizionata (garage, opere chiavi in mano) la
+  // include comunque: chi lo scrive vuole che concorra al totale. Solo la condizione cede,
+  // non il livello del modulo.
+  const incluse = input.catalogo.filter((voce) => {
+    if (voceInclusa(voce, input.configurazione)) return true
+    if (!voce.condizione || typeof input.overrides[voce.id] !== 'number') return false
+    return voceInclusa({ ...voce, condizione: undefined }, input.configurazione)
+  })
   const numerate = numeraVoci(incluse)
 
   const valoriPerId = new Map<string, number>()
