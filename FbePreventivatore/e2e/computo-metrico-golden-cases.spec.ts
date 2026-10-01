@@ -183,7 +183,7 @@ for (const caso of CASI) {
 
       // Totale commerciale calcolato, non digitato: di default è quello effettivo, la
       // spunta lo arrotonda per difetto ai 5 000 €.
-      await page.getByRole('button', { name: '4. Prezzi' }).click()
+      await page.getByRole('button', { name: '5. Prezzi' }).click()
       await expect(page.getByTestId('arrotonda-totale')).not.toBeChecked()
       await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleEffettivo)
       await page.getByTestId('arrotonda-totale').check()
