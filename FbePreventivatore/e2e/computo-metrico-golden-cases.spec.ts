@@ -48,6 +48,10 @@ interface CasoGolden {
   totaleEffettivo: string
   /** Totale con la spunta "Arrotonda il totale per difetto" (passo 5 000 €). */
   totaleCalcolato: string
+  /** Sconti a cascata (%) aggiunti in "4. Condizioni", nell'ordine. */
+  sconti?: number[]
+  /** Importi digitati in "5. Prezzi" sulle voci post-sconto (garage, opere chiavi in mano). */
+  overridePostSconto?: Record<string, string>
 }
 
 const CASI: CasoGolden[] = [
@@ -79,8 +83,13 @@ const CASI: CasoGolden[] = [
     listinoTotale: '236 960,99 €',
     listinoContieneSolaioInterpiano: false,
     // Nessuno sconto di default: 236 960,99 → 235 000 con la spunta di arrotondamento
-    totaleEffettivo: '236 960,99 €',
-    totaleCalcolato: '235 000,00 €',
+    // Come l'offerta Crivellaro: −10% e −10% a cascata sul Listino, poi garage (20 000) e
+    // opere chiavi in mano (89 100) sommati dopo lo sconto:
+    // 236 960,99 → 191 938,40 + 109 100 = 301 038,40 → 300 000 con la spunta.
+    sconti: [10, 10],
+    overridePostSconto: { garage: '20000', 'opere-chiavi-in-mano': '89100' },
+    totaleEffettivo: '301 038,40 €',
+    totaleCalcolato: '300 000,00 €',
   },
   {
     nome: 'Da Croce rev.03',
@@ -183,7 +192,17 @@ for (const caso of CASI) {
 
       // Totale commerciale calcolato, non digitato: di default è quello effettivo, la
       // spunta lo arrotonda per difetto ai 5 000 €.
+      if (caso.sconti) {
+        await page.getByRole('button', { name: '4. Condizioni' }).click()
+        for (const [i, percentuale] of caso.sconti.entries()) {
+          await page.getByRole('button', { name: 'Aggiungi sconto' }).click()
+          await page.getByLabel('Percentuale (%)').nth(i).fill(String(percentuale))
+        }
+      }
       await page.getByRole('button', { name: '5. Prezzi' }).click()
+      for (const [idVoce, importo] of Object.entries(caso.overridePostSconto ?? {})) {
+        await page.locator('label').filter({ hasText: idVoce }).locator('input').fill(importo)
+      }
       await expect(page.getByTestId('arrotonda-totale')).not.toBeChecked()
       await expect(page.getByTestId('totale-calcolato')).toHaveText(caso.totaleEffettivo)
       await page.getByTestId('arrotonda-totale').check()
