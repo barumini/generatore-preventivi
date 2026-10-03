@@ -111,7 +111,7 @@ forfettari): non blocca nulla.
 
 ## 4. Sconti — step "4. Condizioni"
 
-Il wizard v3 parte **senza sconti**: aggiungili con "Aggiungi sconto", uno per riga e in
+Il wizard v3 parte **senza sconti**, ma per Da Croce vanno **sempre** applicati (senza, il totale è sbagliato): aggiungili con "Aggiungi sconto", uno per riga e in
 quest'ordine:
 
 | Percentuale | Causale |
@@ -218,5 +218,6 @@ Il progettista viene salvato nel preventivo ma non compare nel testo del documen
 - [ ] Il `.docx` si genera e la tabella prezzi termina con TOTALE 255 000,00 € (§7)
 
 Se un numero non torna, annota lo step e il valore visto: il motore è verificato anche dai test
-automatici (`npm test`) e dall'e2e (`npm run test:e2e`). L'e2e non aggiunge sconti: senza il
-§4 il totale è 300 343,58 € (300 000,00 € con la spunta), non 255 000,00 €.
+automatici (`npm test`) e dall'e2e (`npm run test:e2e`). L'e2e applica gli stessi sconti del §4
+(5% + 10%): senza di essi il totale sarebbe 300 343,58 €, non 255 000,00 €. **Gli sconti vanno
+sempre inseriti**, in ogni prova di Da Croce.

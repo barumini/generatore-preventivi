@@ -125,9 +125,11 @@ const CASI: CasoGolden[] = [
     // pipeline-computo.integration.test.ts per la stessa verifica a livello di dominio.
     listinoTotale: '300 343,58 €',
     listinoContieneSolaioInterpiano: true,
-    // Nessuno sconto di default: 300 343,58 → 300 000 con la spunta di arrotondamento
-    totaleEffettivo: '300 343,58 €',
-    totaleCalcolato: '300 000,00 €',
+    // Come l'offerta Da Croce rev.02: −5% e −10% a cascata sul Listino, nessuna voce
+    // post-sconto: 300 343,58 → 285 326,40 → 256 793,76 → 255 000 con la spunta.
+    sconti: [5, 10],
+    totaleEffettivo: '256 793,76 €',
+    totaleCalcolato: '255 000,00 €',
   },
 ]
 

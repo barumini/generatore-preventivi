@@ -209,7 +209,7 @@ Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
    crea la prima riga):
    - `5` → causale `sconto cliente`
    - `10` → causale `per conferme entro il 31.01.2026`
-   (in `nuovo-v3` la lista parte vuota: nessuno sconto di default).
+   (in `nuovo-v3` la lista parte vuota: nessuno sconto di default, ma per Da Croce vanno sempre aggiunti).
 2. Vai a **"5. Prezzi"**: il **Totale calcolato** mostra il totale effettivo `256 793,76 €`
    (300 343,58 − 5% − 10%). Spunta **"Arrotonda il totale per difetto"**: diventa `255 000,00 €`
    (per difetto ai 5 000 €), senza digitare nessun importo. La tabella prezzi del documento risulta:

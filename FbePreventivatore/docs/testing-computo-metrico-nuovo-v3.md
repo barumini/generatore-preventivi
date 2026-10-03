@@ -79,9 +79,10 @@ Dopo il computo, per Crivellaro il test percorre anche gli step successivi: aggi
 a cascata (10% + 10%) in "4. Condizioni", digita `garage` = 20000 e `opere-chiavi-in-mano` =
 89100 in "5. Prezzi", e verifica il **Totale calcolato effettivo `301 038,40 €`** e, con la
 spunta "Arrotonda per difetto", **`300 000,00 €`**. Poi salva la bozza e controlla sul
-`risultatoCalcolo` persistito Listino e totale. Da Croce resta senza sconti né override
-post-sconto (`300 343,58 €` → `300 000,00 €`). Per un totale diverso da 300 000 il test fallisce:
-i casi sono descritti da `sconti` e `overridePostSconto` in `CASI`.
+`risultatoCalcolo` persistito Listino e totale. Anche Da Croce usa **sempre gli sconti**
+(5% + 10% a cascata, nessun override post-sconto): totale effettivo **`256 793,76 €`**, con la
+spunta **`255 000,00 €`**. Un golden case senza sconti non è valido. I casi sono descritti da
+`sconti` e `overridePostSconto` in `CASI`.
 
 Il `webServer` in [`playwright.config.ts`](../playwright.config.ts) avvia `npm run dev` da solo se
 la porta 3000 è libera, altrimenti riusa il dev server già in esecuzione — non serve avviarlo a
@@ -263,7 +264,7 @@ PR #7), con gli stessi PDF di `e2e/fixtures/`. L'accesso è protetto da Basic Au
 il pannello browser integrato dell'app non mostra il popup di login, serve un Chrome in cui sia
 già fatto il login.
 
-**Da Croce rev.03** (nessuno sconto, nessun override post-sconto):
+**Da Croce rev.03** (sconti 5% + 10%, nessun override post-sconto):
 
 | Controllo | Atteso e ottenuto |
 |---|---|
@@ -271,9 +272,10 @@ già fatto il login.
 | Totale computo | 323 643,58 € |
 | Somma voci / target / delta | 278 787,93 € / 300 343,58 € / 21 555,65 € |
 | Importi delle 10 voci | uguali alla tabella 4.2 |
-| Totale calcolato (senza spunta) | 300 343,58 € |
-| Totale con "Arrotonda per difetto" | 300 000,00 € |
-| Salvataggio bozza | 201, Listino 300 343,58 €, totale 300 000 €, `solaio-interpiano` presente |
+| Sconti a cascata | − 15 017,18 € / − 28 532,64 € |
+| Totale calcolato (senza spunta) | 256 793,76 € |
+| Totale con "Arrotonda per difetto" | **255 000,00 €** |
+| Salvataggio bozza | 201, Listino 300 343,58 €, parziale e totale 255 000 €, `solaio-interpiano` presente |
 
 **Crivellaro rev.04** (sconti 10% + 10%, `garage` 20000, `opere-chiavi-in-mano` 89100):
 
