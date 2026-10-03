@@ -294,3 +294,34 @@ describe('segmentaPlaceholder', () => {
     ])
   })
 })
+
+describe('eseguiCalcolo — override su voci condizionate', () => {
+  const base: InputCalcolo = {
+    catalogo: CATALOGO_VOCI,
+    configurazione: {
+      livelli: { struttura: 'completo', involucro: 'completo', finiture: 'impoverito' },
+      numeroPianiAbitativi: 1,
+      superficieGarage: 0,
+      chiaviInManoNelTotale: false,
+    },
+    listino: LISTINO_2026,
+    geometria: {
+      superficiLordeTotale: 100,
+      superficieSedime: 100,
+      superficieGarage: 0,
+      perimetro: 40,
+      serramenti: { areaLordaTotale: 0, numero: 0 },
+    },
+    overrides: {},
+    sconti: [],
+    sicurezza: { costoDichiarato: 0, valorizzata: 0 },
+    arrotondamento: 0,
+    spessori: {},
+  } as InputCalcolo
+
+  it('garage e opere-chiavi-in-mano digitati concorrono al totale anche se la condizione non è soddisfatta', () => {
+    const senza = eseguiCalcolo(base)
+    const con = eseguiCalcolo({ ...base, overrides: { garage: 9450, 'opere-chiavi-in-mano': 19250 } })
+    expect(con.totaleNetto - senza.totaleNetto).toBe(28700)
+  })
+})

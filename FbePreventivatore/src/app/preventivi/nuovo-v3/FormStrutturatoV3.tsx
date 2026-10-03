@@ -56,7 +56,7 @@ interface Props {
 // 'solaio-interpiano' e 'garage' sono perciò sempre escluse dal preventivo, anche quando il
 // computo caricato le valorizza (vedi l'avviso "escluse dalla configurazione attuale" in
 // StepComputoMetrico.tsx).
-const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Computo metrico', 'Prezzi', 'Condizioni', 'Condizioni contrattuali']
+const STEP_TITOLI = ['Anagrafica', 'Configurazione', 'Computo metrico', 'Condizioni', 'Prezzi', 'Condizioni contrattuali']
 
 export function FormStrutturatoV3({ statoIniziale, aggiornamentoEsterno, onCambiamento }: Props) {
   const [step, setStep] = useState(0)
@@ -124,8 +124,8 @@ export function FormStrutturatoV3({ statoIniziale, aggiornamentoEsterno, onCambi
           setIdApplicati={setIdApplicati}
         />
       )}
-      {step === 3 && <StepPrezzi stato={stato} aggiorna={aggiorna} />}
-      {step === 4 && <StepCondizioni stato={stato} aggiorna={aggiorna} />}
+      {step === 3 && <StepCondizioni stato={stato} aggiorna={aggiorna} />}
+      {step === 4 && <StepPrezzi stato={stato} aggiorna={aggiorna} />}
       {step === 5 && <StepCondizioniContrattuali stato={stato} aggiorna={aggiorna} />}
     </div>
   )
