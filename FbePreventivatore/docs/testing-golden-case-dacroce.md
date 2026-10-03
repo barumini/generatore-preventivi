@@ -184,7 +184,7 @@ rm public/_tmp-test.pdf
 
 ---
 
-## 4. Dal computo al preventivo commerciale — step "4. Prezzi" + "5. Condizioni"
+## 4. Dal computo al preventivo commerciale — step "4. Condizioni" + "5. Prezzi"
 
 Lo step "3. Computo metrico" produce solo gli importi `proposto` (sezione 2 sopra): PARZIALE e
 TOTALE restano a `0,00 €` finché non si passa dagli step successivi — **non è un bug**, è lo
@@ -192,9 +192,9 @@ stato di default prima della revisione umana (CLAUDE.md §7).
 
 Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
 
-- **sconti (percentuale + causale)** → si inseriscono nello step **"5. Condizioni"**, *non* in
-  "4. Prezzi" (lì ci sono solo l'override delle voci di listino e il totale)
-- **Totale** → nello step **"4. Prezzi"**, in fondo sotto l'override delle voci. Di default è
+- **sconti (percentuale + causale)** → si inseriscono nello step **"4. Condizioni"**, *non* in
+  "5. Prezzi" (lì ci sono solo l'override delle voci di listino e il totale)
+- **Totale** → nello step **"5. Prezzi"**, in fondo sotto l'override delle voci. Di default è
   **calcolato ed effettivo**: Listino − sconti a cascata + voci post-sconto, con Arrotondamento a
   0. La spunta **"Arrotonda il totale per difetto"** lo porta per difetto al passo scelto
   (default 5 000 €) e risolve l'Arrotondamento di conseguenza (`arrotondaTotalePerDifettoA` in
@@ -204,13 +204,13 @@ Attenzione a dove si trovano i campi, perché non sono ovvi in `nuovo-v3`:
 
 ### Riprodurre il riscontro (255 000,00 €) dell'offerta rev.02
 
-1. Dopo aver caricato il computo (sezione 3), vai a **"5. Condizioni"** e aggiungi due sconti
+1. Dopo aver caricato il computo (sezione 3), vai a **"4. Condizioni"** e aggiungi due sconti
    (pulsante "Aggiungi sconto" — verificato dal vivo, il primo click sull'unico bottone presente
    crea la prima riga):
    - `5` → causale `sconto cliente`
    - `10` → causale `per conferme entro il 31.01.2026`
    (in `nuovo-v3` la lista parte vuota: nessuno sconto di default).
-2. Vai a **"4. Prezzi"**: il **Totale calcolato** mostra il totale effettivo `256 793,76 €`
+2. Vai a **"5. Prezzi"**: il **Totale calcolato** mostra il totale effettivo `256 793,76 €`
    (300 343,58 − 5% − 10%). Spunta **"Arrotonda il totale per difetto"**: diventa `255 000,00 €`
    (per difetto ai 5 000 €), senza digitare nessun importo. La tabella prezzi del documento risulta:
 
@@ -284,7 +284,7 @@ nuovo numero assegnato da chi scrive l'offerta.
 1. Step "1. Anagrafica": compila anche `Protocollo` (`2022077`), oltre a Cliente/Comune/ecc.
 2. Step "2. Configurazione": compila i 4 campi spessore della tabella sopra.
 3. Step "3. Computo metrico": carica il PDF (sezione 3).
-4. Step "5. Condizioni" e "4. Prezzi": sconti e verifica del Totale calcolato (sezione 4 sopra).
+4. Step "4. Condizioni" e "5. Prezzi": sconti e verifica del Totale calcolato (sezione 4 sopra).
 5. "Salva bozza" (crea il preventivo/la revisione se non esistono ancora), poi "Genera documento".
 
 Con tutti i campi compilati, l'export restituisce `200 OK` senza nessun avviso residuo in preview.
@@ -306,6 +306,9 @@ serve installare il browser:
 ```bash
 npx playwright install chromium
 ```
+
+Lo stesso caso è stato verificato anche sul deploy di produzione su Vercel: vedi
+[`testing-computo-metrico-nuovo-v3.md`](testing-computo-metrico-nuovo-v3.md#7-verifica-su-vercel-produzione).
 
 ---
 

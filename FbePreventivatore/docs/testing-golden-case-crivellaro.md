@@ -16,6 +16,10 @@ stesso motore (`src/domain/calcolo.ts`) e sullo stesso `StatoForm`:
   entrano nel prezzo): il resto (cliente, superfici, sconti, prezzi) va comunque compilato
   a mano per arrivare al totale finale.
 
+Il caso Crivellaro rev.04 su `nuovo-v3` (computo PDF → sconti 10% + 10% → `garage` e
+`opere-chiavi-in-mano` digitati → totale 300 000 €), in e2e e sul deploy Vercel, è in
+[`testing-computo-metrico-nuovo-v3.md`](testing-computo-metrico-nuovo-v3.md#7-verifica-su-vercel-produzione).
+
 ---
 
 ## 1. Test automatici

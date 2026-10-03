@@ -109,7 +109,7 @@ forfettari): non blocca nulla.
 
 ---
 
-## 4. Sconti — step "5. Condizioni"
+## 4. Sconti — step "4. Condizioni"
 
 Il wizard v3 parte **senza sconti**: aggiungili con "Aggiungi sconto", uno per riga e in
 quest'ordine:
@@ -123,7 +123,7 @@ quest'ordine:
 
 ---
 
-## 5. Totale calcolato — step "4. Prezzi"
+## 5. Totale calcolato — step "5. Prezzi"
 
 In fondo, riquadro **Totale**. Di default il totale è quello **effettivo**, senza arrotondamento:
 
