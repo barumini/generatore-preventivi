@@ -13,10 +13,17 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+    // Per il deploy Vercel protetto da Basic Auth: E2E_BASE_URL + BASIC_AUTH_USER/PASSWORD.
+    httpCredentials:
+      process.env.E2E_BASE_URL && process.env.BASIC_AUTH_USER
+        ? { username: process.env.BASIC_AUTH_USER, password: process.env.BASIC_AUTH_PASSWORD ?? '' }
+        : undefined,
     trace: 'retain-on-failure',
   },
-  webServer: {
+  webServer: process.env.E2E_BASE_URL
+    ? undefined
+    : {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
