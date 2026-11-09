@@ -10,7 +10,7 @@ import {
   pickProviderSize,
   toProviderSize,
 } from "@/lib/render/image";
-import { polygonToMask } from "@/lib/render/mask";
+import { featheredAlpha, polygonToMask } from "@/lib/render/mask";
 
 const solid = (width: number, height: number, r = 120, g = 130, b = 140) =>
   sharp({ create: { width, height, channels: 3, background: { r, g, b } } });
@@ -28,6 +28,7 @@ describe("normalizePhoto", () => {
     expect(meta.height).toBe(400);
     expect(meta.orientation).toBeUndefined();
     expect(meta.exif).toBeUndefined();
+    expect(meta.chromaSubsampling).toBe("4:4:4");
   });
 
   it("porta il lato lungo a 3000 px", async () => {
@@ -140,5 +141,96 @@ describe("addDisclaimer", () => {
     }
     expect(bottomRight).toBeGreaterThan(100);
     expect(elsewhere).toBe(0);
+  });
+});
+
+describe("una sola codifica JPEG 4:4:4 e alfa precalcolata", () => {
+  const W = 600;
+  const H = 400;
+  const rect = [
+    { x: 0.3, y: 0.3 },
+    { x: 0.7, y: 0.3 },
+    { x: 0.7, y: 0.7 },
+    { x: 0.3, y: 0.7 },
+  ];
+  const JPEG_OPTS = { quality: 92, chromaSubsampling: "4:4:4" } as const;
+
+  /** Foto liscia sintetica: rumore piccolo ingrandito e sfocato, normalizzata. */
+  async function smoothPhoto(w: number, h: number) {
+    const small = await sharp(randomBytes(40 * 30 * 3), { raw: { width: 40, height: 30, channels: 3 } })
+      .resize(w, h, { fit: "fill", kernel: "cubic" })
+      .blur(4)
+      .png()
+      .toBuffer();
+    return (await normalizePhoto(small)).jpeg;
+  }
+
+  async function inputs() {
+    const original = await smoothPhoto(W, H);
+    const generated = await fromProviderSize(await solid(1536, 1024, 255, 0, 0).png().toBuffer(), W, H);
+    const mask = await polygonToMask(rect, W, H);
+    return { original, generated, mask };
+  }
+
+  it("compositeRaw con alfa precalcolata dà lo stesso risultato", async () => {
+    const { original, generated, mask } = await inputs();
+    const alpha = await featheredAlpha(mask, W, H);
+    const a = await compositeRaw(original, generated, mask, W, H);
+    const b = await compositeRaw(original, generated, mask, W, H, { alpha });
+    expect(b.equals(a)).toBe(true);
+    const c = await composite(original, generated, mask, W, H);
+    const d = await composite(original, generated, mask, W, H, { alpha });
+    expect(d.equals(c)).toBe(true);
+  });
+
+  it("composite con dicitura: una sola codifica, dimensioni invariate", async () => {
+    const { original, generated, mask } = await inputs();
+    const out = await composite(original, generated, mask, W, H, { disclaimer: true });
+    const meta = await sharp(out).metadata();
+    expect([meta.format, meta.width, meta.height, meta.chromaSubsampling]).toEqual(["jpeg", W, H, "4:4:4"]);
+    // byte per byte uguale a UNA codifica del grezzo con dicitura
+    const raw = await compositeRaw(original, generated, mask, W, H, { disclaimer: true });
+    const once = await sharp(raw, { raw: { width: W, height: H, channels: 3 } }).jpeg(JPEG_OPTS).toBuffer();
+    expect(out.equals(once)).toBe(true);
+    // la dicitura c'è davvero rispetto al grezzo senza dicitura
+    const plain = await compositeRaw(original, generated, mask, W, H);
+    expect(raw.equals(plain)).toBe(false);
+  });
+
+  it("addDisclaimer codifica una sola volta in JPEG 4:4:4 (anche da PNG)", async () => {
+    const png = await solid(W, H, 60, 60, 60).png().toBuffer();
+    const out = await addDisclaimer(png, W, H);
+    const meta = await sharp(out).metadata();
+    expect([meta.format, meta.width, meta.height, meta.chromaSubsampling]).toEqual(["jpeg", W, H, "4:4:4"]);
+  });
+
+  it("deriva del JPEG consegnato fuori dalla maschera: errore medio < 1,5 livelli", async () => {
+    const { original, generated, mask } = await inputs();
+    const out = await composite(original, generated, mask, W, H, { disclaimer: false });
+    const dec = await sharp(out).removeAlpha().raw().toBuffer();
+    const orig = await sharp(original).removeAlpha().raw().toBuffer();
+    const m = await sharp(mask).extractChannel(0).raw().toBuffer();
+    // margine di 16 px dalla maschera (blocchi JPEG a cavallo del bordo) e
+    // esclusione dell'area in basso a destra della dicitura
+    const near = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (m[y * W + x])
+          for (let dy = -16; dy <= 16; dy += 16)
+            for (let dx = -16; dx <= 16; dx += 16) {
+              const yy = y + dy, xx = x + dx;
+              if (yy >= 0 && yy < H && xx >= 0 && xx < W) near[yy * W + xx] = 1;
+            }
+    let sum = 0;
+    let n = 0;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (m[i] || near[i] || (x > W / 2 && y > H * 0.9)) continue;
+        for (let c = 0; c < 3; c++) sum += Math.abs(dec[i * 3 + c] - orig[i * 3 + c]);
+        n += 3;
+      }
+    expect(n).toBeGreaterThan(W * H * 3 * 0.3);
+    expect(sum / n).toBeLessThan(1.5);
   });
 });

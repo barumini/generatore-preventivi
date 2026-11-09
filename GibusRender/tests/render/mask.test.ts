@@ -73,3 +73,18 @@ describe("featheredAlpha", () => {
     expect(first255 - firstNonZero).toBeLessThanOrEqual(5);
   });
 });
+
+describe("sagoma che tocca il bordo della foto", () => {
+  it("l'alfa resta 255 sul bordo del fotogramma", async () => {
+    const pts = [
+      { x: 0, y: 0.5 },
+      { x: 0.6, y: 0.5 },
+      { x: 0.6, y: 1 },
+      { x: 0, y: 1 },
+    ];
+    const png = await polygonToMask(pts, W, H);
+    const a = await featheredAlpha(png, W, H);
+    for (let y = 200; y < H; y++) expect(a[y * W + 0]).toBe(255); // bordo sinistro
+    for (let x = 0; x < 240; x++) expect(a[(H - 1) * W + x]).toBe(255); // bordo inferiore
+  });
+});

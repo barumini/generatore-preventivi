@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import { featheredAlpha } from "./mask";
 
-const JPEG_QUALITY = 92;
+/** Unica impostazione di codifica JPEG per tutte le immagini consegnate. */
+const JPEG_OPTIONS = { quality: 92, chromaSubsampling: "4:4:4" } as const;
 const MAX_LONG_SIDE = 3000;
 const DISCLAIMER = "Immagine a titolo esemplificativo";
 
@@ -9,7 +10,8 @@ export type ProviderSize = { width: number; height: number };
 
 /**
  * Rotazione EXIF applicata, metadati rimossi (default di sharp), lato lungo
- * al massimo 3000 px (senza ingrandire), JPEG q92.
+ * al massimo 3000 px (senza ingrandire), JPEG q92 4:4:4 (stesso
+ * sottocampionamento dell'uscita di composite).
  */
 export async function normalizePhoto(
   input: Buffer,
@@ -22,7 +24,7 @@ export async function normalizePhoto(
       fit: "inside",
       withoutEnlargement: true,
     })
-    .jpeg({ quality: JPEG_QUALITY })
+    .jpeg(JPEG_OPTIONS)
     .toBuffer({ resolveWithObject: true });
   return { jpeg: data, width: info.width, height: info.height };
 }
@@ -69,22 +71,47 @@ async function decodeRgb(img: Buffer, w: number, h: number, label: string): Prom
   return data;
 }
 
-/**
- * original·(1−α) + generated·α su RGB grezzo, con α da featheredAlpha(mask).
- * Dove α = 0 (fuori dalla maschera allargata) i byte dell'originale decodificato
- * vengono copiati tali e quali: nessun pixel della casa cambia.
- */
-export async function compositeRaw(
+export type CompositeOptions = {
+  /** Disegna la dicitura sul risultato grezzo, prima dell'unica codifica. */
+  disclaimer?: boolean;
+  /** Alfa grezzo a 1 canale già calcolato con featheredAlpha: evita di ricalcolare l'EDT. */
+  alpha?: Buffer;
+};
+
+/** SVG a piena dimensione con la dicitura in basso a destra, bianca con ombra. */
+function disclaimerSvg(width: number, height: number): Buffer {
+  const fontSize = Math.max(10, Math.round(0.02 * height));
+  const margin = Math.round(fontSize * 0.8);
+  const shadow = Math.max(1, Math.round(fontSize / 12));
+  const x = width - margin;
+  const y = height - margin;
+  const text = (dx: number, fill: string, extra = "") =>
+    `<text x="${x + dx}" y="${y + dx}" font-size="${fontSize}" font-family="Helvetica, Arial, DejaVu Sans, sans-serif" ` +
+    `text-anchor="end" fill="${fill}"${extra}>${DISCLAIMER}</text>`;
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+      text(shadow, "#000", ' fill-opacity="0.6"') +
+      text(0, "#fff") +
+      `</svg>`,
+  );
+}
+
+/** Miscela pura in TypeScript: dove α = 0 i byte dell'originale restano intatti. */
+async function blendRaw(
   original: Buffer,
   generated: Buffer,
   mask: Buffer,
   width: number,
   height: number,
+  alphaIn?: Buffer,
 ): Promise<Buffer> {
+  if (alphaIn && alphaIn.length !== width * height) {
+    throw new Error(`Alfa di ${alphaIn.length} byte, attesi ${width * height}`);
+  }
   const [orig, gen, alpha] = await Promise.all([
     decodeRgb(original, width, height, "originale"),
     decodeRgb(generated, width, height, "generata"),
-    featheredAlpha(mask, width, height),
+    alphaIn ?? featheredAlpha(mask, width, height),
   ]);
   const out = Buffer.from(orig); // copia: partiamo dall'originale esatto
   for (let i = 0, j = 0; i < alpha.length; i++, j += 3) {
@@ -104,40 +131,62 @@ export async function compositeRaw(
   return out;
 }
 
-/** Come compositeRaw, codificato in JPEG q92. */
+/** Pipeline sharp sul buffer grezzo, con la dicitura sovrapposta se richiesta. */
+function rawPipeline(raw: Buffer, width: number, height: number, disclaimer?: boolean) {
+  const img = sharp(raw, { raw: { width, height, channels: 3 } });
+  return disclaimer
+    ? img.composite([{ input: disclaimerSvg(width, height), top: 0, left: 0 }])
+    : img;
+}
+
+/**
+ * original·(1−α) + generated·α su RGB grezzo, con α = opts.alpha oppure
+ * featheredAlpha(mask). Dove α = 0 i byte dell'originale decodificato sono
+ * copiati tali e quali. Con opts.disclaimer la dicitura viene disegnata sul
+ * risultato (e quindi modifica i pixel della sua area).
+ */
+export async function compositeRaw(
+  original: Buffer,
+  generated: Buffer,
+  mask: Buffer,
+  width: number,
+  height: number,
+  opts: CompositeOptions = {},
+): Promise<Buffer> {
+  const raw = await blendRaw(original, generated, mask, width, height, opts.alpha);
+  if (!opts.disclaimer) return raw;
+  return rawPipeline(raw, width, height, true).removeAlpha().raw().toBuffer();
+}
+
+/**
+ * Ricomposizione consegnata al cliente, con UNA sola codifica JPEG.
+ *
+ * Garanzia: nel buffer grezzo ricomposto, i pixel fuori dalla maschera
+ * allargata (α = 0) sono byte per byte identici all'originale normalizzato
+ * decodificato. Il JPEG consegnato differisce da quel buffer solo per l'unica
+ * compressione uniforme q92 4:4:4 applicata a tutta l'immagine (stesse
+ * impostazioni di normalizePhoto). La dicitura facoltativa è disegnata sul
+ * grezzo prima di quell'unica codifica.
+ */
 export async function composite(
   original: Buffer,
   generated: Buffer,
   mask: Buffer,
   width: number,
   height: number,
+  opts: CompositeOptions = {},
 ): Promise<Buffer> {
-  const raw = await compositeRaw(original, generated, mask, width, height);
-  return sharp(raw, { raw: { width, height, channels: 3 } })
-    .jpeg({ quality: JPEG_QUALITY })
-    .toBuffer();
+  const raw = await blendRaw(original, generated, mask, width, height, opts.alpha);
+  return rawPipeline(raw, width, height, opts.disclaimer).jpeg(JPEG_OPTIONS).toBuffer();
 }
 
 /**
- * Dicitura in basso a destra, bianca con ombra, alta il 2% della foto.
- * Usa composite di sharp: qui non serve l'identità dei pixel.
+ * Dicitura per il percorso senza sagoma: decodifica (JPEG o PNG),
+ * sovrapposizione e un'unica codifica JPEG q92 4:4:4.
  */
-export async function addDisclaimer(jpeg: Buffer, width: number, height: number): Promise<Buffer> {
-  const fontSize = Math.max(10, Math.round(0.02 * height));
-  const margin = Math.round(fontSize * 0.8);
-  const shadow = Math.max(1, Math.round(fontSize / 12));
-  const x = width - margin;
-  const y = height - margin;
-  const text = (dx: number, fill: string, extra = "") =>
-    `<text x="${x + dx}" y="${y + dx}" font-size="${fontSize}" font-family="Helvetica, Arial, DejaVu Sans, sans-serif" ` +
-    `text-anchor="end" fill="${fill}"${extra}>${DISCLAIMER}</text>`;
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
-    text(shadow, "#000", ' fill-opacity="0.6"') +
-    text(0, "#fff") +
-    `</svg>`;
-  return sharp(jpeg)
-    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-    .jpeg({ quality: JPEG_QUALITY })
+export async function addDisclaimer(img: Buffer, width: number, height: number): Promise<Buffer> {
+  return sharp(img)
+    .composite([{ input: disclaimerSvg(width, height), top: 0, left: 0 }])
+    .jpeg(JPEG_OPTIONS)
     .toBuffer();
 }
