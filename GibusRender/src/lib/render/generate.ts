@@ -7,7 +7,7 @@ import type { Render, Variant } from "@/generated/prisma/client";
 import { getFile, putFile } from "@/lib/storage";
 import { getProvider, PROVIDER_IDS } from "@/lib/providers/registry";
 import { ProviderError, type ImageProvider, type ImageQuality } from "@/lib/providers/types";
-import { validatePolygon, type Point } from "./geometry";
+import { POSITION_REQUIRED, validatePolygon, type Point } from "./geometry";
 import { featheredAlpha, polygonToMask } from "./mask";
 import {
   addDisclaimer,
@@ -29,7 +29,15 @@ export class RenderInputError extends Error {
   }
 }
 
-export const POSITION_REQUIRED = "Indica la posizione: disegna la sagoma o descrivila a parole";
+export { POSITION_REQUIRED };
+
+/** Errore 404: il render di partenza (sourceRenderId) non esiste. */
+export class SourceRenderNotFoundError extends RenderInputError {}
+
+export const SOURCE_NOT_FOUND = "Render di partenza non trovato";
+export const PHOTO_REQUIRED = "Carica una foto";
+export const PHOTO_AND_SOURCE =
+  "Carica una nuova foto oppure riusa quella del render di partenza, non entrambe";
 
 const point = z.object({
   x: z.number({ error: "Coordinate della sagoma non valide" }).finite(),
@@ -42,6 +50,9 @@ const mm = (label: string) =>
     .int({ error: `${label}: deve essere un numero intero di millimetri` })
     .min(500, { error: `${label}: deve essere tra 500 e 15000 mm` })
     .max(15000, { error: `${label}: deve essere tra 500 e 15000 mm` });
+
+/** Il multipart del browser trasforma gli a capo in CRLF: si torna a LF. */
+const lf = (v: string) => v.replace(/\r\n?/g, "\n");
 
 const optionalId = z
   .string()
@@ -68,7 +79,9 @@ export const CreateRenderInput = z
       .trim()
       .min(1, { error: "Indica il riferimento del cliente" })
       .max(200, { error: "Riferimento del cliente troppo lungo" }),
-    photo: z.union([z.instanceof(Buffer), z.instanceof(File)], { error: "Carica una foto" }),
+    photo: z.union([z.instanceof(Buffer), z.instanceof(File)], { error: PHOTO_REQUIRED }).optional(),
+    /** In alternativa a `photo`: riusa la foto normalizzata di questo render. */
+    sourceRenderId: optionalId,
     productId: z.string({ error: "Scegli un prodotto" }).trim().min(1, { error: "Scegli un prodotto" }),
     widthMm: mm("Larghezza"),
     depthMm: mm("Profondità"),
@@ -77,14 +90,19 @@ export const CreateRenderInput = z
     colorId: optionalId,
     fabricId: optionalId,
     polygon: z.array(point, { error: "Sagoma non valida" }).optional(),
-    positionText: z.string().trim().max(2000, { error: "Descrizione della posizione troppo lunga" }).default(""),
+    positionText: z
+      .string()
+      .trim()
+      .max(2000, { error: "Descrizione della posizione troppo lunga" })
+      .default("")
+      .transform(lf),
     scaleLine: scaleLineSchema.optional(),
     prompt: z
       .string()
       .trim()
       .max(20000, { error: "Prompt troppo lungo" })
       .optional()
-      .transform((v) => v || undefined),
+      .transform((v) => (v ? lf(v) : undefined)),
     providerId: z.enum(PROVIDER_IDS as [string, ...string[]], { error: "Fornitore sconosciuto" }),
     model: z.string({ error: "Indica il modello" }).trim().min(1, { error: "Indica il modello" }),
     quality: z.enum(["low", "medium", "high"], { error: "Qualità non valida (low, medium o high)" }),
@@ -96,6 +114,12 @@ export const CreateRenderInput = z
     disclaimer: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
+    if (!v.photo && !v.sourceRenderId) {
+      ctx.addIssue({ code: "custom", message: PHOTO_REQUIRED, path: ["photo"] });
+    }
+    if (v.photo && v.sourceRenderId) {
+      ctx.addIssue({ code: "custom", message: PHOTO_AND_SOURCE, path: ["photo"] });
+    }
     if (!v.polygon && !v.positionText) {
       ctx.addIssue({ code: "custom", message: POSITION_REQUIRED, path: ["positionText"] });
     }
@@ -116,6 +140,36 @@ async function findFinish(id: string | undefined, kind: "COLORE" | "TESSUTO", mi
   return f;
 }
 
+/**
+ * Foto normalizzata del nuovo render: quella caricata (normalizzata qui) oppure
+ * quella già normalizzata del render di partenza, riletta così com'è.
+ * Si copia il file invece di condividerne l'URL: ogni render resta
+ * autosufficiente e l'eliminazione del render di partenza non lo rompe.
+ */
+async function photoFor(
+  photo: Buffer | File | undefined,
+  sourceRenderId: string | undefined,
+): Promise<{ jpeg: Buffer; width: number; height: number }> {
+  if (sourceRenderId) {
+    const src = await db.render.findUnique({ where: { id: sourceRenderId } });
+    if (!src) throw new SourceRenderNotFoundError(SOURCE_NOT_FOUND);
+    let jpeg: Buffer;
+    try {
+      jpeg = await getFile(src.photoUrl);
+    } catch {
+      throw new RenderInputError("Foto del render di partenza non disponibile: caricala di nuovo");
+    }
+    return { jpeg, width: src.photoWidth, height: src.photoHeight };
+  }
+  if (!photo) throw new RenderInputError(PHOTO_REQUIRED);
+  const raw = Buffer.isBuffer(photo) ? photo : Buffer.from(await photo.arrayBuffer());
+  try {
+    return await normalizePhoto(raw);
+  } catch {
+    throw new RenderInputError("Foto non leggibile: usa un file JPEG, PNG o WebP");
+  }
+}
+
 export async function createRender(input: CreateRenderInput): Promise<Render> {
   const data = parse(input);
 
@@ -134,14 +188,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
     db.referenceImage.count({ where: { productId: product.id } }),
   ]);
 
-  const raw = Buffer.isBuffer(data.photo) ? data.photo : Buffer.from(await data.photo.arrayBuffer());
-  let normalized: Awaited<ReturnType<typeof normalizePhoto>>;
-  try {
-    normalized = await normalizePhoto(raw);
-  } catch {
-    throw new RenderInputError("Foto non leggibile: usa un file JPEG, PNG o WebP");
-  }
-  const { jpeg, width, height } = normalized;
+  const { jpeg, width, height } = await photoFor(data.photo, data.sourceRenderId);
 
   const provider = getProvider(data.providerId);
   const prompt =
@@ -347,6 +394,8 @@ function json(form: FormData, key: string, error: string): unknown {
 
 /**
  * Converte il FormData di POST /api/renders nell'input di createRender.
+ * Serve esattamente uno tra `photo` (file) e `sourceRenderId` (riusa la foto
+ * di un render esistente, per "Duplica e modifica").
  * I campi mancanti di fornitore, modello, qualità e varianti prendono i
  * valori di `defaults` (le impostazioni).
  */
@@ -354,12 +403,16 @@ export function renderInputFromForm(
   form: FormData,
   defaults: { providerId: string; model: string; quality: string; variants: number },
 ): CreateRenderInput {
-  const photo = form.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) throw new RenderInputError("Carica una foto");
-  if (photo.size > MAX_PHOTO_BYTES) throw new PhotoTooLargeError(PHOTO_TOO_LARGE);
+  const entry = form.get("photo");
+  const photo = entry instanceof File && entry.size > 0 ? entry : undefined;
+  const sourceRenderId = str(form, "sourceRenderId")?.trim() || undefined;
+  if (photo && sourceRenderId) throw new RenderInputError(PHOTO_AND_SOURCE);
+  if (!photo && !sourceRenderId) throw new RenderInputError(PHOTO_REQUIRED);
+  if (photo && photo.size > MAX_PHOTO_BYTES) throw new PhotoTooLargeError(PHOTO_TOO_LARGE);
   return {
     clientRef: str(form, "clientRef") as string,
     photo,
+    sourceRenderId,
     productId: str(form, "productId") as string,
     widthMm: num(form, "widthMm") as number,
     depthMm: num(form, "depthMm") as number,

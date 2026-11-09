@@ -3,6 +3,9 @@ export type Point = { x: number; y: number };
 
 export type ScaleLine = { a: Point; b: Point; lengthMm: number };
 
+/** Messaggio condiviso da server e modulo client quando mancano sia sagoma sia descrizione. */
+export const POSITION_REQUIRED = "Indica la posizione: disegna la sagoma o descrivila a parole";
+
 /** Area minima della sagoma: 0,1% della foto. */
 const MIN_AREA = 0.001;
 

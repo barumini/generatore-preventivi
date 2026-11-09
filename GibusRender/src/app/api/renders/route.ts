@@ -4,6 +4,7 @@ import {
   PHOTO_TOO_LARGE,
   PhotoTooLargeError,
   RenderInputError,
+  SourceRenderNotFoundError,
   renderInputFromForm,
 } from "@/lib/render/generate";
 import { getSettings } from "@/lib/settings";
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     return Response.json({ id: render.id });
   } catch (err) {
     if (err instanceof PhotoTooLargeError) return error(err.message, 413);
+    if (err instanceof SourceRenderNotFoundError) return error(err.message, 404);
     if (err instanceof RenderInputError) return error(err.message, 400);
     console.error("Creazione render fallita:", err);
     return error("Errore interno durante la creazione del render", 500);

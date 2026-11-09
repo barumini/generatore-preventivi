@@ -94,6 +94,7 @@ vi.mock("@/lib/db", () => {
 
 import { createRender, generateVariant, isStale, type CreateRenderInput } from "@/lib/render/generate";
 import { db } from "@/lib/db";
+import { getRenderDraft } from "@/lib/render/draft";
 import { putFile, getFile } from "@/lib/storage";
 import { POST as postRender } from "@/app/api/renders/route";
 import { POST as postVariant } from "@/app/api/renders/[id]/variants/route";
@@ -259,6 +260,12 @@ describe("createRender", () => {
     expect(r.prompt).toBe("Prompt modificato a mano");
   });
 
+  it("normalizza gli a capo CRLF del multipart in LF (prompt e posizione)", async () => {
+    const r = await newRender({ prompt: "Riga 1\r\n\r\nRiga 2\rRiga 3", positionText: "a destra\r\nsul patio" });
+    expect(r.prompt).toBe("Riga 1\n\nRiga 2\nRiga 3");
+    expect(r.positionText).toBe("a destra\nsul patio");
+  });
+
   it("senza poligono e con positionText vuoto → errore di validazione", async () => {
     await expect(createRender(baseInput({ polygon: undefined, positionText: "  " }))).rejects.toThrow(
       "Indica la posizione: disegna la sagoma o descrivila a parole",
@@ -274,6 +281,87 @@ describe("createRender", () => {
     await expect(createRender(baseInput({ polygon: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }))).rejects.toThrow(
       "La sagoma deve avere almeno 3 punti",
     );
+  });
+});
+
+describe("createRender da un render esistente (sourceRenderId)", () => {
+  it("riusa la foto normalizzata del render di partenza copiandola, senza rinormalizzarla", async () => {
+    const src = await newRender();
+    const r = await newRender({ photo: undefined, sourceRenderId: src.id });
+    expect(r.id).not.toBe(src.id);
+    expect(r.photoUrl).toBe(`/api/files/renders/${r.id}/photo.jpg`);
+    expect(r.photoWidth).toBe(src.photoWidth);
+    expect(r.photoHeight).toBe(src.photoHeight);
+    const [a, b] = await Promise.all([getFile(src.photoUrl), getFile(r.photoUrl)]);
+    expect(b.equals(a)).toBe(true);
+  });
+
+  it("render di partenza inesistente → errore italiano", async () => {
+    await expect(createRender(baseInput({ photo: undefined, sourceRenderId: "nessuno" }))).rejects.toThrow(
+      "Render di partenza non trovato",
+    );
+  });
+
+  it("serve esattamente una tra foto e sourceRenderId", async () => {
+    const src = await newRender();
+    await expect(createRender(baseInput({ sourceRenderId: src.id }))).rejects.toThrow(
+      "Carica una nuova foto oppure riusa quella del render di partenza, non entrambe",
+    );
+    await expect(createRender(baseInput({ photo: undefined }))).rejects.toThrow("Carica una foto");
+  });
+});
+
+describe("getRenderDraft", () => {
+  it("copia tutti i parametri tranne la variante scelta", async () => {
+    const scaleLine = { a: { x: 0.1, y: 0.5 }, b: { x: 0.35, y: 0.5 }, lengthMm: 900 };
+    const src = await newRender({
+      scaleLine,
+      positionText: "sopra il patio",
+      prompt: "Prompt a mano",
+      fabricId: undefined,
+      quality: "medium",
+      variantsRequested: 2,
+      disclaimer: true,
+    });
+    store.renders.get(src.id)!.chosenVariantId = "v-scelta";
+    const d = await getRenderDraft(src.id);
+    expect(d).toEqual({
+      sourceRenderId: src.id,
+      clientRef: "Rossi 12",
+      productId: "p1",
+      productName: "ZENIT – Addossata frontale",
+      widthMm: 4200,
+      depthMm: 3800,
+      clearHeightMm: 2400,
+      totalHeightMm: 2746,
+      colorId: "c1",
+      fabricId: null,
+      polygon: POLYGON,
+      positionText: "sopra il patio",
+      scaleLine,
+      prompt: "Prompt a mano",
+      providerId: "openai",
+      model: "gpt-image-2",
+      quality: "medium",
+      variantsRequested: 2,
+      disclaimer: true,
+      photoUrl: src.photoUrl,
+      photoWidth: W,
+      photoHeight: H,
+    });
+    expect(d).not.toHaveProperty("chosenVariantId");
+  });
+
+  it("prodotto eliminato → productId null (il modulo chiederà di sceglierlo)", async () => {
+    const src = await newRender({ polygon: undefined, positionText: "a destra" });
+    store.products.delete("p1");
+    store.renders.get(src.id)!.productId = null;
+    const d = await getRenderDraft(src.id);
+    expect(d).toMatchObject({ productId: null, productName: "ZENIT – Addossata frontale", polygon: null, scaleLine: null });
+  });
+
+  it("render inesistente → null", async () => {
+    expect(await getRenderDraft("nessuno")).toBeNull();
   });
 });
 
@@ -451,6 +539,28 @@ describe("POST /api/renders", () => {
     });
     const res = await postRender(req);
     expect(res.status).toBe(413);
+  });
+
+  it("sourceRenderId al posto della foto → crea il render con la foto copiata", async () => {
+    const src = await newRender();
+    const res = await postRender(post(renderForm({ photo: undefined, sourceRenderId: src.id })));
+    expect(res.status).toBe(200);
+    const { id } = (await res.json()) as { id: string };
+    createdRenders.add(id);
+    expect(store.renders.get(id)).toMatchObject({ photoUrl: `/api/files/renders/${id}/photo.jpg`, photoWidth: W });
+  });
+
+  it("sourceRenderId sconosciuto → 404 con messaggio italiano", async () => {
+    const res = await postRender(post(renderForm({ photo: undefined, sourceRenderId: "nessuno" })));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Render di partenza non trovato" });
+  });
+
+  it("foto e sourceRenderId insieme → 400", async () => {
+    const src = await newRender();
+    const res = await postRender(post(renderForm({ sourceRenderId: src.id })));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toMatch(/non entrambe/);
   });
 
   it("foto mancante → 400", async () => {
