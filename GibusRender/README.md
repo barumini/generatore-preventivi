@@ -89,12 +89,12 @@ Il deploy richiede gli account dell'utente (Vercel, Neon) e va fatto da lui.
 
 - **Catalogo**: elenco dei modelli di pergola con descrizione per l'IA e immagini di riferimento, e finiture (strutture, teli) con relativi colori. Si modificano da qui.
 - **Nuovo render**: si carica la foto del cliente, si sceglie modello e finiture, si disegna la sagoma dell'area da modificare, si indica la scala (una misura nota sulla foto) e si controlla l'anteprima del prompt e la stima del costo; poi "Genera". Senza sagoma la casa non è protetta: l'interfaccia avvisa di verificare che nulla sia cambiato.
-- **Varianti**: per ogni render si ottengono più varianti (3 per impostazione predefinita) da confrontare; si sceglie la migliore, si scarica in JPG (qualità 92, risoluzione della foto originale) e si ritrovano tutte nell'archivio. Le varianti fallite si rigenerano con "Riprova". La dicitura "Immagine a titolo esemplificativo" è facoltativa e disattivata di default.
+- **Varianti**: per ogni render si ottengono più varianti (3 per impostazione predefinita) da confrontare; si sceglie la migliore, si scarica in JPG (qualità 92, risoluzione della foto originale) e si ritrovano tutte nell'archivio. Le varianti fallite si rigenerano con "Riprova". La dicitura "Immagine a titolo esemplificativo" è facoltativa e disattivata di default; è resa con il font Geist incluso nel repository (`assets/fonts`, licenza SIL OFL 1.1), quindi non dipende dai font di sistema.
 - **Impostazioni**: fornitore attivo, modello, qualità, fornitori abilitati e numero predefinito di varianti.
 
 ## Aggiungere un nuovo fornitore di immagini
 
-1. Creare `src/lib/providers/<nome>.ts` che esporta un oggetto che implementa `ImageProvider` (`src/lib/providers/types.ts`): `id`, `label`, `supportsMask`, `supportedSizes`, `suggestedModels`, `isConfigured()` e `generate()`. Gli errori vanno sollevati come `ProviderError`.
+1. Creare `src/lib/providers/<nome>.ts` che esporta un oggetto che implementa `ImageProvider` (`src/lib/providers/types.ts`): `id`, `label`, `supportsMask`, `supportedSizes`, `suggestedModels`, `isConfigured()` e `generate()`. Gli errori vanno sollevati come `ProviderError`. Quando c'è una sagoma, `generate()` riceve sempre la maschera (bianco = area da modificare); `supportsMask` indica solo se il modello la applica davvero (altrimenti il prompt la descrive come indicazione).
 2. Registrarlo nell'elenco `PROVIDERS` di `src/lib/providers/registry.ts`.
 3. Aggiungere il suo id al tipo `ProviderId` in `types.ts` e a `PROVIDER_IDS` in `src/lib/settings.ts` (ed eventualmente a `enabledProviders` nei valori predefiniti).
 4. Aggiungere i prezzi in `src/lib/render/cost.ts`; per i modelli non in tabella l'app mostra "Stima non disponibile".
@@ -108,9 +108,14 @@ Il deploy richiede gli account dell'utente (Vercel, Neon) e va fatto da lui.
 
 ## Privacy (punto aperto)
 
-Le foto delle case dei clienti vengono inviate ai fornitori di IA scelti. Se serva un consenso del cliente o vada escluso qualche fornitore è ancora da decidere. L'app non impedisce questa decisione: ogni fornitore si abilita o disabilita da Impostazioni.
+Le foto delle case dei clienti vengono inviate ai fornitori di IA scelti. Se serva un consenso del cliente o vada escluso qualche fornitore è ancora da decidere. L'app non impedisce questa decisione: ogni fornitore si abilita o disabilita da Impostazioni. Un render creato con un fornitore poi disabilitato non genera altre varianti: va duplicato scegliendo un altro fornitore.
+
+Foto, immagini di riferimento e render sono salvati su **Vercel Blob con URL pubblici**: gli indirizzi contengono un suffisso casuale e non sono indovinabili, ma chiunque abbia il link può aprire il file **senza passare dalla Basic Auth** dell'app (il link non scade). Passare a blob privati, serviti dall'app dopo il controllo di accesso, è un possibile intervento futuro.
 
 ## Limiti noti
 
-- La dicitura "Immagine a titolo esemplificativo" è disegnata con i font di sistema: su Vercel i font disponibili sono pochi e **non è stato verificato** che il testo venga reso correttamente. Da controllare al primo deploy; se manca, la dicitura può comparire con caratteri sostitutivi o vuoti.
+- Foto e render su Vercel Blob hanno URL pubblici non indovinabili che aggirano la Basic Auth (vedi Privacy); i blob privati sono un possibile intervento futuro.
+- Il pulsante "Scarica" di una variante su Vercel Blob reindirizza all'URL di download del Blob (`?download=1`): il file scaricato ha il nome del blob (es. `<id-variante>-<suffisso>.jpg`), non `GibusRender-<cliente>-<id>.jpg` come in sviluppo.
+- OpenRouter (Gemini) riceve la sagoma solo come immagine indicativa e non la rispetta sempre: fuori dalla sagoma la casa viene comunque ripristinata, ma la pergola può risultare tagliata se il modello la disegna altrove.
+- Con `NODE_ENV=production` (anche `npm start` in locale) serve `BLOB_READ_WRITE_TOKEN`: senza, il salvataggio dei file fallisce con "Archivio file non configurato".
 - Il deploy su Vercel non è stato provato: è da fare con gli account dell'utente.
