@@ -292,16 +292,35 @@ export async function generateVariant(
     });
   } catch (err) {
     console.error(`Generazione variante ${variant.id} fallita:`, err);
-    return db.variant.update({
-      where: { id: variant.id },
-      data: { status: "FAILED", error: errorMessage(err) },
-    });
+    const failed = { status: "FAILED" as const, error: errorMessage(err) };
+    try {
+      return await db.variant.update({ where: { id: variant.id }, data: failed });
+    } catch (dbErr) {
+      // Non rilanciare: la riga resta PENDING e isStale() la mostrerà scaduta.
+      console.error(`Salvataggio dell'errore della variante ${variant.id} fallito:`, dbErr);
+      return { ...variant, ...failed, imageUrl: null };
+    }
   }
+}
+
+/** Oltre questo tempo una variante ancora PENDING è considerata bloccata. */
+export const STALE_AFTER_MS = 6 * 60 * 1000;
+
+/** true per le varianti PENDING create da più di 6 minuti (da mostrare come FAILED). */
+export function isStale(
+  variant: Pick<Variant, "status" | "createdAt"> | { status: string; createdAt: Date },
+  now: Date = new Date(),
+): boolean {
+  return variant.status === "PENDING" && now.getTime() - variant.createdAt.getTime() > STALE_AFTER_MS;
 }
 
 /* ---- Lettura del multipart di POST /api/renders ---- */
 
-export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+/** Limite del corpo della richiesta: uguale a experimental.proxyClientMaxBodySize in next.config.ts. */
+export const MAX_BODY_BYTES = 5 * 1024 * 1024;
+export const PHOTO_TOO_LARGE =
+  "La foto è troppo grande (max 4 MB): riprova, l'app la ridimensiona automaticamente";
 
 /** Errore 413: foto troppo grande. */
 export class PhotoTooLargeError extends RenderInputError {}
@@ -337,7 +356,7 @@ export function renderInputFromForm(
 ): CreateRenderInput {
   const photo = form.get("photo");
   if (!(photo instanceof File) || photo.size === 0) throw new RenderInputError("Carica una foto");
-  if (photo.size > MAX_PHOTO_BYTES) throw new PhotoTooLargeError("La foto supera i 10 MB: riducila e riprova");
+  if (photo.size > MAX_PHOTO_BYTES) throw new PhotoTooLargeError(PHOTO_TOO_LARGE);
   return {
     clientRef: str(form, "clientRef") as string,
     photo,

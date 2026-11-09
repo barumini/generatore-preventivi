@@ -1,4 +1,11 @@
-import { createRender, PhotoTooLargeError, RenderInputError, renderInputFromForm } from "@/lib/render/generate";
+import {
+  createRender,
+  MAX_BODY_BYTES,
+  PHOTO_TOO_LARGE,
+  PhotoTooLargeError,
+  RenderInputError,
+  renderInputFromForm,
+} from "@/lib/render/generate";
 import { getSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
@@ -6,6 +13,9 @@ export const runtime = "nodejs";
 const error = (message: string, status: number) => Response.json({ error: message }, { status });
 
 export async function POST(request: Request) {
+  // Oltre questo limite il proxy tronca il corpo: rispondere 413 prima di leggerlo.
+  const length = Number(request.headers.get("content-length"));
+  if (Number.isFinite(length) && length > MAX_BODY_BYTES) return error(PHOTO_TOO_LARGE, 413);
   let form: FormData;
   try {
     form = await request.formData();

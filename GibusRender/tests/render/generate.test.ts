@@ -92,7 +92,8 @@ vi.mock("@/lib/db", () => {
   };
 });
 
-import { createRender, generateVariant, type CreateRenderInput } from "@/lib/render/generate";
+import { createRender, generateVariant, isStale, type CreateRenderInput } from "@/lib/render/generate";
+import { db } from "@/lib/db";
 import { putFile, getFile } from "@/lib/storage";
 import { POST as postRender } from "@/app/api/renders/route";
 import { POST as postVariant } from "@/app/api/renders/[id]/variants/route";
@@ -176,6 +177,21 @@ const createdRenders = new Set<string>();
 
 async function rgb(img: Buffer) {
   return sharp(img).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+}
+
+/** Differenza media per canale fuori dal riquadro 0.3..0.7 (lontano dalla sagoma). */
+function meanDiffOutside(a: Buffer, b: Buffer): number {
+  let sum = 0;
+  let n = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (x > 0.3 * W && x < 0.7 * W && y > 0.3 * H && y < 0.7 * H) continue;
+      const o = (y * W + x) * 3;
+      for (let c = 0; c < 3; c++) sum += Math.abs(a[o + c] - b[o + c]);
+      n += 3;
+    }
+  }
+  return sum / n;
 }
 
 beforeAll(async () => {
@@ -290,17 +306,7 @@ describe("generateVariant", () => {
     expect(out.info).toMatchObject({ width: W, height: H, channels: 3 });
 
     // Lontano dalla sagoma (fuori dal riquadro 0.3..0.7) i pixel coincidono con la foto.
-    let sum = 0;
-    let n = 0;
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        if (x > 0.3 * W && x < 0.7 * W && y > 0.3 * H && y < 0.7 * H) continue;
-        const o = (y * W + x) * 3;
-        for (let c = 0; c < 3; c++) sum += Math.abs(out.data[o + c] - orig.data[o + c]);
-        n += 3;
-      }
-    }
-    expect(sum / n).toBeLessThan(2);
+    expect(meanDiffOutside(out.data, orig.data)).toBeLessThan(2);
 
     // Al centro c'è l'immagine generata (rossa).
     const c = ((H / 2) * W + W / 2) * 3;
@@ -326,6 +332,25 @@ describe("generateVariant", () => {
     expect(v.status).toBe("DONE");
     expect(v.protected).toBe(true);
     expect(calls[0].mask).toBeUndefined();
+    // La ricomposizione è avvenuta comunque: fuori dalla sagoma resta la foto, al centro il rosso.
+    const out = await rgb(await getFile(v.imageUrl!));
+    const orig = await rgb(await getFile(r.photoUrl));
+    expect(meanDiffOutside(out.data, orig.data)).toBeLessThan(2);
+    const c = ((H / 2) * W + W / 2) * 3;
+    expect(out.data[c]).toBeGreaterThan(230);
+  });
+
+  it("se anche il salvataggio dell'errore fallisce, si risolve comunque con una variante FAILED", async () => {
+    const r = await newRender();
+    const { provider } = fakeProvider({ fail: new ProviderError("timeout", "x") });
+    const spy = vi.spyOn(db.variant, "update").mockRejectedValue(new Error("db giù"));
+    try {
+      const v = await generateVariant(r.id, { provider });
+      expect(v).toMatchObject({ renderId: r.id, status: "FAILED", error: "Tempo scaduto, riprova", imageUrl: null });
+      expect(v.protected).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("prodotto eliminato: genera senza riferimenti", async () => {
@@ -409,11 +434,23 @@ describe("POST /api/renders", () => {
     expect(((await res.json()) as { error: string }).error).toMatch(/sagoma/i);
   });
 
-  it("foto oltre 10 MB → 413", async () => {
-    const big = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" });
+  it("foto oltre 4 MB → 413", async () => {
+    const big = new File([new Uint8Array(4 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" });
     const res = await postRender(post(renderForm({ photo: big })));
     expect(res.status).toBe(413);
-    expect(((await res.json()) as { error: string }).error).toMatch(/10 MB/);
+    expect(await res.json()).toEqual({
+      error: "La foto è troppo grande (max 4 MB): riprova, l'app la ridimensiona automaticamente",
+    });
+  });
+
+  it("corpo oltre 5 MB (Content-Length) → 413 senza leggere il modulo", async () => {
+    const req = new Request("http://localhost/api/renders", {
+      method: "POST",
+      headers: { "content-length": String(6 * 1024 * 1024), "content-type": "multipart/form-data; boundary=x" },
+      body: "--x--",
+    });
+    const res = await postRender(req);
+    expect(res.status).toBe(413);
   });
 
   it("foto mancante → 400", async () => {
@@ -442,5 +479,26 @@ describe("POST /api/renders/[id]/variants e download", () => {
     expect(cd).toContain(`-${v.id}.jpg`);
     const body = Buffer.from(await res.arrayBuffer());
     expect(body.equals(await getFile(v.imageUrl!))).toBe(true);
+  });
+});
+
+describe("isStale", () => {
+  const now = new Date("2026-11-09T12:00:00Z");
+  const v = (status: string, minutesAgo: number) => ({
+    status,
+    createdAt: new Date(now.getTime() - minutesAgo * 60_000),
+  });
+  it("PENDING da più di 6 minuti → true", () => {
+    expect(isStale(v("PENDING", 6.1), now)).toBe(true);
+    expect(isStale(v("PENDING", 60), now)).toBe(true);
+  });
+  it("PENDING recente, oppure DONE/FAILED → false", () => {
+    expect(isStale(v("PENDING", 5.9), now)).toBe(false);
+    expect(isStale(v("PENDING", 6), now)).toBe(false);
+    expect(isStale(v("DONE", 60), now)).toBe(false);
+    expect(isStale(v("FAILED", 60), now)).toBe(false);
+  });
+  it("usa l'ora corrente per default", () => {
+    expect(isStale({ status: "PENDING", createdAt: new Date(Date.now() - 7 * 60_000) })).toBe(true);
   });
 });
