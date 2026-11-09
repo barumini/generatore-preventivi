@@ -3,35 +3,41 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { chooseVariant } from "@/lib/render/actions";
+import { shouldAutoStart, visibleVariants, type VariantInfo } from "@/lib/render/variant-list";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { BeforeAfter } from "./BeforeAfter";
-
-/** Dati semplici di una variante, preparati dal server (stale calcolato con isStale). */
-export type VariantInfo = {
-  id: string;
-  status: "PENDING" | "DONE" | "FAILED";
-  imageUrl: string | null;
-  protected: boolean;
-  error: string | null;
-  /** PENDING da più di 6 minuti: si mostra come fallita. */
-  stale: boolean;
-  /** ISO 8601. */
-  createdAt: string;
-};
 
 const MAX_MORE = 6;
 const POLL_MS = 10_000;
 const STALE_MESSAGE = "Tempo scaduto, riprova";
 const UNPROTECTED = "Casa non protetta: verificare che nulla sia cambiato";
 
-type Card =
-  | { kind: "placeholder"; key: string }
-  | { kind: "variant"; key: string; v: VariantInfo };
+const dismissedKey = (renderId: string) => `gibusrender:nascoste:${renderId}`;
+
+/** Varianti fallite nascoste dall'utente (Riprova o Nascondi), ricordate per render nel browser. */
+function loadDismissed(renderId: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(dismissedKey(renderId));
+    const list: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(renderId: string, ids: Set<string>): void {
+  try {
+    window.localStorage.setItem(dismissedKey(renderId), JSON.stringify([...ids]));
+  } catch {
+    // Archiviazione non disponibile (navigazione privata, quota): vale solo per questa sessione.
+  }
+}
 
 function fromJson(json: unknown): VariantInfo | null {
   if (!json || typeof json !== "object") return null;
   const o = json as Record<string, unknown>;
-  if (typeof o.id !== "string" || !["PENDING", "DONE", "FAILED"].includes(o.status as string)) return null;
+  if (typeof o.id !== "string" || typeof o.createdAt !== "string") return null;
+  if (!["PENDING", "DONE", "FAILED"].includes(o.status as string)) return null;
   return {
     id: o.id,
     status: o.status as VariantInfo["status"],
@@ -39,8 +45,13 @@ function fromJson(json: unknown): VariantInfo | null {
     protected: o.protected === true,
     error: typeof o.error === "string" ? o.error : null,
     stale: false,
-    createdAt: typeof o.createdAt === "string" ? o.createdAt : new Date().toISOString(),
+    createdAt: o.createdAt,
   };
+}
+
+/** Errore nato nel browser: nessuna riga nel database, ordinato dopo le varianti reali. */
+function localFailure(key: string, error: string): VariantInfo {
+  return { id: key, status: "FAILED", imageUrl: null, protected: false, error, stale: false, createdAt: "", local: true };
 }
 
 export function VariantsView({
@@ -50,7 +61,7 @@ export function VariantsView({
   photoHeight,
   initialVariants,
   initialChosenId,
-  autoStart,
+  requested,
   defaultMore,
 }: {
   renderId: string;
@@ -59,8 +70,8 @@ export function VariantsView({
   photoHeight: number;
   initialVariants: VariantInfo[];
   initialChosenId: string | null;
-  /** Numero di varianti da lanciare all'apertura (?avvia=1), altrimenti 0. */
-  autoStart: number;
+  /** Varianti da lanciare all'apertura con ?avvia=1. */
+  requested: number;
   defaultMore: number;
 }) {
   const router = useRouter();
@@ -68,9 +79,9 @@ export function VariantsView({
   const [results, setResults] = useState<VariantInfo[]>([]);
   /** Richieste in corso, una per segnaposto. */
   const [inflight, setInflight] = useState<string[]>([]);
-  /** Varianti fallite già ritentate: non si mostrano più in questa sessione. */
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [chosenId, setChosenId] = useState(initialChosenId);
+  const [prevChosenProp, setPrevChosenProp] = useState(initialChosenId);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [askMore, setAskMore] = useState(false);
@@ -79,79 +90,47 @@ export function VariantsView({
   const seq = useRef(0);
   const started = useRef(false);
 
+  // La scelta può cambiare sul server (altra scheda, refresh): si riallinea quando cambia la prop.
+  if (initialChosenId !== prevChosenProp) {
+    setPrevChosenProp(initialChosenId);
+    setChosenId(initialChosenId);
+  }
+
   function launch(n: number) {
     for (let i = 0; i < n; i++) {
       const key = `tmp-${++seq.current}`;
       setInflight((list) => [...list, key]);
       void (async () => {
-        let v: VariantInfo | null = null;
+        let v: VariantInfo;
         try {
           const res = await fetch(`/api/renders/${renderId}/variants`, { method: "POST" });
           const json: unknown = await res.json().catch(() => null);
-          v = res.ok ? fromJson(json) : null;
-          if (!v) {
-            const msg = (json as { error?: unknown } | null)?.error;
-            v = {
-              id: key,
-              status: "FAILED",
-              imageUrl: null,
-              protected: false,
-              error: typeof msg === "string" ? msg : `Errore del server (${res.status})`,
-              stale: false,
-              createdAt: new Date().toISOString(),
-            };
-          }
+          const parsed = res.ok ? fromJson(json) : null;
+          const msg = (json as { error?: unknown } | null)?.error;
+          v = parsed ?? localFailure(key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
         } catch {
-          v = {
-            id: key,
-            status: "FAILED",
-            imageUrl: null,
-            protected: false,
-            error: "Errore di rete, riprova",
-            stale: false,
-            createdAt: new Date().toISOString(),
-          };
+          v = localFailure(key, "Errore di rete, riprova");
         }
-        const done = v;
-        setResults((list) => [...list.filter((r) => r.id !== done.id), done]);
+        setResults((list) => [...list.filter((r) => r.id !== v.id), v]);
         setInflight((list) => list.filter((k) => k !== key));
       })();
     }
   }
 
-  // ?avvia=1: lancia le varianti una sola volta e toglie il parametro dall'indirizzo,
-  // così ricaricando la pagina non si rilanciano.
+  // Al montaggio: legge le varianti nascoste e, con ?avvia=1, lancia una sola volta
+  // togliendo il parametro dall'indirizzo, così ricaricando non si rilanciano.
   useEffect(() => {
-    if (started.current || autoStart <= 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage esiste solo nel browser
+    setDismissed(loadDismissed(renderId));
+    if (!shouldAutoStart(new URLSearchParams(window.location.search), started.current)) return;
     started.current = true;
     window.history.replaceState(null, "", `/render/${renderId}`);
-    launch(autoStart);
+    launch(requested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const local = new Map(results.map((r) => [r.id, r]));
   const busy = inflight.length > 0;
-  const cards: Card[] = [];
-  for (const v of initialVariants) {
-    if (dismissed.has(v.id)) continue;
-    const mine = local.get(v.id);
-    // Durante i lanci di questa sessione le righe PENDING del server sono già i segnaposto.
-    if (!mine && v.status === "PENDING" && !v.stale && busy) continue;
-    cards.push({ kind: "variant", key: v.id, v: mine ?? v });
-  }
-  const serverIds = new Set(initialVariants.map((v) => v.id));
-  for (const r of results) {
-    if (!serverIds.has(r.id) && !dismissed.has(r.id)) cards.push({ kind: "variant", key: r.id, v: r });
-  }
-  // Le fallite (o scadute) si nascondono quando dopo di loro esiste una variante riuscita o in corso:
-  // restano visibili solo gli errori ancora "attuali".
-  const isFailed = (v: VariantInfo) => v.status === "FAILED" || v.stale;
-  const lastGood = cards.reduce(
-    (max, c) => (c.kind === "variant" && !isFailed(c.v) && c.v.createdAt > max ? c.v.createdAt : max),
-    "",
-  );
-  const visible: Card[] = cards.filter((c) => c.kind !== "variant" || !isFailed(c.v) || c.v.createdAt >= lastGood);
-  for (const key of inflight) visible.push({ kind: "placeholder", key });
+  const visible = visibleVariants(initialVariants, results, inflight, dismissed);
 
   // Varianti PENDING arrivate dal server (pagina ricaricata durante la generazione): aggiorna ogni tanto.
   const waitingOnServer = !busy && visible.some((c) => c.kind === "variant" && c.v.status === "PENDING" && !c.v.stale);
@@ -165,9 +144,17 @@ export function VariantsView({
     ? visible.find((c) => c.kind === "variant" && c.v.id === compareId && c.v.status === "DONE" && c.v.imageUrl)
     : undefined;
 
-  function retry(id: string) {
-    setDismissed((s) => new Set(s).add(id));
+  function dismiss(id: string) {
+    setDismissed((s) => {
+      const next = new Set(s).add(id);
+      saveDismissed(renderId, next);
+      return next;
+    });
     if (compareId === id) setCompareId(null);
+  }
+
+  function retry(id: string) {
+    dismiss(id);
     launch(1);
   }
 
@@ -243,8 +230,8 @@ export function VariantsView({
         <p className="muted">Nessuna variante ancora. Usa “Genera altre varianti” per avviarne.</p>
       ) : (
         <div className="grid">
-          {visible.map((c, i) => {
-            const title = `Variante ${i + 1}`;
+          {visible.map((c) => {
+            const title = `Variante ${c.n}`;
             if (c.kind === "placeholder" || (c.v.status === "PENDING" && !c.v.stale)) {
               return (
                 <div key={c.key} className="card card-link variant-card">
@@ -264,7 +251,12 @@ export function VariantsView({
                   <div className="card-body">
                     <h2>{title}</h2>
                     <p className="small error-text">{v.stale ? STALE_MESSAGE : v.error || "Errore sconosciuto"}</p>
-                    <button type="button" className="btn btn-small" onClick={() => retry(v.id)}>Riprova</button>
+                    <div className="row">
+                      <button type="button" className="btn btn-small" onClick={() => retry(v.id)}>Riprova</button>
+                      <button type="button" className="link-button small" onClick={() => dismiss(v.id)}>
+                        Nascondi
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

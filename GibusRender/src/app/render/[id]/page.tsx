@@ -4,20 +4,16 @@ import { db } from "@/lib/db";
 import { isStale } from "@/lib/render/generate";
 import { listProviders } from "@/lib/providers/registry";
 import { formatDate } from "@/lib/render/format";
-import { VariantsView, type VariantInfo } from "./VariantsView";
+import type { VariantInfo } from "@/lib/render/variant-list";
+import { VariantsView } from "./VariantsView";
 
 export const dynamic = "force-dynamic";
 
 const QUALITY_LABELS: Record<string, string> = { low: "Bassa", medium: "Media", high: "Alta" };
 
-export default async function RenderPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const [{ id }, { avvia }] = await Promise.all([params, searchParams]);
+export default async function RenderPage({ params }: { params: Promise<{ id: string }> }) {
+  // ?avvia=1 lo legge il client (VariantsView), che lo toglie dall'indirizzo dopo il lancio.
+  const { id } = await params;
   const render = await db.render.findUnique({
     where: { id },
     include: {
@@ -65,7 +61,7 @@ export default async function RenderPage({
           photoHeight={render.photoHeight}
           initialVariants={variants}
           initialChosenId={render.chosenVariantId}
-          autoStart={avvia === "1" ? render.variantsRequested : 0}
+          requested={render.variantsRequested}
           defaultMore={Math.min(6, Math.max(1, render.variantsRequested))}
         />
 

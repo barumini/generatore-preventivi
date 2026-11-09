@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { formatDate } from "@/lib/render/format";
+import { archiveThumbnail, clampPage } from "@/lib/render/variant-list";
 
 export const dynamic = "force-dynamic";
 
@@ -18,26 +19,23 @@ export default async function ArchivioPage({
 }) {
   const sp = await searchParams;
   const q = one(sp.q).trim().slice(0, 100);
-  const pageN = Math.max(1, Math.floor(Number(one(sp.pagina)) || 1));
-
   const where: Prisma.RenderWhereInput = q ? { clientRef: { contains: q, mode: "insensitive" } } : {};
-  const [total, renders] = await Promise.all([
-    db.render.count({ where }),
-    db.render.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (pageN - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        variants: {
-          where: { status: "DONE", imageUrl: { not: null } },
-          orderBy: { createdAt: "asc" },
-          select: { id: true, imageUrl: true },
-        },
-      },
-    }),
-  ]);
+  const total = await db.render.count({ where });
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageN = clampPage(sp.pagina, pages);
+  const renders = await db.render.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (pageN - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    include: {
+      variants: {
+        where: { status: "DONE", imageUrl: { not: null } },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, status: true, imageUrl: true, createdAt: true },
+      },
+    },
+  });
 
   const pageHref = (n: number) => {
     const p = new URLSearchParams();
@@ -76,8 +74,8 @@ export default async function ArchivioPage({
       ) : (
         <div className="grid">
           {renders.map((r) => {
-            const chosen = r.variants.find((v) => v.id === r.chosenVariantId);
-            const thumb = chosen?.imageUrl ?? r.variants[0]?.imageUrl ?? r.photoUrl;
+            const chosen = r.variants.some((v) => v.id === r.chosenVariantId);
+            const thumb = archiveThumbnail(r);
             return (
               <Link key={r.id} href={`/render/${r.id}`} className="card card-link">
                 <div className="thumb">
@@ -101,7 +99,7 @@ export default async function ArchivioPage({
       {pages > 1 && (
         <nav className="row pager" aria-label="Pagine">
           {pageN > 1 && <Link href={pageHref(pageN - 1)} className="btn btn-small">← Precedenti</Link>}
-          <span className="muted small">Pagina {Math.min(pageN, pages)} di {pages}</span>
+          <span className="muted small">Pagina {pageN} di {pages}</span>
           {pageN < pages && <Link href={pageHref(pageN + 1)} className="btn btn-small">Successivi →</Link>}
         </nav>
       )}
