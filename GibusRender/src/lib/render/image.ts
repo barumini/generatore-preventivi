@@ -1,10 +1,19 @@
-import sharp from "sharp";
+import path from "node:path";
+import sharp, { type OverlayOptions } from "sharp";
 import { featheredAlpha } from "./mask";
 
 /** Unica impostazione di codifica JPEG per tutte le immagini consegnate. */
 const JPEG_OPTIONS = { quality: 92, chromaSubsampling: "4:4:4" } as const;
 const MAX_LONG_SIDE = 3000;
 const DISCLAIMER = "Immagine a titolo esemplificativo";
+
+/**
+ * Font della dicitura, incluso nel repository (Geist, SIL OFL 1.1): le funzioni
+ * Vercel non hanno font di sistema. Va incluso nel bundle con
+ * outputFileTracingIncludes in next.config.ts.
+ */
+export const DISCLAIMER_FONT_FILE = path.join(process.cwd(), "assets/fonts/Geist-Medium.ttf");
+const DISCLAIMER_FONT_FAMILY = "Geist Medium";
 
 export type ProviderSize = { width: number; height: number };
 
@@ -78,22 +87,43 @@ export type CompositeOptions = {
   alpha?: Buffer;
 };
 
-/** SVG a piena dimensione con la dicitura in basso a destra, bianca con ombra. */
-function disclaimerSvg(width: number, height: number): Buffer {
+/** Testo della dicitura come PNG RGBA (sfondo trasparente), reso con il font incluso. */
+async function disclaimerText(color: string, opacity: number, fontSize: number, maxWidth: number) {
+  const { data, info } = await sharp({
+    text: {
+      text: `<span foreground="${color}" alpha="${Math.round(opacity * 100)}%">${DISCLAIMER}</span>`,
+      font: `${DISCLAIMER_FONT_FAMILY} ${fontSize}`,
+      fontfile: DISCLAIMER_FONT_FILE,
+      rgba: true,
+      dpi: 72, // a 72 dpi i punti del font coincidono con i pixel
+      width: maxWidth,
+    },
+  })
+    .png()
+    .toBuffer({ resolveWithObject: true });
+  return { input: data, width: info.width, height: info.height };
+}
+
+/** Sovrapposizioni della dicitura in basso a destra: ombra nera sfumata e testo bianco. */
+async function disclaimerOverlays(width: number, height: number): Promise<OverlayOptions[]> {
   const fontSize = Math.max(10, Math.round(0.02 * height));
   const margin = Math.round(fontSize * 0.8);
   const shadow = Math.max(1, Math.round(fontSize / 12));
-  const x = width - margin;
-  const y = height - margin;
-  const text = (dx: number, fill: string, extra = "") =>
-    `<text x="${x + dx}" y="${y + dx}" font-size="${fontSize}" font-family="Helvetica, Arial, DejaVu Sans, sans-serif" ` +
-    `text-anchor="end" fill="${fill}"${extra}>${DISCLAIMER}</text>`;
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
-      text(shadow, "#000", ' fill-opacity="0.6"') +
-      text(0, "#fff") +
-      `</svg>`,
-  );
+  const maxWidth = Math.max(1, width - 2 * margin - shadow);
+  const [shade, text] = await Promise.all([
+    disclaimerText("#000000", 0.6, fontSize, maxWidth),
+    disclaimerText("#ffffff", 1, fontSize, maxWidth),
+  ]);
+  const left = Math.max(0, width - margin - shadow - text.width);
+  const top = Math.max(0, height - margin - shadow - text.height);
+  return [
+    {
+      input: shade.input,
+      left: Math.min(left + shadow, width - shade.width),
+      top: Math.min(top + shadow, height - shade.height),
+    },
+    { input: text.input, left, top },
+  ];
 }
 
 /** Miscela pura in TypeScript: dove α = 0 i byte dell'originale restano intatti. */
@@ -132,11 +162,9 @@ async function blendRaw(
 }
 
 /** Pipeline sharp sul buffer grezzo, con la dicitura sovrapposta se richiesta. */
-function rawPipeline(raw: Buffer, width: number, height: number, disclaimer?: boolean) {
+async function rawPipeline(raw: Buffer, width: number, height: number, disclaimer?: boolean) {
   const img = sharp(raw, { raw: { width, height, channels: 3 } });
-  return disclaimer
-    ? img.composite([{ input: disclaimerSvg(width, height), top: 0, left: 0 }])
-    : img;
+  return disclaimer ? img.composite(await disclaimerOverlays(width, height)) : img;
 }
 
 /**
@@ -155,7 +183,7 @@ export async function compositeRaw(
 ): Promise<Buffer> {
   const raw = await blendRaw(original, generated, mask, width, height, opts.alpha);
   if (!opts.disclaimer) return raw;
-  return rawPipeline(raw, width, height, true).removeAlpha().raw().toBuffer();
+  return (await rawPipeline(raw, width, height, true)).removeAlpha().raw().toBuffer();
 }
 
 /**
@@ -177,7 +205,7 @@ export async function composite(
   opts: CompositeOptions = {},
 ): Promise<Buffer> {
   const raw = await blendRaw(original, generated, mask, width, height, opts.alpha);
-  return rawPipeline(raw, width, height, opts.disclaimer).jpeg(JPEG_OPTIONS).toBuffer();
+  return (await rawPipeline(raw, width, height, opts.disclaimer)).jpeg(JPEG_OPTIONS).toBuffer();
 }
 
 /**
@@ -186,7 +214,7 @@ export async function composite(
  */
 export async function addDisclaimer(img: Buffer, width: number, height: number): Promise<Buffer> {
   return sharp(img)
-    .composite([{ input: disclaimerSvg(width, height), top: 0, left: 0 }])
+    .composite(await disclaimerOverlays(width, height))
     .jpeg(JPEG_OPTIONS)
     .toBuffer();
 }
