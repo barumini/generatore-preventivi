@@ -608,6 +608,25 @@ describe("POST /api/renders/[id]/variants e download", () => {
     }
   });
 
+  it("download di una variante su Vercel Blob: redirect 302 all'URL di download, senza leggere il file", async () => {
+    const r = await newRender();
+    const { provider } = fakeProvider();
+    const v = await generateVariant(r.id, { provider });
+    const blobUrl = "https://abc123.public.blob.vercel-storage.com/renders/x/v-AbC.jpg";
+    store.variants.get(v.id)!.imageUrl = blobUrl;
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const res = await downloadVariant(new Request("http://localhost"), ctx(v.id));
+      expect(res.status).toBe(302);
+      const loc = new URL(res.headers.get("location")!);
+      expect(`${loc.origin}${loc.pathname}`).toBe(blobUrl);
+      expect(loc.searchParams.get("download")).toBe("1");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("download con nome file ripulito", async () => {
     const r = await newRender({ clientRef: 'Ros"si\r\nX: y/../' });
     const { provider } = fakeProvider();

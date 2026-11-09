@@ -1,6 +1,8 @@
 import { put } from "@vercel/blob";
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const FILES_PREFIX = "/api/files/";
@@ -30,6 +32,22 @@ export async function putFile(key: string, data: Buffer, contentType: string): P
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, data);
   return FILES_PREFIX + key;
+}
+
+/** true per gli URL dei file salvati su disco (sviluppo), serviti da /api/files. */
+export function isLocalFileUrl(url: string): boolean {
+  return url.startsWith(FILES_PREFIX);
+}
+
+/**
+ * Apre in streaming un file salvato su disco (URL /api/files/...), senza
+ * caricarlo tutto in memoria. Lancia se il file non esiste.
+ */
+export async function openLocalFile(url: string): Promise<{ stream: ReadableStream<Uint8Array>; size: number }> {
+  if (!isLocalFileUrl(url)) throw new Error("Non è un file locale");
+  const full = resolveDataPath(url.slice(FILES_PREFIX.length));
+  const { size } = await fs.stat(full);
+  return { stream: Readable.toWeb(createReadStream(full)) as ReadableStream<Uint8Array>, size };
 }
 
 /** Legge un file dato l'URL restituito da putFile. */
