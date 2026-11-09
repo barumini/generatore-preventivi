@@ -190,3 +190,8 @@ export async function addDisclaimer(img: Buffer, width: number, height: number):
     .jpeg(JPEG_OPTIONS)
     .toBuffer();
 }
+
+/** Unica codifica JPEG q92 4:4:4 di un'immagine (percorso senza sagoma né dicitura). */
+export async function toJpeg(img: Buffer): Promise<Buffer> {
+  return sharp(img).jpeg(JPEG_OPTIONS).toBuffer();
+}
