@@ -11,6 +11,16 @@ function hasBlob(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+/**
+ * In produzione il disco delle funzioni non è persistente: senza Blob si
+ * fallisce subito con un messaggio chiaro invece di salvare file che spariscono.
+ */
+function assertDiskAllowed(): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Archivio file non configurato: manca BLOB_READ_WRITE_TOKEN");
+  }
+}
+
 /** Risolve una chiave nella cartella .data, rifiutando percorsi che ne escono. */
 export function resolveDataPath(key: string): string {
   const segments = key.split("/");
@@ -28,6 +38,7 @@ export async function putFile(key: string, data: Buffer, contentType: string): P
     const blob = await put(key, data, { access: "public", contentType, addRandomSuffix: true });
     return blob.url;
   }
+  assertDiskAllowed();
   const full = resolveDataPath(key);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, data);
@@ -45,6 +56,7 @@ export function isLocalFileUrl(url: string): boolean {
  */
 export async function openLocalFile(url: string): Promise<{ stream: ReadableStream<Uint8Array>; size: number }> {
   if (!isLocalFileUrl(url)) throw new Error("Non è un file locale");
+  assertDiskAllowed();
   const full = resolveDataPath(url.slice(FILES_PREFIX.length));
   const { size } = await fs.stat(full);
   return { stream: Readable.toWeb(createReadStream(full)) as ReadableStream<Uint8Array>, size };
@@ -53,6 +65,7 @@ export async function openLocalFile(url: string): Promise<{ stream: ReadableStre
 /** Legge un file dato l'URL restituito da putFile. */
 export async function getFile(url: string): Promise<Buffer> {
   if (url.startsWith(FILES_PREFIX)) {
+    assertDiskAllowed();
     return fs.readFile(resolveDataPath(url.slice(FILES_PREFIX.length)));
   }
   const res = await fetch(url);

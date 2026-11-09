@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
-import { getFile, putFile } from "@/lib/storage";
+import { getFile, openLocalFile, putFile } from "@/lib/storage";
 
 describe("storage su disco (senza BLOB_READ_WRITE_TOKEN)", () => {
   beforeAll(() => {
@@ -19,5 +19,28 @@ describe("storage su disco (senza BLOB_READ_WRITE_TOKEN)", () => {
   it("rifiuta percorsi con ..", async () => {
     await expect(getFile("/api/files/../package.json")).rejects.toThrow();
     await expect(putFile("../evil.txt", Buffer.from("x"), "text/plain")).rejects.toThrow();
+  });
+});
+
+describe("storage in produzione senza BLOB_READ_WRITE_TOKEN", () => {
+  const MESSAGE = "Archivio file non configurato: manca BLOB_READ_WRITE_TOKEN";
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("putFile, getFile e openLocalFile su /api/files lanciano un errore chiaro", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    await expect(putFile("t/prod.txt", Buffer.from("x"), "text/plain")).rejects.toThrow(MESSAGE);
+    await expect(getFile("/api/files/t/x.txt")).rejects.toThrow(MESSAGE);
+    await expect(openLocalFile("/api/files/t/x.txt")).rejects.toThrow(MESSAGE);
+    await expect(fs.access(".data/t/prod.txt")).rejects.toThrow();
+  });
+
+  it("in sviluppo il disco resta disponibile", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    const url = await putFile("t/dev.txt", Buffer.from("ok"), "text/plain");
+    expect((await getFile(url)).toString()).toBe("ok");
   });
 });
