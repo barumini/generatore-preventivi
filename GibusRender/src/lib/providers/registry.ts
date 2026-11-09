@@ -1,8 +1,9 @@
 import { openaiProvider } from "./openai";
+import { geminiProvider } from "./gemini";
 import { openrouterProvider } from "./openrouter";
 import type { ImageProvider } from "./types";
 
-const PROVIDERS: ImageProvider[] = [openaiProvider, openrouterProvider];
+const PROVIDERS: ImageProvider[] = [openaiProvider, openrouterProvider, geminiProvider];
 
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
 

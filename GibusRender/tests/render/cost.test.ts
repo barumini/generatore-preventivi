@@ -30,4 +30,11 @@ describe("estimateCost", () => {
   it("restituisce null per una qualità sconosciuta su OpenAI", () => {
     expect(estimateCost("openai", "gpt-image-1", "ultra", 1)).toBeNull();
   });
+
+  it("stima i modelli Gemini diretti, indipendentemente dalla qualità", () => {
+    const c = estimateCost("gemini", "gemini-3-pro-image", "high", 3)!;
+    expect(c.eur).toBeCloseTo(0.134 * 3 * 0.92, 6);
+    expect(estimateCost("gemini", "gemini-3-pro-image", "low", 3)!.eur).toBeCloseTo(c.eur, 6);
+    expect(estimateCost("gemini", "sconosciuto", "high", 1)).toBeNull();
+  });
 });

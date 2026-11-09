@@ -45,6 +45,20 @@ const OPENROUTER: Record<string, number> = {
   "google/gemini-3-pro-image-preview": 0.134,
 };
 
+/*
+ * Google Gemini (API diretta) — https://ai.google.dev/gemini-api/docs/pricing
+ *   (2026-11-09), stessi token per immagine e prezzi per token dei modelli
+ *   via OpenRouter. L'app chiede al massimo 2K: per gemini-3-pro-image il
+ *   prezzo 1K–2K è lo stesso (0,134 $); la qualità non cambia il prezzo.
+ */
+const GEMINI: Record<string, number> = {
+  "gemini-2.5-flash-image": 0.039,
+  "gemini-3.1-flash-image": 0.067,
+  "gemini-3.1-flash-image-preview": 0.067,
+  "gemini-3-pro-image": 0.134,
+  "gemini-3-pro-image-preview": 0.134,
+};
+
 function usdPerImage(providerId: string, model: string, quality: string): number | null {
   if (providerId === "openai") {
     const row = Object.hasOwn(OPENAI, model) ? OPENAI[model] : undefined;
@@ -52,6 +66,7 @@ function usdPerImage(providerId: string, model: string, quality: string): number
     return row[quality as Quality];
   }
   if (providerId === "openrouter") return Object.hasOwn(OPENROUTER, model) ? OPENROUTER[model] : null;
+  if (providerId === "gemini") return Object.hasOwn(GEMINI, model) ? GEMINI[model] : null;
   return null;
 }
 

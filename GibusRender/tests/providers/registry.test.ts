@@ -3,7 +3,7 @@ import { disabledProviderMessage, getProvider, listProviders } from "@/lib/provi
 
 describe("registry", () => {
   it("elenca i fornitori nell'ordine previsto", () => {
-    expect(listProviders().map((p) => p.id)).toEqual(["openai", "openrouter"]);
+    expect(listProviders().map((p) => p.id)).toEqual(["openai", "openrouter", "gemini"]);
   });
   it("restituisce un fornitore per id", () => {
     expect(getProvider("openrouter").id).toBe("openrouter");

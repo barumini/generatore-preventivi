@@ -5,7 +5,7 @@ import type { ProviderSize } from "@/lib/render/image";
 
 export type { ProviderSize };
 
-export type ProviderId = "openai" | "openrouter";
+export type ProviderId = "openai" | "openrouter" | "gemini";
 export type ImageQuality = "low" | "medium" | "high";
 
 export type GenerateInput = {
@@ -30,7 +30,7 @@ export interface ImageProvider {
   generate(input: GenerateInput): Promise<Buffer>;
 }
 
-export type ProviderErrorKind = "config" | "rejected" | "timeout" | "upstream";
+export type ProviderErrorKind = "config" | "rejected" | "timeout" | "quota" | "upstream";
 
 export class ProviderError extends Error {
   readonly kind: ProviderErrorKind;

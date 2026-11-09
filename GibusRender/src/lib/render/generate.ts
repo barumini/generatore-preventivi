@@ -261,6 +261,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   config: "Fornitore non configurato: manca la chiave API",
   rejected: "Il fornitore ha rifiutato la richiesta",
   timeout: "Tempo scaduto, riprova",
+  quota: "Quota o credito del fornitore esauriti: controlla piano e fatturazione dell'account, poi riprova",
 };
 const GENERIC_ERROR = "Errore del fornitore, riprova";
 

@@ -26,7 +26,7 @@ Progetto indipendente: tutto vive in `GibusRender/`, con il proprio `package.jso
    cp .env.example .env
    ```
 
-   Per un avvio minimo bastano `DATABASE_URL=postgresql://gibus:gibus@localhost:5432/gibusrender` e una chiave (`OPENAI_API_KEY` o `OPENROUTER_API_KEY`). Senza `BLOB_READ_WRITE_TOKEN` i file vanno in `GibusRender/.data/`; senza `BASIC_AUTH_USERS` l'accesso è libero.
+   Per un avvio minimo bastano `DATABASE_URL=postgresql://gibus:gibus@localhost:5432/gibusrender` e una chiave (`OPENAI_API_KEY`, `OPENROUTER_API_KEY` o `GEMINI_API_KEY`). Senza `BLOB_READ_WRITE_TOKEN` i file vanno in `GibusRender/.data/`; senza `BASIC_AUTH_USERS` l'accesso è libero.
 
 3. Installare, creare le tabelle, caricare il catalogo iniziale e avviare:
 
@@ -50,6 +50,7 @@ Progetto indipendente: tutto vive in `GibusRender/`, con il proprio `package.jso
 | `BASIC_AUTH_USERS` | in produzione | Utenti nel formato `utente:password,utente2:password2`. Le password non possono contenere virgole. Se manca: 503 in produzione, accesso libero in sviluppo |
 | `OPENAI_API_KEY` | per usare OpenAI | Chiave API OpenAI |
 | `OPENROUTER_API_KEY` | per usare OpenRouter | Chiave API OpenRouter |
+| `GEMINI_API_KEY` | per usare Google Gemini direttamente | Chiave API di Google AI Studio |
 | `OPENROUTER_MODELS` | no | Modelli OpenRouter suggeriti nelle Impostazioni, separati da virgola (predefinito `google/gemini-2.5-flash-image`) |
 | `APP_URL` | no | URL pubblico dell'app, inviato a OpenRouter come `HTTP-Referer`; se manca si usa quello di Vercel, o `http://localhost:3000` |
 
@@ -61,6 +62,7 @@ Le chiavi API stanno solo nelle variabili d'ambiente: mai nel codice, nel databa
 - **Vercel Blob (`BLOB_READ_WRITE_TOKEN`)**: nel progetto Vercel, scheda Storage, creare un archivio Blob e collegarlo al progetto: Vercel aggiunge da solo la variabile `BLOB_READ_WRITE_TOKEN`.
 - **OpenAI (`OPENAI_API_KEY`)**: su https://platform.openai.com, sezione API keys, creare una chiave. Il modello predefinito è `gpt-image-2` (`gpt-image-1` è stato spento da OpenAI il 23/10/2026). L'organizzazione potrebbe dover essere verificata per i modelli di immagini.
 - **OpenRouter (`OPENROUTER_API_KEY`)**: su https://openrouter.ai, sezione Keys, creare una chiave e caricare un po' di credito.
+- **Google Gemini (`GEMINI_API_KEY`)**: su https://aistudio.google.com/apikey creare una chiave (con fatturazione attiva per i modelli immagine). Modelli: `gemini-3-pro-image` (qualità migliore, circa 0,12 € a immagine), `gemini-3.1-flash-image` (più economico). Come OpenRouter, Gemini riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
 
 ## Deploy su Vercel
 
@@ -69,7 +71,7 @@ Il deploy richiede gli account dell'utente (Vercel, Neon) e va fatto da lui.
 1. Creare il database Neon e copiare `DATABASE_URL`.
 2. Su Vercel: **Add New Project**, importare il repository e impostare **Root Directory** su `GibusRender`. Il framework (Next.js) è riconosciuto da solo; `vercel.json` porta a 300 secondi la durata massima della route di generazione.
 3. Nel progetto, scheda Storage, creare e collegare un archivio Blob.
-4. In Settings, Environment Variables, impostare `DATABASE_URL`, `BASIC_AUTH_USERS`, `OPENAI_API_KEY` e/o `OPENROUTER_API_KEY` (e, se serve, `OPENROUTER_MODELS`, `APP_URL`). `BLOB_READ_WRITE_TOKEN` arriva dal collegamento del Blob. Senza `BASIC_AUTH_USERS` l'app risponde 503 in produzione.
+4. In Settings, Environment Variables, impostare `DATABASE_URL`, `BASIC_AUTH_USERS`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY` e/o `GEMINI_API_KEY` (e, se serve, `OPENROUTER_MODELS`, `APP_URL`). `BLOB_READ_WRITE_TOKEN` arriva dal collegamento del Blob. Senza `BASIC_AUTH_USERS` l'app risponde 503 in produzione.
 5. Applicare le migrazioni al database di produzione, dalla cartella `GibusRender` con `DATABASE_URL` di produzione nel `.env` (o esportata nella shell):
 
    ```bash

@@ -1,23 +1,12 @@
 import sharp from "sharp";
 import { httpError, providerFetch, readJson } from "./http";
-import { ProviderError, type GenerateInput, type ImageProvider, type ProviderSize } from "./types";
+import { GEMINI_SIZES as SIZES, geminiPromptText, geminiRatio } from "./gemini-sizes";
+import { ProviderError, type GenerateInput, type ImageProvider } from "./types";
 
 const URL_CHAT = "https://openrouter.ai/api/v1/chat/completions";
 const LABEL = "OpenRouter";
 const DEFAULT_MODELS = ["google/gemini-2.5-flash-image"];
 
-/** Dimensioni e rapporti d'aspetto di Gemini 2.5 Flash Image (ai.google.dev, 2026-11-09). */
-const SIZES: (ProviderSize & { ratio: string })[] = [
-  { width: 1024, height: 1024, ratio: "1:1" },
-  { width: 1248, height: 832, ratio: "3:2" },
-  { width: 832, height: 1248, ratio: "2:3" },
-  { width: 1184, height: 864, ratio: "4:3" },
-  { width: 864, height: 1184, ratio: "3:4" },
-  { width: 1152, height: 896, ratio: "5:4" },
-  { width: 896, height: 1152, ratio: "4:5" },
-  { width: 1344, height: 768, ratio: "16:9" },
-  { width: 768, height: 1344, ratio: "9:16" },
-];
 
 /** URL dell'app per l'header HTTP-Referer (attribuzione su OpenRouter). */
 function appUrl(): string {
@@ -52,14 +41,7 @@ function decodeDataUrl(url: string): Buffer | null {
 }
 
 function promptText(input: GenerateInput): string {
-  const lines = [input.prompt, "", "The first image is the photo to edit."];
-  if (input.mask) {
-    lines.push(
-      "The second image is a mask: white = area to edit, black = keep exactly as in the photo. Do not draw the mask in the result.",
-    );
-  }
-  if (input.references.length) lines.push("The remaining images are reference images of the product.");
-  return lines.join("\n");
+  return geminiPromptText(input.prompt, Boolean(input.mask), input.references.length);
 }
 
 async function generate(input: GenerateInput): Promise<Buffer> {
@@ -73,7 +55,7 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   ];
 
   const { width, height } = await sharp(input.photo).metadata();
-  const ratio = SIZES.find((s) => s.width === width && s.height === height)?.ratio;
+  const ratio = geminiRatio(width, height);
 
   const res = await providerFetch(LABEL, URL_CHAT, {
     method: "POST",

@@ -478,6 +478,10 @@ describe("generateVariant", () => {
   it.each([
     [new ProviderError("config", "x"), "Fornitore non configurato: manca la chiave API"],
     [new ProviderError("timeout", "x"), "Tempo scaduto, riprova"],
+    [
+      new ProviderError("quota", "x"),
+      "Quota o credito del fornitore esauriti: controlla piano e fatturazione dell'account, poi riprova",
+    ],
     [new ProviderError("upstream", "x"), "Errore del fornitore, riprova"],
     [new Error("boom"), "Errore del fornitore, riprova"],
   ])("errore %s → messaggio dedicato", async (err, msg) => {

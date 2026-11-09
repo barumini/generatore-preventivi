@@ -44,7 +44,7 @@ export function httpError(label: string, status: number, body: unknown): Provide
     return new ProviderError("rejected", `${label}: richiesta rifiutata dal filtro di sicurezza del fornitore${detail}`);
   }
   if (status === 401) return new ProviderError("config", `${label}: chiave API non valida o revocata`);
-  if (status === 402) return new ProviderError("upstream", `${label}: credito esaurito${detail}`);
-  if (status === 429) return new ProviderError("upstream", `${label}: troppe richieste o quota superata${detail}`);
+  if (status === 402) return new ProviderError("quota", `${label}: credito esaurito${detail}`);
+  if (status === 429) return new ProviderError("quota", `${label}: troppe richieste o quota superata${detail}`);
   return new ProviderError("upstream", `${label}: errore ${status}${detail}`);
 }
