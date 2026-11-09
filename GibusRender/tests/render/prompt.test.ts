@@ -13,6 +13,7 @@ const zenit: PromptInput = {
   fabric: { name: "Opatex Pro/Opatex Decò OP 272", code: "OP 272" },
   positionText: "addossata alla parete a destra",
   hasMask: true,
+  maskHint: false,
   referenceCount: 3,
 };
 
@@ -69,5 +70,45 @@ describe("buildPrompt", () => {
     expect(p.toLowerCase()).toContain("wall-mounted");
     const free = buildPrompt({ ...zenit, product: { ...zenit.product, mountType: "AUTOPORTANTE" } });
     expect(free.toLowerCase()).toContain("freestanding");
+  });
+});
+
+describe("buildPrompt: sagoma come indicazione (fornitore che non applica la maschera)", () => {
+  it("con maskHint chiede di posizionare la pergola nell'area bianca della maschera", () => {
+    const p = buildPrompt({ ...zenit, hasMask: false, maskHint: true });
+    expect(p).toContain("The pergola must be placed exactly inside the white area of the mask image provided");
+    expect(p).not.toContain("inside the masked area");
+  });
+
+  it("senza maskHint non parla dell'immagine maschera", () => {
+    expect(buildPrompt({ ...zenit, hasMask: false })).not.toContain("white area of the mask image");
+    expect(buildPrompt({ ...zenit, hasMask: true })).not.toContain("white area of the mask image");
+  });
+});
+
+describe("buildPrompt: posizione e riferimenti", () => {
+  it("omette la sezione Position se il testo è vuoto o solo spazi", () => {
+    expect(buildPrompt({ ...zenit, positionText: "" })).not.toContain("Position");
+    expect(buildPrompt({ ...zenit, positionText: "   \n " })).not.toContain("Position");
+  });
+
+  it("attribuisce la posizione al personale commerciale", () => {
+    const p = buildPrompt(zenit);
+    expect(p).toContain('Position, as described by the sales staff (in Italian): "addossata alla parete a destra"');
+    expect(p).not.toContain("customer");
+  });
+
+  it("con 1 riferimento usa il singolare", () => {
+    const p = buildPrompt({ ...zenit, referenceCount: 1 });
+    expect(p).toContain("1 reference image follows the photo");
+    expect(p).not.toContain("1 reference images");
+    expect(p).toContain("Reproduce the product exactly as shown in the reference images");
+  });
+
+  it("senza riferimenti chiede fedeltà alla descrizione tecnica e non cita immagini", () => {
+    const p = buildPrompt({ ...zenit, referenceCount: 0 });
+    expect(p).not.toContain("reference image");
+    expect(p).not.toContain("Reproduce the product exactly as shown in the reference images");
+    expect(p).toContain("technical description");
   });
 });

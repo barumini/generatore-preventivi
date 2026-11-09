@@ -255,6 +255,19 @@ describe("createRender", () => {
     expect(meta).toMatchObject({ format: "jpeg", width: W, height: H });
   });
 
+  it("con OpenRouter (maschera non applicata) il prompt chiede di usare l'area bianca della maschera", async () => {
+    const r = await newRender({ providerId: "openrouter", model: "google/gemini-2.5-flash-image" });
+    expect(r.prompt).toContain("The pergola must be placed exactly inside the white area of the mask image provided");
+    expect(r.prompt).not.toContain("inside the masked area");
+    const noPolygon = await newRender({
+      providerId: "openrouter",
+      model: "google/gemini-2.5-flash-image",
+      polygon: undefined,
+      positionText: "a destra",
+    });
+    expect(noPolygon.prompt).not.toContain("mask image");
+  });
+
   it("usa il prompt fornito così com'è", async () => {
     const r = await newRender({ prompt: "Prompt modificato a mano" });
     expect(r.prompt).toBe("Prompt modificato a mano");
@@ -413,13 +426,14 @@ describe("generateVariant", () => {
     expect(meta).toMatchObject({ format: "jpeg", width: W, height: H, chromaSubsampling: "4:4:4" });
   });
 
-  it("protetta anche se il fornitore non supporta la maschera (che non viene inviata)", async () => {
+  it("fornitore che non applica la maschera: la riceve comunque come indicazione e la variante è protetta", async () => {
     const r = await newRender();
     const { provider, calls } = fakeProvider({ supportsMask: false });
     const v = await generateVariant(r.id, { provider });
     expect(v.status).toBe("DONE");
     expect(v.protected).toBe(true);
-    expect(calls[0].mask).toBeUndefined();
+    expect(calls[0].mask).toBeDefined();
+    expect(await sharp(calls[0].mask!).metadata()).toMatchObject({ width: 1536, height: 1024 });
     // La ricomposizione è avvenuta comunque: fuori dalla sagoma resta la foto, al centro il rosso.
     const out = await rgb(await getFile(v.imageUrl!));
     const orig = await rgb(await getFile(r.photoUrl));

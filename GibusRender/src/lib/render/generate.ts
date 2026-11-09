@@ -209,8 +209,10 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
       color: color ? { name: color.name, code: color.code } : undefined,
       fabric: fabric ? { name: fabric.name, code: fabric.code } : undefined,
       positionText: data.positionText,
-      // Il prompt parla di "area mascherata" solo se la maschera arriva davvero al modello.
+      // La maschera arriva sempre al modello quando c'è una sagoma; il prompt parla di
+      // "area mascherata" solo se il modello la applica, altrimenti la descrive come guida.
       hasMask: !!polygon && provider.supportsMask,
+      maskHint: !!polygon && !provider.supportsMask,
       scale: data.scaleLine
         ? {
             lengthMm: data.scaleLine.lengthMm,
@@ -313,7 +315,9 @@ export async function generateVariant(
     const size = pickProviderSize(W, H, provider.supportedSizes);
     const [photoP, maskP] = await Promise.all([
       toProviderSize(photo, size),
-      mask && provider.supportsMask ? toProviderSize(mask, size) : Promise.resolve(undefined),
+      // Inviata anche ai fornitori che non la applicano (supportsMask false): serve
+      // al modello per sapere dove posizionare la pergola.
+      mask ? toProviderSize(mask, size) : Promise.resolve(undefined),
     ]);
 
     const quality = QUALITIES.includes(render.quality as ImageQuality)

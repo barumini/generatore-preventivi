@@ -12,7 +12,13 @@ export type PromptInput = {
   color?: { name: string; code: string };
   fabric?: { name: string; code: string };
   positionText: string;
+  /** La maschera arriva al modello e il modello la applica (supportsMask). */
   hasMask: boolean;
+  /**
+   * La maschera arriva al modello solo come immagine indicativa (fornitore che
+   * non la applica): il prompt chiede di posizionare la pergola nell'area bianca.
+   */
+  maskHint: boolean;
   scale?: { lengthMm: number; pixelLength: number; photoWidth: number };
   referenceCount: number;
 };
@@ -33,7 +39,7 @@ const COVER_TEXT: Record<CoverType, string> = {
 const mm = (n: number) => `${Math.round(n)} mm`;
 
 export function buildPrompt(input: PromptInput): string {
-  const { product, dims, color, fabric, positionText, hasMask, scale, referenceCount } = input;
+  const { product, dims, color, fabric, positionText, hasMask, maskHint, scale, referenceCount } = input;
   const sections: string[] = [];
 
   // 1. Compito
@@ -62,8 +68,16 @@ export function buildPrompt(input: PromptInput): string {
   if (fabric) finishes.push(`canopy fabric ${fabric.name} (${fabric.code})`);
   if (finishes.length) sections.push(`Finishes: ${finishes.join("; ")}.`);
 
-  // 5. Posizione (testo dell'utente, così com'è)
-  sections.push(`Position, as described by the customer (in Italian): "${positionText}".`);
+  // 5. Posizione: sagoma indicativa e/o testo dell'utente (così com'è)
+  if (maskHint && !hasMask) {
+    sections.push(
+      "Placement: The pergola must be placed exactly inside the white area of the mask image provided. " +
+        "The mask is only a placement guide: do not draw it in the result.",
+    );
+  }
+  if (positionText.trim()) {
+    sections.push(`Position, as described by the sales staff (in Italian): "${positionText}".`);
+  }
 
   // 6. Scala
   if (scale && scale.pixelLength > 0 && scale.photoWidth > 0) {
@@ -77,11 +91,17 @@ export function buildPrompt(input: PromptInput): string {
   }
 
   // 7. Fedeltà al prodotto
-  sections.push(
-    `Reproduce the product exactly as shown in the reference images (${referenceCount} reference images follow the photo): ` +
-      "same structure, number and position of posts, beam profiles, roof type and proportions. " +
-      "Do not invent extra elements such as side walls, curtains, lights, gutters, decorations or furniture.",
-  );
+  const details = "same structure, number and position of posts, beam profiles, roof type and proportions. ";
+  const noExtras = "Do not invent extra elements such as side walls, curtains, lights, gutters, decorations or furniture.";
+  if (referenceCount >= 1) {
+    const follow =
+      referenceCount === 1 ? "1 reference image follows the photo" : `${referenceCount} reference images follow the photo`;
+    sections.push(`Reproduce the product exactly as shown in the reference images (${follow}): ` + details + noExtras);
+  } else {
+    sections.push(
+      "Reproduce the product faithfully according to the product and technical description above: " + details + noExtras,
+    );
+  }
 
   // 8. Vincoli sulla casa
   sections.push(

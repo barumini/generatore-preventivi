@@ -122,6 +122,7 @@ function autoPrompt(s: PromptState): string {
     fabric: s.fabric ? { name: s.fabric.name, code: s.fabric.code } : undefined,
     positionText: s.positionText.trim(),
     hasMask: hasPolygon && s.supportsMask,
+    maskHint: hasPolygon && !s.supportsMask,
     scale:
       s.scale && s.photo
         ? {
@@ -582,7 +583,7 @@ export function NewRenderForm({
         )}
         {hasPolygon && provider && !provider.supportsMask && (
           <p className="small muted">
-            {provider.label} non usa la sagoma durante la generazione: la casa viene comunque ripristinata fuori dalla
+            {provider.label} usa la sagoma solo come indicazione, senza garantirla: la casa viene comunque ripristinata fuori dalla
             sagoma.
           </p>
         )}
