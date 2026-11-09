@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { isStale } from "@/lib/render/generate";
-import { listProviders } from "@/lib/providers/registry";
+import { disabledProviderMessage, listProviders } from "@/lib/providers/registry";
+import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/render/format";
 import type { VariantInfo } from "@/lib/render/variant-list";
 import { VariantsView } from "./VariantsView";
@@ -35,6 +36,8 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
     stale: isStale(v, now),
     createdAt: v.createdAt.toISOString(),
   }));
+  // Stesso controllo della route delle varianti, mostrato prima di premere i pulsanti.
+  const providerDisabled = disabledProviderMessage(render.providerId, (await getSettings()).enabledProviders);
   const providerLabel = listProviders().find((p) => p.id === render.providerId)?.label ?? render.providerId;
   const finishes = [render.color, render.fabric]
     .filter((f) => f != null)
@@ -63,6 +66,7 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
           initialChosenId={render.chosenVariantId}
           requested={render.variantsRequested}
           defaultMore={Math.min(6, Math.max(1, render.variantsRequested))}
+          providerDisabled={providerDisabled}
         />
 
         <section className="card">

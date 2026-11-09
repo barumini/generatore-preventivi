@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProvider, listProviders } from "@/lib/providers/registry";
+import { disabledProviderMessage, getProvider, listProviders } from "@/lib/providers/registry";
 
 describe("registry", () => {
   it("elenca i fornitori nell'ordine previsto", () => {
@@ -10,5 +10,14 @@ describe("registry", () => {
   });
   it("lancia un errore per un id sconosciuto", () => {
     expect(() => getProvider("x")).toThrow();
+  });
+});
+
+describe("disabledProviderMessage", () => {
+  it("null se il fornitore è abilitato, messaggio con l'etichetta se disabilitato", () => {
+    expect(disabledProviderMessage("openai", ["openai", "openrouter"])).toBeNull();
+    expect(disabledProviderMessage("openrouter", ["openai"])).toBe(
+      "Fornitore OpenRouter disabilitato nelle impostazioni: duplica il render e scegli un altro fornitore",
+    );
   });
 });

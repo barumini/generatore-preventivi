@@ -63,6 +63,7 @@ export function VariantsView({
   initialChosenId,
   requested,
   defaultMore,
+  providerDisabled,
 }: {
   renderId: string;
   photoUrl: string;
@@ -73,6 +74,8 @@ export function VariantsView({
   /** Varianti da lanciare all'apertura con ?avvia=1. */
   requested: number;
   defaultMore: number;
+  /** Messaggio se il fornitore del render è disabilitato nelle impostazioni: niente nuove generazioni. */
+  providerDisabled: string | null;
 }) {
   const router = useRouter();
   /** Risposte ricevute in questa sessione: hanno la precedenza sui dati del server. */
@@ -97,6 +100,7 @@ export function VariantsView({
   }
 
   function launch(n: number) {
+    if (providerDisabled) return;
     for (let i = 0; i < n; i++) {
       const key = `tmp-${++seq.current}`;
       setInflight((list) => [...list, key]);
@@ -184,7 +188,7 @@ export function VariantsView({
         <h2 style={{ margin: 0 }}>
           Varianti {busy && <span className="muted small">· {inflight.length} in generazione</span>}
         </h2>
-        {askMore ? (
+        {askMore && !providerDisabled ? (
           <form
             className="row"
             onSubmit={(e) => {
@@ -208,11 +212,17 @@ export function VariantsView({
             <button type="button" className="btn" onClick={() => setAskMore(false)}>Annulla</button>
           </form>
         ) : (
-          <button type="button" className="btn" onClick={() => setAskMore(true)}>
+          <button type="button" className="btn" onClick={() => setAskMore(true)} disabled={!!providerDisabled}>
             Genera altre varianti
           </button>
         )}
       </div>
+
+      {providerDisabled && (
+        <div className="banner-warn" role="status">
+          {providerDisabled}.
+        </div>
+      )}
 
       <ErrorBanner message={error} />
 
@@ -252,7 +262,14 @@ export function VariantsView({
                     <h2>{title}</h2>
                     <p className="small error-text">{v.stale ? STALE_MESSAGE : v.error || "Errore sconosciuto"}</p>
                     <div className="row">
-                      <button type="button" className="btn btn-small" onClick={() => retry(v.id)}>Riprova</button>
+                      <button
+                        type="button"
+                        className="btn btn-small"
+                        onClick={() => retry(v.id)}
+                        disabled={!!providerDisabled}
+                      >
+                        Riprova
+                      </button>
                       <button type="button" className="link-button small" onClick={() => dismiss(v.id)}>
                         Nascondi
                       </button>

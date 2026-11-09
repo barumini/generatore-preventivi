@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { disabledProviderMessage } from "@/lib/providers/registry";
+import { getSettings } from "@/lib/settings";
 import { generateVariant } from "@/lib/render/generate";
 import { routeId } from "@/lib/render/route-params";
 
@@ -10,8 +12,11 @@ const error = (message: string, status: number) => Response.json({ error: messag
 export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = await routeId(ctx.params);
   if (!id) return error("Identificativo del render non valido", 400);
-  const render = await db.render.findUnique({ where: { id }, select: { id: true } });
+  const render = await db.render.findUnique({ where: { id }, select: { id: true, providerId: true } });
   if (!render) return error("Render non trovato", 404);
+  // "Riprova" e "Genera altre varianti" non usano un fornitore disabilitato nel frattempo.
+  const disabled = disabledProviderMessage(render.providerId, (await getSettings()).enabledProviders);
+  if (disabled) return error(disabled, 400);
   try {
     return Response.json(await generateVariant(id));
   } catch (err) {

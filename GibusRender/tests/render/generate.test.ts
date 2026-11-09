@@ -14,6 +14,7 @@ const store = vi.hoisted(() => ({
   references: new Map<string, AnyRow>(),
   renders: new Map<string, AnyRow>(),
   variants: new Map<string, AnyRow>(),
+  enabledProviders: ["openai", "openrouter"],
   seq: 0,
 }));
 
@@ -84,7 +85,7 @@ vi.mock("@/lib/db", () => {
           activeProviderId: "openai",
           activeModel: "gpt-image-2",
           quality: "high",
-          enabledProviders: ["openai", "openrouter"],
+          enabledProviders: [...store.enabledProviders],
           defaultVariants: 3,
         }),
       },
@@ -589,6 +590,22 @@ describe("POST /api/renders/[id]/variants e download", () => {
     expect(res.status).toBe(404);
     const dl = await downloadVariant(new Request("http://localhost"), ctx("sconosciuto"));
     expect(dl.status).toBe(404);
+  });
+
+  it("fornitore del render disabilitato nelle impostazioni → 400 senza generare", async () => {
+    const r = await newRender();
+    const before = store.variants.size;
+    store.enabledProviders = ["openrouter"];
+    try {
+      const res = await postVariant(new Request("http://localhost", { method: "POST" }), ctx(r.id));
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "Fornitore OpenAI disabilitato nelle impostazioni: duplica il render e scegli un altro fornitore",
+      });
+      expect(store.variants.size).toBe(before);
+    } finally {
+      store.enabledProviders = ["openai", "openrouter"];
+    }
   });
 
   it("download con nome file ripulito", async () => {
