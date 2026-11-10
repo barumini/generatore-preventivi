@@ -59,6 +59,19 @@ const GEMINI: Record<string, number> = {
   "gemini-3-pro-image-preview": 0.134,
 };
 
+/*
+ * fal.ai — prezzo per immagine in uscita, dalle pagine dei modelli su fal.ai
+ *   (2026-11-10): nano-banana-pro/edit 0,15 $ (1K e 2K; 4K costa il doppio e
+ *   l'app non lo chiede), gpt-image-1.5/edit a 1536×1024 (0,009 $ low solo a
+ *   1024×1024; qui 0,013 / 0,050 / 0,199 $). I token in ingresso (foto e
+ *   riferimenti) si pagano a parte e non sono inclusi.
+ *   nano-banana/edit: prezzo non pubblicato sulla pagina del modello, escluso.
+ */
+const FAL: Record<string, number | Record<Quality, number>> = {
+  "fal-ai/nano-banana-pro/edit": 0.15,
+  "fal-ai/gpt-image-1.5/edit": { low: 0.013, medium: 0.05, high: 0.199 },
+};
+
 function usdPerImage(providerId: string, model: string, quality: string): number | null {
   if (providerId === "openai") {
     const row = Object.hasOwn(OPENAI, model) ? OPENAI[model] : undefined;
@@ -66,6 +79,12 @@ function usdPerImage(providerId: string, model: string, quality: string): number
     return row[quality as Quality];
   }
   if (providerId === "openrouter") return Object.hasOwn(OPENROUTER, model) ? OPENROUTER[model] : null;
+  if (providerId === "fal") {
+    const p = Object.hasOwn(FAL, model) ? FAL[model] : undefined;
+    if (p === undefined) return null;
+    if (typeof p === "number") return p;
+    return Object.hasOwn(p, quality) ? p[quality as Quality] : null;
+  }
   if (providerId === "gemini") return Object.hasOwn(GEMINI, model) ? GEMINI[model] : null;
   return null;
 }

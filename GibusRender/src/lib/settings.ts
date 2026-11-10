@@ -5,14 +5,14 @@ import type { Settings } from "@/generated/prisma/client";
 export type { Settings };
 
 const SETTINGS_ID = 1;
-const PROVIDER_IDS = ["openai", "openrouter", "gemini"] as const;
+const PROVIDER_IDS = ["openai", "openrouter", "gemini", "fal"] as const;
 
 export const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
   activeProviderId: "openai",
   // Il brief indicava gpt-image-1, spento da OpenAI il 23/10/2026.
   activeModel: "gpt-image-2",
   quality: "high",
-  enabledProviders: ["openai", "openrouter", "gemini"],
+  enabledProviders: ["openai", "openrouter", "gemini", "fal"],
   defaultVariants: 3,
 };
 

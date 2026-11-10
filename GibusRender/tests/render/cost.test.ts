@@ -37,4 +37,10 @@ describe("estimateCost", () => {
     expect(estimateCost("gemini", "gemini-3-pro-image", "low", 3)!.eur).toBeCloseTo(c.eur, 6);
     expect(estimateCost("gemini", "sconosciuto", "high", 1)).toBeNull();
   });
+
+  it("stima i modelli fal.ai; senza prezzo pubblicato dà null", () => {
+    expect(estimateCost("fal", "fal-ai/nano-banana-pro/edit", "high", 2)!.eur).toBeCloseTo(0.15 * 2 * 0.92, 6);
+    expect(estimateCost("fal", "fal-ai/gpt-image-1.5/edit", "medium", 1)!.eur).toBeCloseTo(0.05 * 0.92, 6);
+    expect(estimateCost("fal", "fal-ai/nano-banana/edit", "high", 1)).toBeNull();
+  });
 });

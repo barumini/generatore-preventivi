@@ -44,7 +44,7 @@ describe("settings", () => {
       activeProviderId: "openai",
       activeModel: "gpt-image-2",
       quality: "high",
-      enabledProviders: ["openai", "openrouter", "gemini"],
+      enabledProviders: ["openai", "openrouter", "gemini", "fal"],
       defaultVariants: 3,
     });
     expect(store.rows.size).toBe(1);
@@ -70,7 +70,7 @@ describe("settings", () => {
     await expect(
       updateSettings({ activeProviderId: "openai", enabledProviders: ["openrouter"] }),
     ).rejects.toThrow();
-    expect((await getSettings()).enabledProviders).toEqual(["openai", "openrouter", "gemini"]);
+    expect((await getSettings()).enabledProviders).toEqual(["openai", "openrouter", "gemini", "fal"]);
   });
 
   it("rifiuta varianti fuori da 1–6 e valori sconosciuti", async () => {

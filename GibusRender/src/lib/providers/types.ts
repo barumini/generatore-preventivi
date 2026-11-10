@@ -5,7 +5,7 @@ import type { ProviderSize } from "@/lib/render/image";
 
 export type { ProviderSize };
 
-export type ProviderId = "openai" | "openrouter" | "gemini";
+export type ProviderId = "openai" | "openrouter" | "gemini" | "fal";
 export type ImageQuality = "low" | "medium" | "high";
 
 export type GenerateInput = {
