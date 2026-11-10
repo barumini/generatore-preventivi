@@ -18,6 +18,7 @@ export async function saveSettings(form: FormData): Promise<ActionResult> {
       quality: str(form, "quality"),
       enabledProviders: form.getAll("enabledProviders").filter((v): v is string => typeof v === "string"),
       defaultVariants: Number(str(form, "defaultVariants")),
+      maxPhotoSide: Number(str(form, "maxPhotoSide")),
     });
     revalidatePath("/impostazioni");
     return { ok: true };

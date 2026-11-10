@@ -45,7 +45,7 @@ export interface ProviderOption {
   supportsMask: boolean;
 }
 
-type Defaults = { providerId: string; model: string; quality: string; variants: number };
+type Defaults = { providerId: string; model: string; quality: string; variants: number; maxPhotoSide: number };
 
 type Photo =
   | { kind: "upload"; blob: Blob; url: string; width: number; height: number }
@@ -276,7 +276,7 @@ export function NewRenderForm({
     setPhotoError(null);
     setPreparing(true);
     try {
-      const blob = await prepareUpload(file);
+      const blob = await prepareUpload(file, defaults.maxPhotoSide);
       const bmp = await createImageBitmap(blob);
       const next: Photo = { kind: "upload", blob, url: URL.createObjectURL(blob), width: bmp.width, height: bmp.height };
       bmp.close();
@@ -408,7 +408,7 @@ export function NewRenderForm({
             onChange={(e) => onPhoto(e.target.files?.[0])}
             disabled={preparing || submitting}
           />
-          <span className="hint">JPG, PNG o HEIC da smartphone. La foto viene raddrizzata e ridotta a 3000 px prima dell&apos;invio.</span>
+          <span className="hint">JPG, PNG o HEIC da smartphone. La foto viene raddrizzata e ridotta a {defaults.maxPhotoSide} px (lato lungo) prima dell&apos;invio: il tetto si cambia dalle Impostazioni.</span>
         </div>
         {preparing && <p className="muted small" role="status">Preparazione della foto…</p>}
         <ErrorBanner message={photoError} />
@@ -529,6 +529,11 @@ export function NewRenderForm({
         <p className="muted small">
           Disegna sulla foto la sagoma dell&apos;ingombro visibile della pergola (montanti e copertura), descrivila a
           parole, o entrambe le cose.
+        </p>
+        <p className="muted small">
+          Consiglio: lascia un po&apos; di margine attorno alla pergola, soprattutto in alto e dal lato in cui si estende.
+          Ciò che il modello disegna fuori dalla sagoma viene tagliato (una pergola a metà), mentre una sagoma troppo
+          larga gli lascia più spazio per alterare la casa: se una variante la cambia, l&apos;app la segnala.
         </p>
         {!photo ? (
           <p className="muted">Carica prima la foto.</p>

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveSettings } from "@/lib/settings-actions";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { estimateCost } from "@/lib/render/cost";
 
 export interface ProviderInfo {
   id: string;
@@ -19,9 +20,16 @@ export interface SettingsValues {
   quality: string;
   enabledProviders: string[];
   defaultVariants: number;
+  maxPhotoSide: number;
 }
 
 const QUALITY_LABELS: Record<string, string> = { low: "Bassa", medium: "Media", high: "Alta" };
+
+/** " — circa 0,01 € a immagine" dalla tabella prezzi; vuoto se il modello non è in tabella. */
+function priceLabel(providerId: string, model: string, quality: string): string {
+  const c = estimateCost(providerId, model, quality, 1);
+  return c ? ` — circa ${c.eur.toLocaleString("it-IT", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} € a immagine` : "";
+}
 
 export function SettingsForm({ providers, initial }: { providers: ProviderInfo[]; initial: SettingsValues }) {
   const router = useRouter();
@@ -31,6 +39,7 @@ export function SettingsForm({ providers, initial }: { providers: ProviderInfo[]
   const [enabled, setEnabled] = useState<string[]>(initial.enabledProviders);
   const [active, setActive] = useState(initial.activeProviderId);
   const [model, setModel] = useState(initial.activeModel);
+  const [quality, setQuality] = useState(initial.quality);
 
   const activeInfo = providers.find((p) => p.id === active);
   const suggested = activeInfo?.suggestedModels ?? [];
@@ -98,7 +107,7 @@ export function SettingsForm({ providers, initial }: { providers: ProviderInfo[]
         >
           <option value="">Altro modello (scrivere sotto)</option>
           {suggested.map((m) => (
-            <option key={m} value={m}>{m}</option>
+            <option key={m} value={m}>{m}{priceLabel(active, m, quality)}</option>
           ))}
         </select>
         <input id="activeModel" name="activeModel" type="text" value={model} onChange={(e) => setModel(e.target.value)} required />
@@ -108,7 +117,7 @@ export function SettingsForm({ providers, initial }: { providers: ProviderInfo[]
       <div className="grid-2">
         <div className="field">
           <label htmlFor="quality">Qualità</label>
-          <select id="quality" name="quality" defaultValue={initial.quality}>
+          <select id="quality" name="quality" value={quality} onChange={(e) => setQuality(e.target.value)}>
             {Object.entries(QUALITY_LABELS).map(([k, label]) => (
               <option key={k} value={k}>{label}</option>
             ))}
@@ -118,6 +127,15 @@ export function SettingsForm({ providers, initial }: { providers: ProviderInfo[]
           <label htmlFor="defaultVariants">Varianti predefinite</label>
           <input id="defaultVariants" name="defaultVariants" type="number" min={1} max={6} step={1} defaultValue={initial.defaultVariants} required />
         </div>
+      </div>
+
+      <div className="field">
+        <label htmlFor="maxPhotoSide">Risoluzione della foto (lato lungo, px)</label>
+        <input id="maxPhotoSide" name="maxPhotoSide" type="number" min={640} max={3000} step={10} defaultValue={initial.maxPhotoSide} required />
+        <span className="hint">
+          Da 640 a 3000. Le foto si riducono a questo lato lungo prima dell&apos;uso, e l&apos;immagine finale ha la stessa risoluzione.
+          I modelli lavorano comunque a circa 1 megapixel: un tetto basso rende l&apos;invio più rapido senza perdere dettaglio utile.
+        </span>
       </div>
 
       <button type="submit" className="btn btn-primary" disabled={pending}>{pending ? "Salvataggio…" : "Salva impostazioni"}</button>

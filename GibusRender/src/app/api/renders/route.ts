@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       model: settings.activeModel,
       quality: settings.quality,
       variants: settings.defaultVariants,
+      maxPhotoSide: settings.maxPhotoSide,
     });
     if (!settings.enabledProviders.includes(input.providerId)) {
       return error("Fornitore non abilitato nelle impostazioni", 400);

@@ -138,4 +138,6 @@ model Settings {
   quality          String
   enabledProviders String[]
   defaultVariants  Int      @default(3)
+  /// Lato lungo massimo (px) delle foto: tetto di risoluzione per costo e velocità.
+  maxPhotoSide     Int      @default(1280)
 }

@@ -16,6 +16,7 @@ const store = vi.hoisted(() => ({
   renders: new Map<string, AnyRow>(),
   variants: new Map<string, AnyRow>(),
   enabledProviders: ["openai", "openrouter"],
+  maxPhotoSide: 3000,
   seq: 0,
 }));
 
@@ -88,6 +89,7 @@ vi.mock("@/lib/db", () => {
           quality: "high",
           enabledProviders: [...store.enabledProviders],
           defaultVariants: 3,
+          maxPhotoSide: store.maxPhotoSide,
         }),
       },
     },
@@ -268,6 +270,15 @@ describe("createRender", () => {
       positionText: "a destra",
     });
     expect(noPolygon.prompt).not.toContain("mask image");
+  });
+
+  it("createRender riduce la foto al maxPhotoSide richiesto (predefinito 3000)", async () => {
+    const small = await createRender(baseInput({ maxPhotoSide: 600 }));
+    createdRenders.add(small.id);
+    expect(small).toMatchObject({ photoWidth: 600, photoHeight: 450 });
+    const full = await createRender(baseInput());
+    createdRenders.add(full.id);
+    expect(full).toMatchObject({ photoWidth: W, photoHeight: H });
   });
 
   it("usa il prompt fornito così com'è", async () => {
@@ -545,6 +556,19 @@ describe("POST /api/renders", () => {
     const { id } = (await res.json()) as { id: string };
     createdRenders.add(id);
     expect(store.renders.get(id)).toMatchObject({ clientRef: "Rossi 12", variantsRequested: 2, widthMm: 4200 });
+  });
+
+  it("usa il tetto di risoluzione delle impostazioni: la foto si riduce al lato lungo indicato", async () => {
+    store.maxPhotoSide = 600;
+    try {
+      const res = await postRender(post(renderForm()));
+      expect(res.status).toBe(200);
+      const { id } = (await res.json()) as { id: string };
+      createdRenders.add(id);
+      expect(store.renders.get(id)).toMatchObject({ photoWidth: 600, photoHeight: 450 });
+    } finally {
+      store.maxPhotoSide = 3000;
+    }
   });
 
   it("errore di validazione → 400 con messaggio italiano", async () => {

@@ -63,7 +63,7 @@ Le chiavi API stanno solo nelle variabili d'ambiente: mai nel codice, nel databa
 - **Vercel Blob (`BLOB_READ_WRITE_TOKEN`)**: nel progetto Vercel, scheda Storage, creare un archivio Blob e collegarlo al progetto: Vercel aggiunge da solo la variabile `BLOB_READ_WRITE_TOKEN`.
 - **OpenAI (`OPENAI_API_KEY`)**: su https://platform.openai.com, sezione API keys, creare una chiave. Il modello predefinito è `gpt-image-2` (`gpt-image-1` è stato spento da OpenAI il 23/10/2026). L'organizzazione potrebbe dover essere verificata per i modelli di immagini.
 - **OpenRouter (`OPENROUTER_API_KEY`)**: su https://openrouter.ai, sezione Keys, creare una chiave e caricare un po' di credito.
-- **fal.ai (`FAL_KEY`)**: su https://fal.ai/dashboard/keys creare una chiave (serve saldo prepagato). Modelli: `fal-ai/nano-banana-pro/edit` (circa 0,14 € a immagine), `fal-ai/nano-banana/edit`, `fal-ai/gpt-image-1.5/edit`. Come Gemini e OpenRouter, fal.ai riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
+- **fal.ai (`FAL_KEY`)**: su https://fal.ai/dashboard/keys creare una chiave (serve saldo prepagato). Modelli consigliati: `blackforestlabs/flux-3/klein/edit-image` (predefinito, circa 0,008 € a immagine), `fal-ai/nano-banana-2/edit` (circa 0,07 €) e `fal-ai/nano-banana-pro/edit` (circa 0,14 €, il più fedele): vedi "Modelli consigliati" più sotto. Come Gemini e OpenRouter, fal.ai riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
 - **Google Gemini (`GEMINI_API_KEY`)**: su https://aistudio.google.com/apikey creare una chiave (con fatturazione attiva per i modelli immagine). Modelli: `gemini-3-pro-image` (qualità migliore, circa 0,12 € a immagine), `gemini-3.1-flash-image` (più economico). Come OpenRouter, Gemini riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
 
 ## Deploy su Vercel
@@ -93,8 +93,29 @@ Il deploy richiede gli account dell'utente (Vercel, Neon) e va fatto da lui.
 
 - **Catalogo**: elenco dei modelli di pergola con descrizione per l'IA e immagini di riferimento, e finiture (strutture, teli) con relativi colori. Si modificano da qui.
 - **Nuovo render**: si carica la foto del cliente, si sceglie modello e finiture, si disegna la sagoma dell'area da modificare, si indica la scala (una misura nota sulla foto) e si controlla l'anteprima del prompt e la stima del costo; poi "Genera". Senza sagoma la casa non è protetta: l'interfaccia avvisa di verificare che nulla sia cambiato.
-- **Varianti**: per ogni render si ottengono più varianti (3 per impostazione predefinita) da confrontare; si sceglie la migliore, si scarica in JPG (qualità 92, risoluzione della foto originale) e si ritrovano tutte nell'archivio. Le varianti fallite si rigenerano con "Riprova". La dicitura "Immagine a titolo esemplificativo" è facoltativa e disattivata di default; è resa con il font Geist incluso nel repository (`assets/fonts`, licenza SIL OFL 1.1), quindi non dipende dai font di sistema.
-- **Impostazioni**: fornitore attivo, modello, qualità, fornitori abilitati e numero predefinito di varianti.
+- **Varianti**: per ogni render si ottengono più varianti (3 per impostazione predefinita) e quelle in cui il modello ha rifatto la scena sono segnalate da confrontare; si sceglie la migliore, si scarica in JPG (qualità 92, risoluzione della foto originale) e si ritrovano tutte nell'archivio. Le varianti fallite si rigenerano con "Riprova". La dicitura "Immagine a titolo esemplificativo" è facoltativa e disattivata di default; è resa con il font Geist incluso nel repository (`assets/fonts`, licenza SIL OFL 1.1), quindi non dipende dai font di sistema.
+- **Impostazioni**: fornitore attivo, modello (con il costo stimato accanto), qualità, fornitori abilitati, numero predefinito di varianti e tetto di risoluzione della foto.
+
+## Modelli consigliati
+
+Confronto del 10/11/2026 su una foto reale (1024×768, sagoma larga) con il prodotto "foto reali" (due ritagli della foto ufficiale Gibus come riferimento), tutti via fal.ai:
+
+| Modello | Costo a immagine | Esito |
+|---|---|---|
+| `blackforestlabs/flux-3/klein/edit-image` | ~0,009 $ | **Predefinito.** Pergola completa, casa intatta in 3 varianti su 3 (scarto 3,7–7,4) |
+| `fal-ai/nano-banana-2/edit` | ~0,08 $ (1K) | Ottimo, ma 1 variante su 2 ha rifatto la scena |
+| `fal-ai/nano-banana-pro/edit` | ~0,15 $ | Il più fedele, ma 1 variante su 2 con sagoma larga ha alterato la casa |
+| `google/nano-banana-lite/edit` | ~0,045 $ | Scena rifatta, copia arredi dai riferimenti: sconsigliato |
+| `fal-ai/gpt-image-1.5/edit` (low) | ~0,013 $ | Casa alterata: sconsigliato |
+| FLUX Kontext, FLUX Schnell, Fast-SDXL, Nano Banana economico | 0,003–0,04 $ | Non adatti (collage, nessun inserimento o scena riscritta) |
+
+Cose da sapere, emerse dalle prove:
+
+- **I riferimenti contano più del modello.** Con foto reali di una pergola Gibus (senza il logo, ritagliate sulla pergola) i risultati migliorano molto rispetto ai disegni tecnici. Caricale come immagini di riferimento del prodotto nel Catalogo.
+- **La sagoma deve avere un po' di margine**, soprattutto in alto e dal lato in cui la pergola si estende: ciò che il modello disegna fuori dalla sagoma viene tagliato (pergola "a metà"). Una sagoma troppo larga gli lascia però più spazio per alterare la casa.
+- **I modelli variano da una generazione all'altra**: per questo si generano più varianti e si sceglie la migliore.
+- **Scena alterata.** Per ogni variante con sagoma l'app misura quanto l'immagine generata differisce dalla foto *fuori* dalla sagoma, dove dovrebbe essere uguale (`driftScore`, 0–255). Oltre 12 la variante è segnalata "Scena alterata: probabile scarto" (varianti buone: 4–7; alterate: 25–48). La soglia è in `src/lib/render/scene-check.ts`.
+- **Risoluzione.** Il tetto al lato lungo della foto (Impostazioni, predefinito 1280 px) accelera invio e generazione; i modelli lavorano comunque a circa 1 megapixel. Con Nano Banana Pro, Nano Banana 2 e Klein il costo non dipende dalla risoluzione scelta in questo intervallo.
 
 ## Aggiungere un nuovo fornitore di immagini
 

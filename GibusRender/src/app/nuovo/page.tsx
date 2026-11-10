@@ -83,6 +83,7 @@ export default async function NuovoRenderPage({
           model: settings.activeModel,
           quality: settings.quality,
           variants: settings.defaultVariants,
+          maxPhotoSide: settings.maxPhotoSide,
         }}
         draft={draft}
       />

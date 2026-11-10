@@ -24,12 +24,13 @@ export type ProviderSize = { width: number; height: number };
  */
 export async function normalizePhoto(
   input: Buffer,
+  maxLongSide: number = MAX_LONG_SIDE,
 ): Promise<{ jpeg: Buffer; width: number; height: number }> {
   const { data, info } = await sharp(input)
     .autoOrient()
     .resize({
-      width: MAX_LONG_SIDE,
-      height: MAX_LONG_SIDE,
+      width: maxLongSide,
+      height: maxLongSide,
       fit: "inside",
       withoutEnlargement: true,
     })

@@ -27,6 +27,7 @@ export default async function ImpostazioniPage() {
           quality: settings.quality,
           enabledProviders: settings.enabledProviders,
           defaultVariants: settings.defaultVariants,
+          maxPhotoSide: settings.maxPhotoSide,
         }}
       />
     </main>

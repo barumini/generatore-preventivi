@@ -113,6 +113,8 @@ export const CreateRenderInput = z
       .min(1, { error: "Le varianti devono essere tra 1 e 6" })
       .max(6, { error: "Le varianti devono essere tra 1 e 6" }),
     disclaimer: z.boolean().default(false),
+    /** Lato lungo massimo della foto (px); predefinito 3000, le impostazioni lo abbassano. */
+    maxPhotoSide: z.number().int().min(320).max(6000).default(3000),
   })
   .superRefine((v, ctx) => {
     if (!v.photo && !v.sourceRenderId) {
@@ -150,6 +152,7 @@ async function findFinish(id: string | undefined, kind: "COLORE" | "TESSUTO", mi
 async function photoFor(
   photo: Buffer | File | undefined,
   sourceRenderId: string | undefined,
+  maxPhotoSide: number,
 ): Promise<{ jpeg: Buffer; width: number; height: number }> {
   if (sourceRenderId) {
     const src = await db.render.findUnique({ where: { id: sourceRenderId } });
@@ -165,7 +168,7 @@ async function photoFor(
   if (!photo) throw new RenderInputError(PHOTO_REQUIRED);
   const raw = Buffer.isBuffer(photo) ? photo : Buffer.from(await photo.arrayBuffer());
   try {
-    return await normalizePhoto(raw);
+    return await normalizePhoto(raw, maxPhotoSide);
   } catch {
     throw new RenderInputError("Foto non leggibile: usa un file JPEG, PNG o WebP");
   }
@@ -189,7 +192,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
     db.referenceImage.count({ where: { productId: product.id } }),
   ]);
 
-  const { jpeg, width, height } = await photoFor(data.photo, data.sourceRenderId);
+  const { jpeg, width, height } = await photoFor(data.photo, data.sourceRenderId, data.maxPhotoSide);
 
   const provider = getProvider(data.providerId);
   const prompt =
@@ -409,7 +412,7 @@ function json(form: FormData, key: string, error: string): unknown {
  */
 export function renderInputFromForm(
   form: FormData,
-  defaults: { providerId: string; model: string; quality: string; variants: number },
+  defaults: { providerId: string; model: string; quality: string; variants: number; maxPhotoSide?: number },
 ): CreateRenderInput {
   const entry = form.get("photo");
   const photo = entry instanceof File && entry.size > 0 ? entry : undefined;
@@ -437,5 +440,6 @@ export function renderInputFromForm(
     quality: (str(form, "quality")?.trim() || defaults.quality) as ImageQuality,
     variantsRequested: num(form, "variantsRequested") ?? defaults.variants,
     disclaimer: str(form, "disclaimer") === "true",
+    maxPhotoSide: defaults.maxPhotoSide,
   };
 }

@@ -37,6 +37,11 @@ describe("normalizePhoto", () => {
     expect(out).toMatchObject({ width: 3000, height: 2000 });
   });
 
+  it("rispetta un tetto più basso passato come secondo argomento", async () => {
+    const input = await solid(6000, 4000).jpeg().toBuffer();
+    expect(await normalizePhoto(input, 1280)).toMatchObject({ width: 1280, height: 853 });
+  });
+
   it("non ingrandisce le foto piccole", async () => {
     const out = await normalizePhoto(await solid(800, 600).png().toBuffer());
     expect(out).toMatchObject({ width: 800, height: 600 });

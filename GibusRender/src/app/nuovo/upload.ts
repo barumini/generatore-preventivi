@@ -37,7 +37,7 @@ function toJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 }
 
 /** Converte (se HEIC), raddrizza, ridimensiona e comprime la foto. Solo nel browser. */
-export async function prepareUpload(file: File): Promise<Blob> {
+export async function prepareUpload(file: File, maxSide: number = UPLOAD_MAX_SIDE): Promise<Blob> {
   let source: Blob = file;
   if (isHeic(file)) {
     const { default: heic2any } = await import("heic2any");
@@ -51,7 +51,7 @@ export async function prepareUpload(file: File): Promise<Blob> {
   } catch {
     throw new Error("Foto non leggibile: usa un file JPEG, PNG, WebP o HEIC");
   }
-  const { width, height } = computeUploadSize(bitmap.width, bitmap.height);
+  const { width, height } = computeUploadSize(bitmap.width, bitmap.height, maxSide);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

@@ -7,6 +7,7 @@ type Row = {
   quality: string;
   enabledProviders: string[];
   defaultVariants: number;
+  maxPhotoSide: number;
 };
 
 const store = vi.hoisted(() => ({ rows: new Map<number, Row>() }));
@@ -41,11 +42,12 @@ describe("settings", () => {
     const s = await getSettings();
     expect(s).toEqual({
       id: 1,
-      activeProviderId: "openai",
-      activeModel: "gpt-image-2",
-      quality: "high",
+      activeProviderId: "fal",
+      activeModel: "blackforestlabs/flux-3/klein/edit-image",
+      quality: "low",
       enabledProviders: ["openai", "openrouter", "gemini", "fal"],
       defaultVariants: 3,
+      maxPhotoSide: 1280,
     });
     expect(store.rows.size).toBe(1);
     expect(await getSettings()).toEqual(s);
@@ -71,6 +73,13 @@ describe("settings", () => {
       updateSettings({ activeProviderId: "openai", enabledProviders: ["openrouter"] }),
     ).rejects.toThrow();
     expect((await getSettings()).enabledProviders).toEqual(["openai", "openrouter", "gemini", "fal"]);
+  });
+
+  it("accetta un tetto di risoluzione da 640 a 3000 px e rifiuta il resto", async () => {
+    expect((await updateSettings({ maxPhotoSide: 1600 })).maxPhotoSide).toBe(1600);
+    await expect(updateSettings({ maxPhotoSide: 639 })).rejects.toThrow(/640 e 3000/);
+    await expect(updateSettings({ maxPhotoSide: 3001 })).rejects.toThrow(/640 e 3000/);
+    await expect(updateSettings({ maxPhotoSide: 1000.5 })).rejects.toThrow();
   });
 
   it("rifiuta varianti fuori da 1–6 e valori sconosciuti", async () => {

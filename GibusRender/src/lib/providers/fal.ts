@@ -8,14 +8,14 @@ import { ProviderError, type GenerateInput, type ImageProvider } from "./types";
 
 const QUEUE = "https://queue.fal.run";
 const LABEL = "fal.ai";
-// FLUX Kontext (anche multi) è gestito ma non suggerito: provato il 2026-11-10, con i
-// disegni di riferimento incolla collage e a immagine singola non inserisce la pergola.
+// Modelli suggeriti: quelli che nel confronto del 2026-11-10 (foto reale, riferimenti reali)
+// hanno inserito la pergola lasciando intatta la casa. Gestiti ma NON suggeriti:
+// FLUX Kontext (con i disegni fa collage, a immagine singola non inserisce la pergola),
+// Nano Banana Lite e GPT Image 1.5 low (hanno rifatto la scena), fal-ai/nano-banana/edit.
 const MODELS = [
-  "fal-ai/nano-banana-pro/edit",
-  "fal-ai/nano-banana-2/edit",
-  "google/nano-banana-lite/edit",
-  "blackforestlabs/flux-3/klein/edit-image",
-  "fal-ai/gpt-image-1.5/edit",
+  "blackforestlabs/flux-3/klein/edit-image", // ~0,009 $, il più economico
+  "fal-ai/nano-banana-2/edit", // ~0,08 $
+  "fal-ai/nano-banana-pro/edit", // ~0,15 $, il più fedele
 ];
 
 /** Rapporti d'aspetto accettati da FLUX Kontext (mancano 5:4 e 4:5). */

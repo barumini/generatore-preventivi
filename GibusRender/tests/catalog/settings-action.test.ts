@@ -29,6 +29,7 @@ describe("saveSettings", () => {
         quality: "medium",
         enabledProviders: ["openai", "openrouter"],
         defaultVariants: "4",
+        maxPhotoSide: "1280",
       }),
     );
     expect(res).toEqual({ ok: true });
@@ -38,6 +39,7 @@ describe("saveSettings", () => {
       quality: "medium",
       enabledProviders: ["openai", "openrouter"],
       defaultVariants: 4,
+      maxPhotoSide: 1280,
     });
   });
 

@@ -75,7 +75,8 @@ describe("falProvider", () => {
     expect(falProvider.id).toBe("fal");
     expect(falProvider.label).toBe("fal.ai");
     expect(falProvider.supportsMask).toBe(false);
-    expect(falProvider.suggestedModels[0]).toBe("fal-ai/nano-banana-pro/edit");
+    expect(falProvider.suggestedModels[0]).toBe("blackforestlabs/flux-3/klein/edit-image");
+    expect(falProvider.suggestedModels).toContain("fal-ai/nano-banana-pro/edit");
   });
 
   it("invia alla coda, controlla lo stato, legge il risultato e scarica l'immagine", async () => {

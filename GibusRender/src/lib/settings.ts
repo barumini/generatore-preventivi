@@ -8,12 +8,13 @@ const SETTINGS_ID = 1;
 const PROVIDER_IDS = ["openai", "openrouter", "gemini", "fal"] as const;
 
 export const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
-  activeProviderId: "openai",
-  // Il brief indicava gpt-image-1, spento da OpenAI il 23/10/2026.
-  activeModel: "gpt-image-2",
-  quality: "high",
+  // Predefinito economico: FLUX.3 Klein su fal.ai, ~0,009 $ a immagine (confronto del 2026-11-10).
+  activeProviderId: "fal",
+  activeModel: "blackforestlabs/flux-3/klein/edit-image",
+  quality: "low",
   enabledProviders: ["openai", "openrouter", "gemini", "fal"],
   defaultVariants: 3,
+  maxPhotoSide: 1280,
 };
 
 const schema = z
@@ -30,6 +31,11 @@ const schema = z
       .int({ error: "Il numero di varianti deve essere intero" })
       .min(1, { error: "Le varianti devono essere tra 1 e 6" })
       .max(6, { error: "Le varianti devono essere tra 1 e 6" }),
+    maxPhotoSide: z
+      .number({ error: "Lato lungo della foto non valido" })
+      .int({ error: "Il lato lungo della foto deve essere tra 640 e 3000 px" })
+      .min(640, { error: "Il lato lungo della foto deve essere tra 640 e 3000 px" })
+      .max(3000, { error: "Il lato lungo della foto deve essere tra 640 e 3000 px" }),
   })
   .refine((s) => s.enabledProviders.includes(s.activeProviderId), {
     error: "Il fornitore attivo deve essere tra quelli abilitati",
