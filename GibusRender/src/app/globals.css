@@ -274,3 +274,14 @@ textarea.prompt-text { background: #fff; max-height: none; }
   background: rgba(215, 38, 46, 0.15);
   pointer-events: none;
 }
+
+/* Archivio: scheda + pulsante Elimina sotto */
+.archive-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.archive-item .card-link {
+  width: 100%;
+}

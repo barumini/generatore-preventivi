@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import { DeleteRenderButton } from "@/components/DeleteRenderButton";
 import { formatDate } from "@/lib/render/format";
 import { archiveThumbnail, clampPage } from "@/lib/render/variant-list";
 
@@ -77,7 +78,8 @@ export default async function ArchivioPage({
             const chosen = r.variants.some((v) => v.id === r.chosenVariantId);
             const thumb = archiveThumbnail(r);
             return (
-              <Link key={r.id} href={`/render/${r.id}`} className="card card-link">
+              <div key={r.id} className="archive-item">
+              <Link href={`/render/${r.id}`} className="card card-link">
                 <div className="thumb">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={thumb} alt={`Render per ${r.clientRef}`} loading="lazy" />
@@ -91,6 +93,8 @@ export default async function ArchivioPage({
                   </p>
                 </div>
               </Link>
+              <DeleteRenderButton small renderId={r.id} clientRef={r.clientRef} />
+              </div>
             );
           })}
         </div>

@@ -6,6 +6,7 @@ import { disabledProviderMessage, listProviders } from "@/lib/providers/registry
 import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/render/format";
 import type { VariantInfo } from "@/lib/render/variant-list";
+import { DeleteRenderButton } from "@/components/DeleteRenderButton";
 import { VariantsView } from "./VariantsView";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,10 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
             {render.productName} · {formatDate(render.createdAt)}
           </p>
         </div>
-        <Link href={`/nuovo?da=${render.id}`} className="btn">Duplica e modifica</Link>
+        <div className="row">
+          <Link href={`/nuovo?da=${render.id}`} className="btn">Duplica e modifica</Link>
+          <DeleteRenderButton renderId={render.id} clientRef={render.clientRef} redirectTo="/" />
+        </div>
       </div>
 
       <div className="stack">

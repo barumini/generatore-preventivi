@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { chooseVariant } from "@/lib/render/actions";
+import { chooseVariant, deleteVariant } from "@/lib/render/actions";
 import { isSceneAltered } from "@/lib/render/scene-check";
 import { shouldAutoStart, visibleVariants, type VariantInfo } from "@/lib/render/variant-list";
+import { DeleteButton } from "@/components/DeleteButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { BeforeAfter } from "./BeforeAfter";
 
@@ -334,6 +335,15 @@ export function VariantsView({
                     <a className="btn btn-small" href={`/api/variants/${v.id}/download`} download>
                       Scarica
                     </a>
+                    <DeleteButton
+                      small
+                      confirmText="Eliminare questa variante? L'immagine verrà cancellata e non si potrà recuperare."
+                      action={async () => {
+                        const res = await deleteVariant(v.id);
+                        if (res.ok) dismiss(v.id); // sparisce subito, anche se era in stato locale
+                        return res;
+                      }}
+                    />
                   </div>
                 </div>
               </div>

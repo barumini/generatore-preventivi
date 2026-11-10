@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -43,6 +43,17 @@ export async function putFile(key: string, data: Buffer, contentType: string): P
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, data);
   return FILES_PREFIX + key;
+}
+
+/** Elimina un file salvato (disco o Blob); un file già assente non è un errore. */
+export async function deleteFile(url: string): Promise<void> {
+  if (url.startsWith(FILES_PREFIX)) {
+    assertDiskAllowed();
+    await fs.rm(resolveDataPath(url.slice(FILES_PREFIX.length)), { force: true });
+    return;
+  }
+  if (!hasBlob()) throw new Error("Archivio file non configurato: manca BLOB_READ_WRITE_TOKEN");
+  await del(url);
 }
 
 /** true per gli URL dei file salvati su disco (sviluppo), serviti da /api/files. */
