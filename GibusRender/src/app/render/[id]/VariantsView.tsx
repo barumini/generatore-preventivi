@@ -13,6 +13,7 @@ const POLL_MS = 10_000;
 const STALE_MESSAGE = "Tempo scaduto, riprova";
 const UNPROTECTED = "Casa non protetta: verificare che nulla sia cambiato";
 const ALTERED = "Scena alterata: probabile scarto";
+const TRUNCATED = "Pergola forse tagliata: allarga la sagoma e rigenera";
 
 const dismissedKey = (renderId: string) => `gibusrender:nascoste:${renderId}`;
 
@@ -47,6 +48,7 @@ function fromJson(json: unknown): VariantInfo | null {
     protected: o.protected === true,
     error: typeof o.error === "string" ? o.error : null,
     driftScore: typeof o.driftScore === "number" ? o.driftScore : null,
+    truncated: o.truncated === true,
     stale: false,
     createdAt: o.createdAt,
   };
@@ -299,6 +301,16 @@ export function VariantsView({
                     {chosen && <span className="badge badge-ok">Scelta</span>}
                   </div>
                   {!v.protected && <p><span className="badge badge-warn">{UNPROTECTED}</span></p>}
+                  {v.truncated === true && !isSceneAltered(v.driftScore) && (
+                    <p>
+                      <span
+                        className="badge badge-warn"
+                        title="Il modello ha disegnato la pergola oltre l'area che l'app può ricomporre: allarga la sagoma (soprattutto dal lato in cui la pergola si estende) con Duplica e modifica."
+                      >
+                        {TRUNCATED}
+                      </span>
+                    </p>
+                  )}
                   {isSceneAltered(v.driftScore) && (
                     <p>
                       <span

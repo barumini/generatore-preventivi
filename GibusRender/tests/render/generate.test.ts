@@ -445,6 +445,57 @@ describe("generateVariant", () => {
     expect(store.variants.get(v.id)!.driftScore ?? null).toBeNull();
   });
 
+  /** Fornitore che restituisce la foto con un rettangolo scuro (la "pergola") dal bordo sinistro della sagoma fino a x1. */
+  function paintingProvider(x1: number, y0 = 0.4, y1 = 0.6) {
+    const base = fakeProvider();
+    return {
+      ...base,
+      provider: {
+        ...base.provider,
+        generate: async (input: GenerateInput) => {
+          const { width, height } = await sharp(input.photo).metadata();
+          const left = Math.round(0.4 * width!);
+          const top = Math.round(y0 * height!);
+          const rect = {
+            create: { width: Math.round(x1 * width!) - left, height: Math.round((y1 - y0) * height!), channels: 3 as const, background: { r: 10, g: 10, b: 10 } },
+          };
+          return sharp(input.photo).composite([{ input: rect, left, top }]).png().toBuffer();
+        },
+      },
+    };
+  }
+
+  it("ricomposizione adattiva: la pergola che esce dalla sagoma non viene tagliata", async () => {
+    const r = await newRender();
+    const v = await generateVariant(r.id, { provider: paintingProvider(0.7).provider });
+    expect(v.status).toBe("DONE");
+    const out = await rgb(await getFile(v.imageUrl!));
+    const at = (fx: number, fy: number) => out.data[(Math.round(fy * H) * W + Math.round(fx * W)) * 3];
+    expect(at(0.66, 0.5)).toBeLessThan(60); // fuori sagoma e dentro la struttura: scuro, non tagliato
+    expect(at(0.85, 0.5)).toBeGreaterThan(120); // più in là la scena è quella originale
+    const row = store.variants.get(v.id)!;
+    expect(row.truncated).toBe(false);
+    expect(row.driftScore as number).toBeLessThan(DRIFT_ALTERED_THRESHOLD);
+  });
+
+  it("se la struttura va oltre il tetto di crescita la variante è segnalata come tagliata", async () => {
+    const r = await newRender();
+    const v = await generateVariant(r.id, { provider: paintingProvider(0.95, 0.35, 0.65).provider });
+    expect(store.variants.get(v.id)!.truncated).toBe(true);
+    const out = await rgb(await getFile(v.imageUrl!));
+    expect(out.data[(Math.round(0.5 * H) * W + Math.round(0.93 * W)) * 3]).toBeGreaterThan(120); // oltre il tetto di crescita: originale
+  });
+
+  it("scena rifatta (punteggio alto): la maschera NON cresce e la casa resta quella della foto", async () => {
+    const r = await newRender();
+    const v = await generateVariant(r.id, { provider: fakeProvider().provider }); // tutto rosso
+    const row = store.variants.get(v.id)!;
+    expect(row.truncated).toBe(false);
+    const out = await rgb(await getFile(v.imageUrl!));
+    const orig = await rgb(await getFile(r.photoUrl));
+    expect(meanDiffOutside(out.data, orig.data)).toBeLessThan(2);
+  });
+
   it("senza poligono: protected false, immagine generata alla risoluzione della foto", async () => {
     const r = await newRender({ polygon: undefined, positionText: "a destra della porta" });
     const { provider, calls } = fakeProvider();

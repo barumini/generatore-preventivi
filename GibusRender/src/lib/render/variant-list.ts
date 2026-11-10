@@ -10,6 +10,8 @@ export type VariantInfo = {
   error: string | null;
   /** Differenza media fuori dalla sagoma (0–255); null/assente senza sagoma o per le varianti vecchie. */
   driftScore?: number | null;
+  /** Pergola probabilmente tagliata dal bordo dell'area ricomposta. */
+  truncated?: boolean;
   /** PENDING da più di 6 minuti: si mostra come fallita. */
   stale: boolean;
   /** ISO 8601, orologio del server. */
