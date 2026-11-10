@@ -181,6 +181,45 @@ describe("falProvider", () => {
     expect(all.image_urls).toHaveLength(5);
   });
 
+  it("Nano Banana 2: aspect_ratio e resolution 1K (2K solo con qualità alta)", async () => {
+    const m = "fal-ai/nano-banana-2/edit";
+    const low = await call({ model: m, quality: "low" });
+    expect(low.submit.url).toBe(`https://queue.fal.run/${m}`);
+    expect(low.body.aspect_ratio).toBe("3:2");
+    expect(low.body.resolution).toBe("1K");
+    calls.length = 0;
+    expect((await call({ model: m, quality: "medium" })).body.resolution).toBe("1K");
+    calls.length = 0;
+    expect((await call({ model: m, quality: "high" })).body.resolution).toBe("2K");
+  });
+
+  it("Nano Banana Lite: solo aspect_ratio (uscita fissa a 1K)", async () => {
+    const { body } = await call({ model: "google/nano-banana-lite/edit" });
+    expect(body.aspect_ratio).toBe("3:2");
+    expect(body.resolution).toBeUndefined();
+    expect(body.quality).toBeUndefined();
+  });
+
+  it("FLUX.3 Klein: nessun aspect_ratio né resolution, prompt non riscritto, fino a 10 immagini", async () => {
+    const photo = await png(1248, 832);
+    const refs = Array.from({ length: 12 }, (_, i) => png(32, 32, [i * 10, 0, 0]));
+    const resolved = await Promise.all(refs);
+    await falProvider.generate({
+      photo,
+      references: resolved,
+      prompt: "x",
+      model: "blackforestlabs/flux-3/klein/edit-image",
+      quality: "high",
+    });
+    const sent = JSON.parse(calls.find((c) => c.init.method === "POST")!.init.body as string);
+    expect(calls.find((c) => c.init.method === "POST")!.url).toBe("https://queue.fal.run/blackforestlabs/flux-3/klein/edit-image");
+    expect(sent.aspect_ratio).toBeUndefined();
+    expect(sent.resolution).toBeUndefined();
+    expect(sent.enable_prompt_expansion).toBe(false);
+    expect(sent.image_urls).toHaveLength(10);
+    expect(sent.image_urls[0]).toBe(dataUrl(photo));
+  });
+
   it("continua a controllare lo stato finché la richiesta non è completata", async () => {
     statuses = [{ status: "IN_QUEUE", queue_position: 2 }, { status: "IN_PROGRESS" }, { status: "COMPLETED" }];
     const { calls } = await call();

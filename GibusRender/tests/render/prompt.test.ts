@@ -112,3 +112,28 @@ describe("buildPrompt: posizione e riferimenti", () => {
     expect(p).toContain("technical description");
   });
 });
+
+describe("buildPrompt: regole emerse dalle prove sul campo", () => {
+  it("apre con le regole critiche: inquadratura invariata e pergola interamente visibile", () => {
+    const p = buildPrompt(zenit);
+    expect(p).toContain("do not zoom, crop, shift or rescale");
+    expect(p).toContain("must be completely visible");
+    // le regole stanno subito dopo il compito, prima della descrizione del prodotto
+    expect(p.indexOf("must be completely visible")).toBeLessThan(p.indexOf("Product:"));
+    expect(buildPrompt({ ...zenit, hasMask: false })).toContain("do not zoom, crop, shift or rescale");
+  });
+
+  it("con i riferimenti vieta di copiarne edifici, arredi e sfondo", () => {
+    const p = buildPrompt(zenit);
+    expect(p).toContain("only for the design of the pergola");
+    expect(p).toContain("do not copy any building, furniture, people or background");
+    const none = buildPrompt({ ...zenit, referenceCount: 0 });
+    expect(none).not.toContain("only for the design of the pergola");
+  });
+
+  it("esprime le proporzioni in modo relativo (larghezza : profondità : altezza libera)", () => {
+    const p = buildPrompt(zenit);
+    expect(p).toContain("width : depth : clear height = 4200 : 3800 : 2400");
+    expect(p).toContain("1.75 : 1.58 : 1");
+  });
+});

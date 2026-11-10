@@ -10,7 +10,13 @@ const QUEUE = "https://queue.fal.run";
 const LABEL = "fal.ai";
 // FLUX Kontext (anche multi) è gestito ma non suggerito: provato il 2026-11-10, con i
 // disegni di riferimento incolla collage e a immagine singola non inserisce la pergola.
-const MODELS = ["fal-ai/nano-banana-pro/edit", "fal-ai/nano-banana/edit", "fal-ai/gpt-image-1.5/edit"];
+const MODELS = [
+  "fal-ai/nano-banana-pro/edit",
+  "fal-ai/nano-banana-2/edit",
+  "google/nano-banana-lite/edit",
+  "blackforestlabs/flux-3/klein/edit-image",
+  "fal-ai/gpt-image-1.5/edit",
+];
 
 /** Rapporti d'aspetto accettati da FLUX Kontext (mancano 5:4 e 4:5). */
 const KONTEXT_RATIOS = new Set(["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"]);
@@ -20,7 +26,9 @@ export const falPollConfig = { intervalMs: 1_500, timeoutMs: PROVIDER_TIMEOUT_MS
 
 /** Numero massimo di immagini in ingresso per richiesta, dove il modello lo limita. */
 function maxInputImages(model: string): number {
-  return /flux-pro\/kontext/.test(model) ? 4 : Number.POSITIVE_INFINITY;
+  if (/flux-pro\/kontext/.test(model)) return 4;
+  if (/flux-3\/klein/.test(model)) return 10;
+  return Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -85,9 +93,21 @@ function modelParams(input: GenerateInput, width: number | undefined, height: nu
     const size = GPT_SIZES.reduce((a, b) => (Math.abs(Math.log(b.ratio / ar)) < Math.abs(Math.log(a.ratio / ar)) ? b : a)).size;
     return { image_size: size, quality: input.quality };
   }
+  // FLUX.3 Klein: la dimensione d'uscita segue la prima immagine (la foto); niente rapporti.
+  // La riscrittura del prompt è disattivata: il testo dell'app è già dettagliato.
+  if (/flux-3\/klein/.test(model)) return { enable_prompt_expansion: false };
   const ratio = geminiRatio(width, height);
   if (/flux-pro\/kontext/.test(model)) return ratio && KONTEXT_RATIOS.has(ratio) ? { aspect_ratio: ratio } : {};
-  const resolution = /nano-banana-pro/.test(model) ? (input.quality === "low" ? "1K" : "2K") : undefined;
+  // Pro: 1K e 2K costano uguale. Nano Banana 2: 2K costa il 50% in più, quindi solo con qualità alta.
+  const resolution = /nano-banana-pro/.test(model)
+    ? input.quality === "low"
+      ? "1K"
+      : "2K"
+    : /nano-banana-2/.test(model)
+      ? input.quality === "high"
+        ? "2K"
+        : "1K"
+      : undefined;
   return { ...(ratio ? { aspect_ratio: ratio } : {}), ...(resolution ? { resolution } : {}) };
 }
 

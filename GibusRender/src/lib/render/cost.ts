@@ -70,6 +70,12 @@ const GEMINI: Record<string, number> = {
  */
 const FAL: Record<string, number | Record<Quality, number>> = {
   "fal-ai/nano-banana-pro/edit": 0.15,
+  // Nano Banana 2: 0,08 $ a 1K, 0,12 $ a 2K (l'app chiede 2K solo con qualità alta).
+  "fal-ai/nano-banana-2/edit": { low: 0.08, medium: 0.08, high: 0.12 },
+  // Nano Banana Lite: a token, uscita fissa 1K (~1.100 token a 37,5 $/M) più i token d'ingresso: stima.
+  "google/nano-banana-lite/edit": 0.045,
+  // FLUX.3 Klein: 0,009 $ a 1K (l'uscita segue la foto, circa 1 MP).
+  "blackforestlabs/flux-3/klein/edit-image": 0.009,
   "fal-ai/flux-pro/kontext/multi": 0.04,
   "fal-ai/gpt-image-1.5/edit": { low: 0.013, medium: 0.05, high: 0.199 },
 };

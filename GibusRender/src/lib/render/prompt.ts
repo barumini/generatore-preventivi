@@ -37,6 +37,7 @@ const COVER_TEXT: Record<CoverType, string> = {
 };
 
 const mm = (n: number) => `${Math.round(n)} mm`;
+const ratio = (a: number, b: number) => (a / b).toFixed(2);
 
 /** Frase di posizione per i modelli che ricevono la maschera solo come immagine-guida. */
 export const PLACEMENT_HINT =
@@ -54,6 +55,13 @@ export function buildPrompt(input: PromptInput): string {
       : "Task: edit this photo of a real house by adding a Gibus pergola, as a photorealistic architectural visualisation.",
   );
 
+  // 1b. Regole critiche (in apertura: i modelli pesano di più l'inizio e la fine del testo)
+  sections.push(
+    "Critical rules: keep the camera framing, perspective and aspect ratio of the photo exactly: " +
+      "do not zoom, crop, shift or rescale the scene. " +
+      "The whole pergola, every post and the entire roof, must be completely visible and not cut off.",
+  );
+
   // 2. Prodotto e descrizione
   sections.push(
     `Product: "${product.name}", ${MOUNT_TEXT[product.mountType]}, with ${COVER_TEXT[product.coverType]}. ` +
@@ -64,6 +72,8 @@ export function buildPrompt(input: PromptInput): string {
   sections.push(
     `Real dimensions: width ${mm(dims.widthMm)}, depth (projection) ${mm(dims.depthMm)}, ` +
       `clear height under the beams ${mm(dims.clearHeightMm)}, total height ${mm(dims.totalHeightMm)}. ` +
+      `Proportions, width : depth : clear height = ${Math.round(dims.widthMm)} : ${Math.round(dims.depthMm)} : ${Math.round(dims.clearHeightMm)} ` +
+      `(about ${ratio(dims.widthMm, dims.clearHeightMm)} : ${ratio(dims.depthMm, dims.clearHeightMm)} : 1). ` +
       "Keep these proportions consistent with the building and the people-scale elements in the photo (doors are about 2100 mm high).",
   );
 
@@ -96,7 +106,13 @@ export function buildPrompt(input: PromptInput): string {
   if (referenceCount >= 1) {
     const follow =
       referenceCount === 1 ? "1 reference image follows the photo" : `${referenceCount} reference images follow the photo`;
-    sections.push(`Reproduce the product exactly as shown in the reference images (${follow}): ` + details + noExtras);
+    sections.push(
+      `Reproduce the product exactly as shown in the reference images (${follow}): ` +
+        details +
+        noExtras +
+        " Use the reference images only for the design of the pergola (posts, beams, louvres, colour): " +
+        "do not copy any building, furniture, people or background from them.",
+    );
   } else {
     sections.push(
       "Reproduce the product faithfully according to the product and technical description above: " + details + noExtras,
