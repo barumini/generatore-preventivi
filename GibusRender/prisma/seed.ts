@@ -48,7 +48,8 @@ async function main() {
     const refs = [];
     for (const [sortOrder, r] of p.references.entries()) {
       const buf = await fs.readFile(path.join(IMAGES_DIR, r.file));
-      const url = await putFile(`references/${r.file}`, buf, "image/png");
+      const contentType = /\.jpe?g$/i.test(r.file) ? "image/jpeg" : "image/png";
+      const url = await putFile(`references/${r.file}`, buf, contentType);
       refs.push({ productId: product.id, url, label: r.label, sortOrder });
     }
     await db.$transaction([

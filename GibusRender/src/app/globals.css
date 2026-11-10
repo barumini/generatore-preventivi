@@ -253,3 +253,24 @@ textarea.prompt-text { background: #fff; max-height: none; }
 .ba .ba-stage { margin: 0 auto; }
 .link-button { border: 0; background: none; padding: 0.25rem 0.2rem; font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer; }
 .link-button:hover { color: var(--text); }
+
+/* Ritaglio delle immagini di riferimento */
+.cropper-stage {
+  position: relative;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+  line-height: 0;
+}
+.cropper-stage img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+.cropper-rect {
+  position: absolute;
+  border: 2px solid var(--accent, #d7262e);
+  background: rgba(215, 38, 46, 0.15);
+  pointer-events: none;
+}

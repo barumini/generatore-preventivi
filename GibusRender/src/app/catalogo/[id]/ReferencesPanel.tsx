@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { addReferenceImage, moveReferenceImage, removeReferenceImage } from "@/lib/catalog/actions";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { ImageCropper } from "@/components/ImageCropper";
 
 export interface ReferenceItem {
   id: string;
@@ -17,11 +18,14 @@ export function ReferencesPanel({ productId, references }: { productId: string; 
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /** File appena scelto, in fase di ritaglio; poi `ready` è quello da caricare. */
+  const [cropping, setCropping] = useState<File | null>(null);
+  const [ready, setReady] = useState<File | null>(null);
 
   function onUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const file = fd.get("file");
+    const file = ready ?? fd.get("file");
     if (!(file instanceof File) || file.size === 0) return setError("Scegliere un file immagine");
     // Controllo anticipato per non caricare file inutilmente grandi.
     if (file.size > 4 * 1024 * 1024) return setError("Il file supera il limite di 4 MB");
@@ -29,6 +33,7 @@ export function ReferencesPanel({ productId, references }: { productId: string; 
       const res = await addReferenceImage(productId, file, String(fd.get("label") ?? ""));
       if (!res.ok) return setError(res.error);
       setError(null);
+      setReady(null);
       formRef.current?.reset();
       router.refresh();
     });
@@ -70,11 +75,42 @@ export function ReferencesPanel({ productId, references }: { productId: string; 
         </ul>
       )}
 
+      {cropping && (
+        <div style={{ marginTop: "1.5rem" }}>
+          <ImageCropper
+            key={`${cropping.name}-${cropping.lastModified}-${cropping.size}`}
+            file={cropping}
+            onCropped={(f) => {
+              setReady(f);
+              setCropping(null);
+            }}
+            onCancel={() => {
+              setCropping(null);
+              formRef.current?.reset();
+            }}
+          />
+        </div>
+      )}
+
       <form ref={formRef} onSubmit={onUpload} style={{ marginTop: "1.5rem" }}>
         <div className="grid-2">
           <div className="field">
             <label htmlFor="ref-file">Nuova immagine</label>
-            <input id="ref-file" name="file" type="file" accept="image/*" required />
+            <input
+              id="ref-file"
+              name="file"
+              type="file"
+              accept="image/*"
+              required
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setReady(null);
+                setCropping(f);
+              }}
+            />
+            {ready && (
+              <span className="hint">Pronta da caricare: {ready.name} ({Math.max(1, Math.round(ready.size / 1024))} KB)</span>
+            )}
           </div>
           <div className="field">
             <label htmlFor="ref-label">Etichetta</label>

@@ -132,4 +132,28 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     defaultColorCode: "RAL 7016",
     defaultFabricCode: null,
   },
+  {
+    // Prodotto con foto reali Gibus (ritagli di GIBUS_AZIMUT_3.jpg senza logo) come riferimento
+    // al posto dei disegni tecnici: nelle prove del 2026-11-10 è la combinazione che dà i
+    // risultati migliori. Nome provvisorio; misure tipo scelte dal redattore.
+    name: "Bioclima Addossata",
+    mountType: "ADDOSSATA",
+    coverType: "LAMELLE_ORIENTABILI",
+    aiDescription:
+      "Wall-mounted aluminium bioclimatic pergola in matt anthracite. The rear side is fixed to the building facade; " +
+      "the front is carried by two slim square posts with a deep, flat perimeter beam running along the front and the sides. " +
+      "The roof is a flat frame of adjustable louvres, closed in the photos. Clean minimal lines, no decorations, " +
+      "nothing hangs below the beam. The reference photos show the exact look of the posts, the beam and the roof.",
+    widthMm: 4000,
+    depthMm: 3000,
+    clearHeightMm: 2400,
+    totalHeightMm: 2650,
+    references: [
+      { file: "azimut-intera.jpg", label: "Foto reale Gibus – vista intera" },
+      { file: "azimut-dettaglio.jpg", label: "Foto reale Gibus – dettaglio montanti e trave" },
+    ],
+    finishCodes: ["RAL 7016"],
+    defaultColorCode: "RAL 7016",
+    defaultFabricCode: null,
+  },
 ];

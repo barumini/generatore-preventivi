@@ -10,6 +10,8 @@ const EXPECTED = [
   { name: "Lamella Compact", mountType: "AUTOPORTANTE", coverType: "LAMELLE_ORIENTABILI", widthMm: 3000, depthMm: 3080, clearHeightMm: 2400, totalHeightMm: 2550, ref: "p2", posts: 4 },
   { name: "Bioclima Orient", mountType: "AUTOPORTANTE", coverType: "LAMELLE_ORIENTABILI", widthMm: 4000, depthMm: 5000, clearHeightMm: 2400, totalHeightMm: 2650, ref: "p3", posts: 4 },
   { name: "Bioclima Pack", mountType: "AUTOPORTANTE", coverType: "LAMELLE_IMPACCHETTAMENTO", widthMm: 4000, depthMm: 4900, clearHeightMm: 2400, totalHeightMm: 2650, ref: "p4", posts: 4 },
+  // Prodotto con foto reali Gibus come riferimento (nome provvisorio, misure tipo scelte dal redattore)
+  { name: "Bioclima Addossata", mountType: "ADDOSSATA", coverType: "LAMELLE_ORIENTABILI", widthMm: 4000, depthMm: 3000, clearHeightMm: 2400, totalHeightMm: 2650, ref: "foto", posts: 2 },
 ] as const;
 
 const NUMBER_WORDS: Record<number, string> = { 2: "two", 4: "four" };
@@ -18,8 +20,8 @@ const COLOR = { kind: "COLORE", name: "Antracite RAL 7016 sablé", code: "RAL 70
 const FABRIC = { kind: "TESSUTO", name: "Opatex Pro/Opatex Decò OP 272", code: "OP 272" };
 
 describe("SEED_PRODUCTS", () => {
-  it("contiene esattamente i 4 prodotti attesi con le misure dei PDF", () => {
-    expect(SEED_PRODUCTS).toHaveLength(4);
+  it("contiene esattamente i 5 prodotti attesi (4 dai PDF, 1 con foto reali)", () => {
+    expect(SEED_PRODUCTS).toHaveLength(5);
     SEED_PRODUCTS.forEach((p, i) => {
       const e = EXPECTED[i];
       expect({
@@ -42,8 +44,8 @@ describe("SEED_PRODUCTS", () => {
     });
   });
 
-  it("ogni prodotto ha 3 riferimenti esistenti in seed/images", () => {
-    SEED_PRODUCTS.forEach((p, i) => {
+  it("i prodotti dai PDF hanno 3 riferimenti (disegni) esistenti in seed/images", () => {
+    SEED_PRODUCTS.slice(0, 4).forEach((p, i) => {
       const ref = EXPECTED[i].ref;
       expect(p.references.map((r) => r.file)).toEqual([`${ref}-3d.png`, `${ref}-frontale.png`, `${ref}-pianta.png`]);
       for (const r of p.references) {
@@ -51,6 +53,15 @@ describe("SEED_PRODUCTS", () => {
         expect(r.label.length).toBeGreaterThan(0);
       }
     });
+  });
+
+  it("il prodotto con foto reali ha 2 riferimenti fotografici esistenti, senza disegni tecnici", () => {
+    const p = SEED_PRODUCTS[4];
+    expect(p.references.map((r) => r.file)).toEqual(["azimut-intera.jpg", "azimut-dettaglio.jpg"]);
+    for (const r of p.references) {
+      expect(fs.existsSync(path.join(IMAGES_DIR, r.file)), r.file).toBe(true);
+      expect(r.label).toMatch(/^Foto reale Gibus/);
+    }
   });
 
   it("le aiDescription sono lunghe almeno 200 caratteri e indicano il numero dei montanti", () => {
