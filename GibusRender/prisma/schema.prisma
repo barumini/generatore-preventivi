@@ -117,14 +117,16 @@ model Render {
 }
 
 model Variant {
-  id        String        @id @default(cuid())
-  renderId  String
-  render    Render        @relation(fields: [renderId], references: [id], onDelete: Cascade)
-  status    VariantStatus @default(PENDING)
-  imageUrl  String?
-  protected Boolean
-  error     String?
-  createdAt DateTime      @default(now())
+  id         String        @id @default(cuid())
+  renderId   String
+  render     Render        @relation(fields: [renderId], references: [id], onDelete: Cascade)
+  status     VariantStatus @default(PENDING)
+  imageUrl   String?
+  protected  Boolean
+  error      String?
+  /// Differenza media fuori dalla sagoma tra immagine generata e foto (0–255); null senza sagoma.
+  driftScore Float?
+  createdAt  DateTime      @default(now())
 
   @@index([renderId])
 }

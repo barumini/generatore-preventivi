@@ -8,6 +8,7 @@ import { getFile, putFile } from "@/lib/storage";
 import { getProvider, PROVIDER_IDS } from "@/lib/providers/registry";
 import { ProviderError, type ImageProvider, type ImageQuality } from "@/lib/providers/types";
 import { POSITION_REQUIRED, validatePolygon, type Point } from "./geometry";
+import { sceneDrift } from "./drift";
 import { featheredAlpha, polygonToMask } from "./mask";
 import {
   addDisclaimer,
@@ -331,6 +332,8 @@ export async function generateVariant(
     ]);
 
     const full = await fromProviderSize(generated, W, H);
+    // Quanto il modello ha rifatto la scena fuori dalla sagoma (null senza sagoma).
+    const driftScore = alpha ? await sceneDrift(photo, full, alpha, W, H) : null;
     const out = mask
       ? await composite(photo, full, mask, W, H, { disclaimer: render.disclaimer, alpha })
       : render.disclaimer
@@ -340,7 +343,7 @@ export async function generateVariant(
     const imageUrl = await putFile(`renders/${render.id}/${variant.id}.jpg`, out, "image/jpeg");
     return await db.variant.update({
       where: { id: variant.id },
-      data: { status: "DONE", imageUrl, protected: hasPolygon, error: null },
+      data: { status: "DONE", imageUrl, protected: hasPolygon, error: null, driftScore },
     });
   } catch (err) {
     console.error(`Generazione variante ${variant.id} fallita:`, err);

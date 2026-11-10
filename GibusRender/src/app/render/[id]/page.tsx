@@ -33,6 +33,7 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
     imageUrl: v.imageUrl,
     protected: v.protected,
     error: v.error,
+    driftScore: v.driftScore,
     stale: isStale(v, now),
     createdAt: v.createdAt.toISOString(),
   }));

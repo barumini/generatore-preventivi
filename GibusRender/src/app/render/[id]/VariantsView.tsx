@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { chooseVariant } from "@/lib/render/actions";
+import { isSceneAltered } from "@/lib/render/scene-check";
 import { shouldAutoStart, visibleVariants, type VariantInfo } from "@/lib/render/variant-list";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { BeforeAfter } from "./BeforeAfter";
@@ -11,6 +12,7 @@ const MAX_MORE = 6;
 const POLL_MS = 10_000;
 const STALE_MESSAGE = "Tempo scaduto, riprova";
 const UNPROTECTED = "Casa non protetta: verificare che nulla sia cambiato";
+const ALTERED = "Scena alterata: probabile scarto";
 
 const dismissedKey = (renderId: string) => `gibusrender:nascoste:${renderId}`;
 
@@ -44,6 +46,7 @@ function fromJson(json: unknown): VariantInfo | null {
     imageUrl: typeof o.imageUrl === "string" ? o.imageUrl : null,
     protected: o.protected === true,
     error: typeof o.error === "string" ? o.error : null,
+    driftScore: typeof o.driftScore === "number" ? o.driftScore : null,
     stale: false,
     createdAt: o.createdAt,
   };
@@ -296,6 +299,16 @@ export function VariantsView({
                     {chosen && <span className="badge badge-ok">Scelta</span>}
                   </div>
                   {!v.protected && <p><span className="badge badge-warn">{UNPROTECTED}</span></p>}
+                  {isSceneAltered(v.driftScore) && (
+                    <p>
+                      <span
+                        className="badge badge-warn"
+                        title={`Il modello ha rifatto la scena fuori dalla sagoma (differenza ${Math.round(v.driftScore ?? 0)} su 255): controlla bene la casa prima di scegliere questa variante.`}
+                      >
+                        {ALTERED}
+                      </span>
+                    </p>
+                  )}
                   <div className="row">
                     <button type="button" className="btn btn-small" onClick={() => setCompareId(v.id)}>Confronta</button>
                     <button

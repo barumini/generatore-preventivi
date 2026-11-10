@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
+import { DRIFT_ALTERED_THRESHOLD } from "@/lib/render/scene-check";
 import type { GenerateInput, ImageProvider } from "@/lib/providers/types";
 import { ProviderError } from "@/lib/providers/types";
 
@@ -414,6 +415,23 @@ describe("generateVariant", () => {
     const c = ((H / 2) * W + W / 2) * 3;
     expect(out.data[c]).toBeGreaterThan(230);
     expect(out.data[c + 1]).toBeLessThan(30);
+  });
+
+  it("salva il punteggio di scena alterata: alto se il fornitore rifà la scena, ~0 se la conserva", async () => {
+    const r = await newRender();
+    const redo = fakeProvider(); // rosso uniforme: tutta la scena diversa dalla foto
+    const v1 = await generateVariant(r.id, { provider: redo.provider });
+    expect(store.variants.get(v1.id)!.driftScore).toBeGreaterThan(DRIFT_ALTERED_THRESHOLD);
+
+    const keep = { ...redo.provider, generate: async (i: { photo: Buffer }) => i.photo }; // rimanda la foto così com'è
+    const v2 = await generateVariant(r.id, { provider: keep });
+    expect(store.variants.get(v2.id)!.driftScore).toBeLessThan(1);
+  });
+
+  it("senza sagoma il punteggio non si calcola (null)", async () => {
+    const r = await newRender({ polygon: undefined, positionText: "a destra della porta" });
+    const v = await generateVariant(r.id, { provider: fakeProvider().provider });
+    expect(store.variants.get(v.id)!.driftScore ?? null).toBeNull();
   });
 
   it("senza poligono: protected false, immagine generata alla risoluzione della foto", async () => {
