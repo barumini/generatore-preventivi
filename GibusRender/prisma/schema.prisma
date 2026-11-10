@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MountType {
+  ADDOSSATA
+  AUTOPORTANTE
+}
+
+enum CoverType {
+  TELO
+  LAMELLE_ORIENTABILI
+  LAMELLE_IMPACCHETTAMENTO
+}
+
+enum FinishKind {
+  COLORE
+  TESSUTO
+}
+
+enum VariantStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+model Product {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  mountType       MountType
+  coverType       CoverType
+  aiDescription   String
+  widthMm         Int
+  depthMm         Int
+  clearHeightMm   Int
+  totalHeightMm   Int
+  defaultColorId  String?
+  defaultColor    Finish?          @relation("ProductDefaultColor", fields: [defaultColorId], references: [id], onDelete: SetNull)
+  defaultFabricId String?
+  defaultFabric   Finish?          @relation("ProductDefaultFabric", fields: [defaultFabricId], references: [id], onDelete: SetNull)
+  references      ReferenceImage[]
+  finishes        ProductFinish[]
+  renders         Render[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model ReferenceImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  label     String
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+}
+
+model Finish {
+  id               String          @id @default(cuid())
+  kind             FinishKind
+  name             String
+  code             String          @unique
+  swatchHex        String?
+  products         ProductFinish[]
+  defaultColorFor  Product[]       @relation("ProductDefaultColor")
+  defaultFabricFor Product[]       @relation("ProductDefaultFabric")
+  renderColors     Render[]        @relation("RenderColor")
+  renderFabrics    Render[]        @relation("RenderFabric")
+}
+
+model ProductFinish {
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  finishId  String
+  finish    Finish  @relation(fields: [finishId], references: [id], onDelete: Cascade)
+
+  @@id([productId, finishId])
+}
+
+model Render {
+  id                String    @id @default(cuid())
+  clientRef         String
+  photoUrl          String
+  photoWidth        Int
+  photoHeight       Int
+  productId         String?
+  product           Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName       String
+  widthMm           Int
+  depthMm           Int
+  clearHeightMm     Int
+  totalHeightMm     Int
+  colorId           String?
+  color             Finish?   @relation("RenderColor", fields: [colorId], references: [id], onDelete: SetNull)
+  fabricId          String?
+  fabric            Finish?   @relation("RenderFabric", fields: [fabricId], references: [id], onDelete: SetNull)
+  polygon           Json?
+  positionText      String
+  scaleLine         Json?
+  prompt            String
+  providerId        String
+  model             String
+  quality           String
+  variantsRequested Int
+  disclaimer        Boolean   @default(false)
+  chosenVariantId   String?
+  variants          Variant[]
+  createdAt         DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+model Variant {
+  id         String        @id @default(cuid())
+  renderId   String
+  render     Render        @relation(fields: [renderId], references: [id], onDelete: Cascade)
+  status     VariantStatus @default(PENDING)
+  imageUrl   String?
+  protected  Boolean
+  error      String?
+  /// Differenza media fuori dalla sagoma tra immagine generata e foto (0–255); null senza sagoma.
+  driftScore Float?
+  /// Pergola probabilmente tagliata: restano cambiamenti forti subito fuori dall'area ricomposta.
+  truncated  Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+
+  @@index([renderId])
+}
+
+model Settings {
+  id               Int      @id @default(1)
+  activeProviderId String
+  activeModel      String
+  quality          String
+  enabledProviders String[]
+  defaultVariants  Int      @default(3)
+  /// Lato lungo massimo (px) delle foto: tetto di risoluzione per costo e velocità.
+  maxPhotoSide     Int      @default(1280)
+}
