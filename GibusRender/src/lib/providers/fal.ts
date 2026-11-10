@@ -2,15 +2,34 @@
 // Documentazione: https://fal.ai/docs/model-apis/model-endpoints/queue (2026-11-10).
 import sharp from "sharp";
 import { GEMINI_SIZES, geminiPromptText, geminiRatio } from "./gemini-sizes";
+import { PLACEMENT_HINT } from "@/lib/render/prompt";
 import { PROVIDER_TIMEOUT_MS, providerFetch, readJson } from "./http";
 import { ProviderError, type GenerateInput, type ImageProvider } from "./types";
 
 const QUEUE = "https://queue.fal.run";
 const LABEL = "fal.ai";
+// FLUX Kontext (anche multi) è gestito ma non suggerito: provato il 2026-11-10, con i
+// disegni di riferimento incolla collage e a immagine singola non inserisce la pergola.
 const MODELS = ["fal-ai/nano-banana-pro/edit", "fal-ai/nano-banana/edit", "fal-ai/gpt-image-1.5/edit"];
+
+/** Rapporti d'aspetto accettati da FLUX Kontext (mancano 5:4 e 4:5). */
+const KONTEXT_RATIOS = new Set(["21:9", "16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "9:21"]);
 
 /** Parametri di attesa; esportati perché i test li azzerano. */
 export const falPollConfig = { intervalMs: 1_500, timeoutMs: PROVIDER_TIMEOUT_MS };
+
+/** Numero massimo di immagini in ingresso per richiesta, dove il modello lo limita. */
+function maxInputImages(model: string): number {
+  return /flux-pro\/kontext/.test(model) ? 4 : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * FLUX Kontext tratta ogni immagine come contenuto, non come maschera: la
+ * disegnerebbe nel risultato. Per lui la posizione resta solo nel testo.
+ */
+function takesMaskImage(model: string): boolean {
+  return !/flux-pro\/kontext/.test(model);
+}
 
 /** Formati d'uscita dei modelli gpt-image (non accettano aspect_ratio). */
 const GPT_SIZES = [
@@ -67,6 +86,7 @@ function modelParams(input: GenerateInput, width: number | undefined, height: nu
     return { image_size: size, quality: input.quality };
   }
   const ratio = geminiRatio(width, height);
+  if (/flux-pro\/kontext/.test(model)) return ratio && KONTEXT_RATIOS.has(ratio) ? { aspect_ratio: ratio } : {};
   const resolution = /nano-banana-pro/.test(model) ? (input.quality === "low" ? "1K" : "2K") : undefined;
   return { ...(ratio ? { aspect_ratio: ratio } : {}), ...(resolution ? { resolution } : {}) };
 }
@@ -79,10 +99,17 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const deadline = Date.now() + falPollConfig.timeoutMs;
 
-  const images = [input.photo, ...(input.mask ? [input.mask] : []), ...input.references];
+  // Foto e maschera hanno la precedenza; i riferimenti si tagliano in ordine di catalogo.
+  const mask = input.mask && takesMaskImage(input.model) ? input.mask : undefined;
+  const head = [input.photo, ...(mask ? [mask] : [])];
+  const images = [...head, ...input.references.slice(0, Math.max(0, maxInputImages(input.model) - head.length))];
   const { width, height } = await sharp(input.photo).metadata();
   const body = {
-    prompt: geminiPromptText(input.prompt, Boolean(input.mask), input.references.length),
+    prompt: geminiPromptText(
+      mask ? input.prompt : input.prompt.replace(PLACEMENT_HINT, "").replace(/\n{3,}/g, "\n\n").trim(),
+      Boolean(mask),
+      images.length - head.length,
+    ),
     image_urls: await Promise.all(images.map(dataUrl)),
     num_images: 1,
     output_format: "png",

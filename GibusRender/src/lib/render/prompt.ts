@@ -38,6 +38,11 @@ const COVER_TEXT: Record<CoverType, string> = {
 
 const mm = (n: number) => `${Math.round(n)} mm`;
 
+/** Frase di posizione per i modelli che ricevono la maschera solo come immagine-guida. */
+export const PLACEMENT_HINT =
+  "Placement: The pergola must be placed exactly inside the white area of the mask image provided. " +
+  "The mask is only a placement guide: do not draw it in the result.";
+
 export function buildPrompt(input: PromptInput): string {
   const { product, dims, color, fabric, positionText, hasMask, maskHint, scale, referenceCount } = input;
   const sections: string[] = [];
@@ -69,12 +74,7 @@ export function buildPrompt(input: PromptInput): string {
   if (finishes.length) sections.push(`Finishes: ${finishes.join("; ")}.`);
 
   // 5. Posizione: sagoma indicativa e/o testo dell'utente (così com'è)
-  if (maskHint && !hasMask) {
-    sections.push(
-      "Placement: The pergola must be placed exactly inside the white area of the mask image provided. " +
-        "The mask is only a placement guide: do not draw it in the result.",
-    );
-  }
+  if (maskHint && !hasMask) sections.push(PLACEMENT_HINT);
   if (positionText.trim()) {
     sections.push(`Position, as described by the sales staff (in Italian): "${positionText}".`);
   }

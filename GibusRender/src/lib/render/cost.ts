@@ -65,10 +65,12 @@ const GEMINI: Record<string, number> = {
  *   l'app non lo chiede), gpt-image-1.5/edit a 1536×1024 (0,009 $ low solo a
  *   1024×1024; qui 0,013 / 0,050 / 0,199 $). I token in ingresso (foto e
  *   riferimenti) si pagano a parte e non sono inclusi.
+ *   flux-pro/kontext/multi: 0,04 $ a immagine.
  *   nano-banana/edit: prezzo non pubblicato sulla pagina del modello, escluso.
  */
 const FAL: Record<string, number | Record<Quality, number>> = {
   "fal-ai/nano-banana-pro/edit": 0.15,
+  "fal-ai/flux-pro/kontext/multi": 0.04,
   "fal-ai/gpt-image-1.5/edit": { low: 0.013, medium: 0.05, high: 0.199 },
 };
 

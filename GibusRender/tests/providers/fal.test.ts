@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { falProvider, falPollConfig } from "@/lib/providers/fal";
 import { ProviderError } from "@/lib/providers/types";
+import { PLACEMENT_HINT } from "@/lib/render/prompt";
 import { jsonResponse, leftHalfMask, png } from "./helpers";
 
 const fetchMock = vi.fn();
@@ -49,7 +50,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-type Extra = { mask?: Buffer; model?: string; quality?: "low" | "medium" | "high" };
+type Extra = { mask?: Buffer; model?: string; quality?: "low" | "medium" | "high"; prompt?: string };
 
 async function call(extra: Extra = {}) {
   const photo = await png(1248, 832);
@@ -125,6 +126,59 @@ describe("falProvider", () => {
     expect(body.quality).toBe("medium");
     expect(body.aspect_ratio).toBeUndefined();
     expect(body.resolution).toBeUndefined();
+  });
+
+  it("per FLUX Kontext multi passa image_urls e solo i rapporti d'aspetto supportati", async () => {
+    const { submit, body, photo, refs } = await call({ model: "fal-ai/flux-pro/kontext/multi" });
+    expect(submit.url).toBe("https://queue.fal.run/fal-ai/flux-pro/kontext/multi");
+    expect(body.image_urls).toEqual([dataUrl(photo), dataUrl(refs[0])]);
+    expect(body.aspect_ratio).toBe("3:2");
+    expect(body.output_format).toBe("png");
+    expect(body.resolution).toBeUndefined();
+    expect(body.quality).toBeUndefined();
+    expect(body.image_size).toBeUndefined();
+
+    // 5:4 (1152x896) non è tra i rapporti di Kontext: si omette e il modello sceglie da solo
+    calls.length = 0;
+    const photo54 = await png(1152, 896);
+    await falProvider.generate({
+      photo: photo54,
+      references: [],
+      prompt: "x",
+      model: "fal-ai/flux-pro/kontext/multi",
+      quality: "high",
+    });
+    const sent = JSON.parse(calls.find((c) => c.init.method === "POST")!.init.body as string);
+    expect(sent.aspect_ratio).toBeUndefined();
+  });
+
+  it("Kontext non riceve la maschera (la disegnerebbe nel risultato) né la frase che la nomina", async () => {
+    const mask = await leftHalfMask(1248, 832);
+    const prompt = `Task: x.\n\n${PLACEMENT_HINT}\n\nPosition: "sul prato".`;
+    const { body, photo, refs } = await call({ model: "fal-ai/flux-pro/kontext/multi", mask, prompt });
+    expect(body.image_urls).toEqual([dataUrl(photo), dataUrl(refs[0])]);
+    expect(body.prompt).not.toContain(PLACEMENT_HINT);
+    expect(body.prompt).not.toContain("mask");
+    expect(body.prompt).toContain('Position: "sul prato"');
+
+    // gli altri modelli la ricevono, con la frase di posizione intatta
+    calls.length = 0;
+    const other = await call({ model: "fal-ai/nano-banana-pro/edit", mask, prompt });
+    expect(other.body.image_urls[1]).toBe(dataUrl(mask));
+    expect(other.body.prompt).toContain(PLACEMENT_HINT);
+  });
+
+  it("Kontext accetta al massimo 4 immagini: i riferimenti in eccesso si tagliano in ordine", async () => {
+    const photo = await png(1248, 832);
+    const refs = [await png(32, 32, [255, 0, 0]), await png(32, 32, [0, 255, 0]), await png(32, 32, [0, 0, 255]), await png(32, 32)];
+    await falProvider.generate({ photo, references: refs, prompt: "x", model: "fal-ai/flux-pro/kontext/multi", quality: "high" });
+    const sent = JSON.parse(calls.find((c) => c.init.method === "POST")!.init.body as string);
+    expect(sent.image_urls).toEqual([dataUrl(photo), dataUrl(refs[0]), dataUrl(refs[1]), dataUrl(refs[2])]);
+    // i modelli senza tetto ricevono tutti i riferimenti
+    calls.length = 0;
+    await falProvider.generate({ photo, references: refs, prompt: "x", model: "fal-ai/nano-banana-pro/edit", quality: "high" });
+    const all = JSON.parse(calls.find((c) => c.init.method === "POST")!.init.body as string);
+    expect(all.image_urls).toHaveLength(5);
   });
 
   it("continua a controllare lo stato finché la richiesta non è completata", async () => {
