@@ -101,6 +101,9 @@ model Render {
   fabricId          String?
   fabric            Finish?   @relation("RenderFabric", fields: [fabricId], references: [id], onDelete: SetNull)
   polygon           Json?
+  /// Volume 3D di posizionamento (riquadro di facciata, ingombro, montanti); null se non usato.
+  /// Quando c'è, `polygon` è la sagoma ricavata dal volume.
+  volume            Json?
   positionText      String
   scaleLine         Json?
   prompt            String
@@ -128,6 +131,8 @@ model Variant {
   driftScore Float?
   /// Pergola probabilmente tagliata: restano cambiamenti forti subito fuori dall'area ricomposta.
   truncated  Boolean       @default(false)
+  /// Scostamento del prodotto generato dal volume (frazione dell'ingombro); null senza volume.
+  placementOffset Float?
   createdAt  DateTime      @default(now())
 
   @@index([renderId])

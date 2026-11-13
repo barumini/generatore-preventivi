@@ -178,6 +178,29 @@ function baseInput(over: Record<string, unknown> = {}): CreateRenderInput {
   } as CreateRenderInput;
 }
 
+/** Volume addossato plausibile: riquadro di facciata in leggero scorcio, due montanti. */
+function volumeInput(over: Record<string, unknown> = {}) {
+  return {
+    ref: {
+      corners: [
+        { x: 0.3, y: 0.7 },
+        { x: 0.6, y: 0.68 },
+        { x: 0.6, y: 0.42 },
+        { x: 0.3, y: 0.4 },
+      ],
+      widthMm: 4200,
+      heightMm: 2400,
+      baseMm: 0,
+    },
+    focalRatio: null,
+    box: { offsetXMm: 0, distanceMm: 0, wallHeightMm: 2746, frontHeightMm: 2746 },
+    frontPosts: [0, 1],
+    rearPosts: [],
+    nudges: null,
+    ...over,
+  };
+}
+
 const createdRenders = new Set<string>();
 
 async function rgb(img: Buffer) {
@@ -310,6 +333,72 @@ describe("createRender", () => {
   });
 });
 
+describe("createRender con il volume 3D", () => {
+  it("salva il volume e ne ricava la sagoma", async () => {
+    const volume = volumeInput();
+    const r = await newRender({ polygon: undefined, volume });
+    expect(r.volume).toEqual(volume);
+    const polygon = r.polygon as { x: number; y: number }[];
+    expect(polygon.length).toBeGreaterThanOrEqual(4);
+    expect(polygon.every((p) => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)).toBe(true);
+    // La sagoma copre il riquadro di facciata, su cui il volume è appoggiato.
+    const xs = polygon.map((p) => p.x);
+    expect(Math.min(...xs)).toBeLessThanOrEqual(0.3);
+    expect(Math.max(...xs)).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("se arrivano volume e sagoma a mano, vince il volume", async () => {
+    const withBoth = await newRender({ volume: volumeInput() });
+    const onlyVolume = await newRender({ polygon: undefined, volume: volumeInput() });
+    expect(withBoth.polygon).toEqual(onlyVolume.polygon);
+    expect(withBoth.polygon).not.toEqual(POLYGON);
+  });
+
+  it("il volume basta come posizione: nessuna descrizione richiesta", async () => {
+    await expect(newRender({ polygon: undefined, positionText: "", volume: volumeInput() })).resolves.toBeTruthy();
+  });
+
+  it("l'altezza totale salvata segue l'altezza al muro del volume", async () => {
+    const volume = volumeInput({ box: { offsetXMm: 0, distanceMm: 0, wallHeightMm: 2900, frontHeightMm: 2600 } });
+    const r = await newRender({ polygon: undefined, volume });
+    expect(r.totalHeightMm).toBe(2900);
+  });
+
+  it("rifiuta un riquadro di facciata degenere con il messaggio della geometria", async () => {
+    const ref = { ...volumeInput().ref, corners: [{ x: 0.5, y: 0.52 }, { x: 0.52, y: 0.52 }, { x: 0.52, y: 0.5 }, { x: 0.5, y: 0.5 }] };
+    await expect(createRender(baseInput({ polygon: undefined, volume: volumeInput({ ref }) }))).rejects.toThrow(
+      "Il riquadro di facciata è troppo piccolo",
+    );
+  });
+
+  it.each([
+    ["troppi montanti", { frontPosts: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6] }],
+    ["montante fuori dal bordo", { frontPosts: [0, 1.2] }],
+    ["montanti posteriori su un prodotto addossato", { rearPosts: [0, 1] }],
+    ["altezza nulla", { box: { offsetXMm: 0, distanceMm: 0, wallHeightMm: 0, frontHeightMm: 2500 } }],
+    ["distanza dal muro su un prodotto addossato", { box: { offsetXMm: 0, distanceMm: 500, wallHeightMm: 2746, frontHeightMm: 2746 } }],
+    ["focale fuori intervallo", { focalRatio: 5 }],
+    ["ritocchi incompleti", { nudges: [{ x: 0, y: 0 }] }],
+  ])("rifiuta un volume non valido: %s", async (_name, over) => {
+    await expect(createRender(baseInput({ polygon: undefined, volume: volumeInput(over) }))).rejects.toThrow(
+      /^Volume non valido/,
+    );
+  });
+
+  it("rifiuta un volume tutto fuori dalla foto", async () => {
+    const volume = volumeInput({ box: { offsetXMm: 60000, distanceMm: 0, wallHeightMm: 2746, frontHeightMm: 2746 } });
+    await expect(createRender(baseInput({ polygon: undefined, volume }))).rejects.toThrow(
+      "Il volume è fuori dalla foto: riposizionalo",
+    );
+  });
+
+  it("la bozza per Duplica riporta il volume", async () => {
+    const volume = volumeInput();
+    const src = await newRender({ polygon: undefined, volume });
+    expect((await getRenderDraft(src.id))?.volume).toEqual(volume);
+  });
+});
+
 describe("createRender da un render esistente (sourceRenderId)", () => {
   it("riusa la foto normalizzata del render di partenza copiandola, senza rinormalizzarla", async () => {
     const src = await newRender();
@@ -374,6 +463,7 @@ describe("getRenderDraft", () => {
       photoUrl: src.photoUrl,
       photoWidth: W,
       photoHeight: H,
+      volume: null,
     });
     expect(d).not.toHaveProperty("chosenVariantId");
   });
@@ -626,6 +716,20 @@ describe("POST /api/renders", () => {
     const res = await postRender(post(renderForm({ polygon: undefined, positionText: "" })));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Indica la posizione: disegna la sagoma o descrivila a parole" });
+  });
+
+  it("legge il volume dal modulo e lo salva", async () => {
+    const res = await postRender(post(renderForm({ polygon: undefined, volume: JSON.stringify(volumeInput()) })));
+    expect(res.status).toBe(200);
+    const { id } = (await res.json()) as { id: string };
+    createdRenders.add(id);
+    expect(store.renders.get(id)?.volume).toEqual(volumeInput());
+  });
+
+  it("JSON del volume non valido → 400", async () => {
+    const res = await postRender(post(renderForm({ volume: "{non json" })));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Volume non valido" });
   });
 
   it("JSON della sagoma non valido → 400", async () => {

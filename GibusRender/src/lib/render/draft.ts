@@ -2,6 +2,7 @@
 // Solo lato server: restituisce dati semplici da passare al modulo client.
 import { db } from "@/lib/db";
 import type { Point, ScaleLine } from "./geometry";
+import type { Volume } from "./volume";
 
 export type RenderDraft = {
   /** Render da cui riusare la foto (campo sourceRenderId di POST /api/renders). */
@@ -28,6 +29,8 @@ export type RenderDraft = {
   photoUrl: string;
   photoWidth: number;
   photoHeight: number;
+  /** Volume 3D del render di partenza; null se non ne aveva (o per i render più vecchi). */
+  volume: Volume | null;
 };
 
 /** Tutti i parametri del render tranne la variante scelta; null se il render non esiste. */
@@ -58,5 +61,6 @@ export async function getRenderDraft(renderId: string): Promise<RenderDraft | nu
     photoUrl: r.photoUrl,
     photoWidth: r.photoWidth,
     photoHeight: r.photoHeight,
+    volume: (r.volume as Volume | null) ?? null,
   };
 }

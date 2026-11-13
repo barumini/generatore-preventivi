@@ -21,6 +21,15 @@ import {
   toProviderSize,
 } from "./image";
 import { buildPrompt } from "./prompt";
+import {
+  FOCAL_RATIO_MAX,
+  FOCAL_RATIO_MIN,
+  MAX_POSTS,
+  projectVolume,
+  volumeOutline,
+  type ProjectedVolume,
+  type Volume,
+} from "./volume";
 import type { CoverType, MountType } from "@/lib/catalog/types";
 
 /** Errore di validazione dell'input, con messaggio italiano mostrabile all'utente. */
@@ -74,6 +83,53 @@ const scaleLineSchema = z.object(
   { error: "Linea di riferimento non valida" },
 );
 
+export const VOLUME_INVALID = "Volume non valido";
+export const VOLUME_OFF_PHOTO = "Il volume è fuori dalla foto: riposizionalo";
+export const VOLUME_WALL_MOUNTED =
+  "Volume non valido: un prodotto addossato non ha distanza dal muro né montanti posteriori";
+
+const volumeError = { error: VOLUME_INVALID };
+const volumePoint = z.object({ x: z.number(volumeError).finite(volumeError), y: z.number(volumeError).finite(volumeError) }, volumeError);
+const volumeMm = (min: number) => z.number(volumeError).finite(volumeError).min(min, volumeError).max(100000, volumeError);
+const posts = z.array(z.number(volumeError).min(0, volumeError).max(1, volumeError), volumeError).max(MAX_POSTS, volumeError);
+
+/** Volume 3D di posizionamento, come arriva dal modulo e come è salvato sul render. */
+export const VolumeSchema = z.object(
+  {
+    ref: z.object(
+      {
+        corners: z.tuple([volumePoint, volumePoint, volumePoint, volumePoint], volumeError),
+        widthMm: volumeMm(1),
+        heightMm: volumeMm(1),
+        baseMm: volumeMm(0),
+      },
+      volumeError,
+    ),
+    focalRatio: z.number(volumeError).min(FOCAL_RATIO_MIN, volumeError).max(FOCAL_RATIO_MAX, volumeError).nullable(),
+    box: z.object(
+      {
+        offsetXMm: z.number(volumeError).finite(volumeError).min(-100000, volumeError).max(100000, volumeError),
+        distanceMm: volumeMm(0),
+        wallHeightMm: volumeMm(1).int(volumeError),
+        frontHeightMm: volumeMm(1),
+      },
+      volumeError,
+    ),
+    frontPosts: posts,
+    rearPosts: posts,
+    nudges: z.array(volumePoint, volumeError).length(8, volumeError).nullable(),
+  },
+  volumeError,
+);
+
+/** Volume salvato su un render; undefined se il render non ne ha. Lancia se la riga è corrotta. */
+export function storedVolume(value: unknown): Volume | undefined {
+  if (value == null) return undefined;
+  const parsed = VolumeSchema.safeParse(value);
+  if (!parsed.success) throw new Error("Volume salvato non valido");
+  return parsed.data;
+}
+
 export const CreateRenderInput = z
   .object({
     clientRef: z
@@ -92,6 +148,8 @@ export const CreateRenderInput = z
     colorId: optionalId,
     fabricId: optionalId,
     polygon: z.array(point, { error: "Sagoma non valida" }).optional(),
+    /** Volume 3D: se presente, la sagoma si ricava da qui e `polygon` è ignorato. */
+    volume: VolumeSchema.optional(),
     positionText: z
       .string()
       .trim()
@@ -124,7 +182,7 @@ export const CreateRenderInput = z
     if (v.photo && v.sourceRenderId) {
       ctx.addIssue({ code: "custom", message: PHOTO_AND_SOURCE, path: ["photo"] });
     }
-    if (!v.polygon && !v.positionText) {
+    if (!v.polygon && !v.volume && !v.positionText) {
       ctx.addIssue({ code: "custom", message: POSITION_REQUIRED, path: ["positionText"] });
     }
   });
@@ -177,9 +235,10 @@ async function photoFor(
 
 export async function createRender(input: CreateRenderInput): Promise<Render> {
   const data = parse(input);
+  const volume: Volume | undefined = data.volume;
 
   let polygon: Point[] | undefined;
-  if (data.polygon) {
+  if (!volume && data.polygon) {
     const v = validatePolygon(data.polygon);
     if (!v.ok) throw new RenderInputError(v.error);
     polygon = v.points;
@@ -187,6 +246,11 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
 
   const product = await db.product.findUnique({ where: { id: data.productId } });
   if (!product) throw new RenderInputError("Prodotto non trovato");
+  if (volume && product.mountType === "ADDOSSATA" && (volume.box.distanceMm > 0 || volume.rearPosts.length > 0)) {
+    throw new RenderInputError(VOLUME_WALL_MOUNTED);
+  }
+  // Con il volume l'altezza al muro comanda: è la stessa cosa dell'altezza totale.
+  const totalHeightMm = volume ? volume.box.wallHeightMm : data.totalHeightMm;
   const [color, fabric, referenceCount] = await Promise.all([
     findFinish(data.colorId, "COLORE", "Colore non trovato"),
     findFinish(data.fabricId, "TESSUTO", "Tessuto non trovato"),
@@ -194,6 +258,17 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
   ]);
 
   const { jpeg, width, height } = await photoFor(data.photo, data.sourceRenderId, data.maxPhotoSide);
+
+  let projected: ProjectedVolume | undefined;
+  if (volume) {
+    const pv = projectVolume(volume, { widthMm: data.widthMm, depthMm: data.depthMm }, width, height);
+    if (!pv.ok) throw new RenderInputError(pv.error);
+    // La sagoma si ricava dal volume: maschera, ricomposizione e controlli restano quelli di sempre.
+    const outline = validatePolygon(volumeOutline(pv));
+    if (!outline.ok) throw new RenderInputError(VOLUME_OFF_PHOTO);
+    polygon = outline.points;
+    projected = pv;
+  }
 
   const provider = getProvider(data.providerId);
   const prompt =
@@ -209,7 +284,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
         widthMm: data.widthMm,
         depthMm: data.depthMm,
         clearHeightMm: data.clearHeightMm,
-        totalHeightMm: data.totalHeightMm,
+        totalHeightMm,
       },
       color: color ? { name: color.name, code: color.code } : undefined,
       fabric: fabric ? { name: fabric.name, code: fabric.code } : undefined,
@@ -246,10 +321,11 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
       widthMm: data.widthMm,
       depthMm: data.depthMm,
       clearHeightMm: data.clearHeightMm,
-      totalHeightMm: data.totalHeightMm,
+      totalHeightMm,
       colorId: color?.id ?? null,
       fabricId: fabric?.id ?? null,
       polygon: polygon ?? undefined,
+      volume: volume ?? undefined,
       positionText: data.positionText,
       scaleLine: data.scaleLine ?? undefined,
       prompt,
@@ -451,6 +527,7 @@ export function renderInputFromForm(
     colorId: str(form, "colorId"),
     fabricId: str(form, "fabricId"),
     polygon: json(form, "polygon", "Sagoma non valida") as Point[] | undefined,
+    volume: json(form, "volume", VOLUME_INVALID) as CreateRenderInput["volume"],
     positionText: str(form, "positionText") ?? "",
     scaleLine: json(form, "scaleLine", "Linea di riferimento non valida") as CreateRenderInput["scaleLine"],
     prompt: str(form, "prompt"),
