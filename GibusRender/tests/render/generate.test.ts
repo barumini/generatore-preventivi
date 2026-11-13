@@ -537,6 +537,27 @@ describe("generateVariant", () => {
     expect(store.variants.get(v2.id)!.driftScore).toBeLessThan(1);
   });
 
+  it("con il volume il fornitore riceve l'immagine-guida, alle dimensioni della foto inviata, e la maschera", async () => {
+    const r = await newRender({ polygon: undefined, volume: volumeInput() });
+    const { provider, calls } = fakeProvider();
+    const v = await generateVariant(r.id, { provider });
+    expect(v.status).toBe("DONE");
+    const sent = calls[0];
+    expect(sent.mask).toBeInstanceOf(Buffer);
+    expect(sent.guide).toBeInstanceOf(Buffer);
+    const [g, p] = await Promise.all([sharp(sent.guide!).metadata(), sharp(sent.photo).metadata()]);
+    expect([g.width, g.height]).toEqual([p.width, p.height]);
+    // La guida è la foto con il volume disegnato sopra: diversa dalla foto pulita.
+    expect(sent.guide!.equals(sent.photo)).toBe(false);
+  });
+
+  it("senza volume non c'è immagine-guida", async () => {
+    const r = await newRender();
+    const { provider, calls } = fakeProvider();
+    await generateVariant(r.id, { provider });
+    expect(calls[0].guide).toBeUndefined();
+  });
+
   it("senza sagoma il punteggio non si calcola (null)", async () => {
     const r = await newRender({ polygon: undefined, positionText: "a destra della porta" });
     const v = await generateVariant(r.id, { provider: fakeProvider().provider });

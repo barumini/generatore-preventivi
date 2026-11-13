@@ -53,6 +53,8 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   form.append("n", "1");
   form.append("size", `${width}x${height}`);
   form.append("image[]", blob(photo, "image/png"), "foto.png");
+  // Guida del volume: seconda immagine, prima dei riferimenti del prodotto (il prompt la spiega).
+  if (input.guide) form.append("image[]", blob(input.guide, "image/png"), "guida-volume.png");
   for (const [i, ref] of input.references.entries()) {
     const fmt = (await sharp(ref).metadata()).format;
     const type = fmt === "jpeg" ? "image/jpeg" : fmt === "webp" ? "image/webp" : "image/png";

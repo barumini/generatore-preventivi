@@ -38,9 +38,11 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   const key = apiKey();
   if (!key) throw new ProviderError("config", "Google Gemini non configurato: manca la variabile GEMINI_API_KEY");
 
-  const images = [input.photo, ...(input.mask ? [input.mask] : []), ...input.references];
+  // La guida del volume, quando c'è, prende il posto della maschera indicativa.
+  const second = input.guide ?? input.mask;
+  const images = [input.photo, ...(second ? [second] : []), ...input.references];
   const parts = [
-    { text: geminiPromptText(input.prompt, Boolean(input.mask), input.references.length) },
+    { text: geminiPromptText(input.prompt, Boolean(input.mask), input.references.length, Boolean(input.guide)) },
     ...(await Promise.all(
       images.map(async (b) => ({ inline_data: { mime_type: await mimeType(b), data: b.toString("base64") } })),
     )),

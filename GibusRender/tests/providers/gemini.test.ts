@@ -30,7 +30,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function call(extra: { mask?: Buffer; model?: string; quality?: "low" | "medium" | "high" } = {}) {
+async function call(extra: { mask?: Buffer; guide?: Buffer; model?: string; quality?: "low" | "medium" | "high" } = {}) {
   const photo = await png(1248, 832);
   const refs = [await png(32, 32, [255, 0, 0])];
   const result = await geminiProvider.generate({
@@ -81,6 +81,17 @@ describe("geminiProvider", () => {
     expect(parts).toHaveLength(4);
     expect(parts[0].text).toContain("The second image is a mask: white = area to edit");
     expect(parts[2].inline_data!.data).toBe(b64(mask));
+    expect(parts[3].inline_data!.data).toBe(b64(refs[0]));
+  });
+
+  it("con la guida del volume: seconda immagine al posto della maschera, e il testo la presenta", async () => {
+    const mask = await leftHalfMask(1248, 832);
+    const guide = await png(1248, 832, [10, 200, 30]);
+    const { parts, refs } = await call({ mask, guide });
+    expect(parts).toHaveLength(4);
+    expect(parts[0].text).toContain("The second image is a placement guide");
+    expect(parts[0].text).not.toContain("is a mask");
+    expect(parts[2].inline_data!.data).toBe(b64(guide));
     expect(parts[3].inline_data!.data).toBe(b64(refs[0]));
   });
 

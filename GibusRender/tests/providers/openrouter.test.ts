@@ -31,7 +31,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function call(extra: { mask?: Buffer } = {}) {
+async function call(extra: { mask?: Buffer; guide?: Buffer } = {}) {
   const photo = await png(1248, 832);
   const refs = [await png(32, 32, [255, 0, 0])];
   const result = await openrouterProvider.generate({
@@ -82,6 +82,17 @@ describe("openrouterProvider", () => {
     expect(parts.map((p) => p.type)).toEqual(["text", "image_url", "image_url", "image_url"]);
     expect(parts[0].text).toContain("The second image is a mask: white = area to edit");
     expect(parts[2].image_url!.url).toBe(dataUrl(mask));
+    expect(parts[3].image_url!.url).toBe(dataUrl(refs[0]));
+  });
+
+  it("con la guida del volume: seconda immagine al posto della maschera, e il testo la presenta", async () => {
+    const mask = await leftHalfMask(1248, 832);
+    const guide = await png(1248, 832, [10, 200, 30]);
+    const { parts, refs } = await call({ mask, guide });
+    expect(parts.map((p) => p.type)).toEqual(["text", "image_url", "image_url", "image_url"]);
+    expect(parts[0].text).toContain("The second image is a placement guide");
+    expect(parts[0].text).not.toContain("is a mask");
+    expect(parts[2].image_url!.url).toBe(dataUrl(guide));
     expect(parts[3].image_url!.url).toBe(dataUrl(refs[0]));
   });
 

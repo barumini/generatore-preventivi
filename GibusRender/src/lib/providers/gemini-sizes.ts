@@ -22,9 +22,14 @@ export function geminiRatio(width: number | undefined, height: number | undefine
 }
 
 /** Testo per il modello: prompt + descrizione dell'ordine delle immagini allegate. */
-export function geminiPromptText(prompt: string, hasMask: boolean, referenceCount: number): string {
+export function geminiPromptText(prompt: string, hasMask: boolean, referenceCount: number, hasGuide = false): string {
   const lines = [prompt, "", "The first image is the photo to edit."];
-  if (hasMask) {
+  if (hasGuide) {
+    lines.push(
+      "The second image is a placement guide: the same photo with the pergola volume drawn on it. " +
+        "Use it only to position and size the pergola; edit the first image and never draw the guide lines in the result.",
+    );
+  } else if (hasMask) {
     lines.push(
       "The second image is a mask: white = area to edit, black = keep exactly as in the photo. Do not draw the mask in the result.",
     );

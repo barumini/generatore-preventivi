@@ -13,6 +13,12 @@ export type GenerateInput = {
   photo: Buffer;
   /** Maschera dell'app: bianco = area da modificare, nero = da lasciare. */
   mask?: Buffer;
+  /**
+   * Guida del volume 3D: la foto con attacco a muro, montanti e ingombro disegnati.
+   * Seconda immagine per il modello; chi riceve la maschera solo come indicazione
+   * la sostituisce con la guida.
+   */
+  guide?: Buffer;
   references: Buffer[];
   prompt: string;
   model: string;

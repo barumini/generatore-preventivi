@@ -41,14 +41,16 @@ function decodeDataUrl(url: string): Buffer | null {
 }
 
 function promptText(input: GenerateInput): string {
-  return geminiPromptText(input.prompt, Boolean(input.mask), input.references.length);
+  return geminiPromptText(input.prompt, Boolean(input.mask), input.references.length, Boolean(input.guide));
 }
 
 async function generate(input: GenerateInput): Promise<Buffer> {
   const key = apiKey();
   if (!key) throw new ProviderError("config", "OpenRouter non configurato: manca la variabile OPENROUTER_API_KEY");
 
-  const images = [input.photo, ...(input.mask ? [input.mask] : []), ...input.references];
+  // La guida del volume, quando c'è, prende il posto della maschera indicativa.
+  const second = input.guide ?? input.mask;
+  const images = [input.photo, ...(second ? [second] : []), ...input.references];
   const content = [
     { type: "text", text: promptText(input) },
     ...(await Promise.all(images.map(async (b) => ({ type: "image_url", image_url: { url: await dataUrl(b) } })))),

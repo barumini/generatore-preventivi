@@ -10,6 +10,7 @@ import { ProviderError, type ImageProvider, type ImageQuality } from "@/lib/prov
 import { POSITION_REQUIRED, validatePolygon, type Point } from "./geometry";
 import { sceneDrift } from "./drift";
 import { GROW_LIMITS, growMask } from "./grow";
+import { renderGuide } from "./guide";
 import { featheredAlpha, polygonToMask } from "./mask";
 import {
   addDisclaimer,
@@ -395,12 +396,20 @@ export async function generateVariant(
     ]);
 
     const mask = polygon ? await polygonToMask(polygon, W, H) : undefined;
+    // Volume 3D: la foto con il volume disegnato sopra accompagna la foto pulita.
+    const volume = storedVolume(render.volume);
+    const projected = volume
+      ? projectVolume(volume, { widthMm: render.widthMm, depthMm: render.depthMm }, W, H)
+      : undefined;
+    if (projected && !projected.ok) throw new Error(projected.error);
+    const guide = projected ? await renderGuide(photo, projected, W, H) : undefined;
     const size = pickProviderSize(W, H, provider.supportedSizes);
-    const [photoP, maskP] = await Promise.all([
+    const [photoP, maskP, guideP] = await Promise.all([
       toProviderSize(photo, size),
       // Inviata anche ai fornitori che non la applicano (supportsMask false): serve
       // al modello per sapere dove posizionare la pergola.
       mask ? toProviderSize(mask, size) : Promise.resolve(undefined),
+      guide ? toProviderSize(guide, size) : Promise.resolve(undefined),
     ]);
 
     const quality = QUALITIES.includes(render.quality as ImageQuality)
@@ -408,7 +417,7 @@ export async function generateVariant(
       : "high";
     // L'alfa sfumato (EDT) si calcola una volta sola, in parallelo alla chiamata al fornitore.
     const [generated, alpha] = await Promise.all([
-      provider.generate({ photo: photoP, mask: maskP, references, prompt: render.prompt, model: render.model, quality }),
+      provider.generate({ photo: photoP, mask: maskP, guide: guideP, references, prompt: render.prompt, model: render.model, quality }),
       mask ? featheredAlpha(mask, W, H) : Promise.resolve(undefined),
     ]);
 

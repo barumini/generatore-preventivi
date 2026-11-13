@@ -2,7 +2,7 @@
 // Documentazione: https://fal.ai/docs/model-apis/model-endpoints/queue (2026-11-10).
 import sharp from "sharp";
 import { GEMINI_SIZES, geminiPromptText, geminiRatio } from "./gemini-sizes";
-import { PLACEMENT_HINT } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, PLACEMENT_HINT } from "@/lib/render/prompt";
 import { PROVIDER_TIMEOUT_MS, providerFetch, readJson } from "./http";
 import { ProviderError, type GenerateInput, type ImageProvider } from "./types";
 
@@ -119,17 +119,22 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const deadline = Date.now() + falPollConfig.timeoutMs;
 
-  // Foto e maschera hanno la precedenza; i riferimenti si tagliano in ordine di catalogo.
-  const mask = input.mask && takesMaskImage(input.model) ? input.mask : undefined;
-  const head = [input.photo, ...(mask ? [mask] : [])];
+  // Foto e guida (o maschera) hanno la precedenza; i riferimenti si tagliano in ordine di catalogo.
+  // Chi non accetta immagini indicative (Kontext) non riceve né maschera né guida del volume.
+  const hint = takesMaskImage(input.model);
+  const guide = hint ? input.guide : undefined;
+  const mask = hint && !guide ? input.mask : undefined;
+  const second = guide ?? mask;
+  const head = [input.photo, ...(second ? [second] : [])];
   const images = [...head, ...input.references.slice(0, Math.max(0, maxInputImages(input.model) - head.length))];
   const { width, height } = await sharp(input.photo).metadata();
+  // Le frasi che nominano un'immagine non inviata si tolgono dal prompt.
+  let prompt = input.prompt;
+  if (!mask) prompt = prompt.replace(PLACEMENT_HINT, "");
+  if (!guide) prompt = prompt.replace(GUIDE_LEGEND, "");
+  prompt = prompt.replace(/\n{3,}/g, "\n\n").trim();
   const body = {
-    prompt: geminiPromptText(
-      mask ? input.prompt : input.prompt.replace(PLACEMENT_HINT, "").replace(/\n{3,}/g, "\n\n").trim(),
-      Boolean(mask),
-      images.length - head.length,
-    ),
+    prompt: geminiPromptText(prompt, Boolean(mask), images.length - head.length, Boolean(guide)),
     image_urls: await Promise.all(images.map(dataUrl)),
     num_images: 1,
     output_format: "png",

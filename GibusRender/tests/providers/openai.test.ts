@@ -18,7 +18,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function call(extra: { mask?: Buffer } = {}) {
+async function call(extra: { mask?: Buffer; guide?: Buffer } = {}) {
   const photo = await png(1536, 1024);
   const refs = [await png(64, 64, [255, 0, 0]), await png(64, 64, [0, 255, 0])];
   const result = await openaiProvider.generate({
@@ -62,6 +62,17 @@ describe("openaiProvider", () => {
     expect((await fileBytes(images[2])).equals(refs[1])).toBe(true);
     expect(form.get("mask")).toBeNull();
     expect(result.equals(OUT)).toBe(true);
+  });
+
+  it("con la guida del volume: è la seconda image[], e la maschera resta", async () => {
+    const guide = await png(1536, 1024, [10, 200, 30]);
+    const { form, photo, refs } = await call({ mask: await leftHalfMask(1536, 1024), guide });
+    const images = form.getAll("image[]");
+    expect(images).toHaveLength(4);
+    expect((await fileBytes(images[0])).equals(photo)).toBe(true);
+    expect((await fileBytes(images[1])).equals(guide)).toBe(true);
+    expect((await fileBytes(images[2])).equals(refs[0])).toBe(true);
+    expect(form.get("mask")).not.toBeNull();
   });
 
   it("converte la maschera in PNG RGBA: alfa 0 dentro l'area da modificare, 255 fuori", async () => {

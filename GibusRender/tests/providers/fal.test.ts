@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { falProvider, falPollConfig } from "@/lib/providers/fal";
 import { ProviderError } from "@/lib/providers/types";
-import { PLACEMENT_HINT } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, PLACEMENT_HINT } from "@/lib/render/prompt";
 import { jsonResponse, leftHalfMask, png } from "./helpers";
 
 const fetchMock = vi.fn();
@@ -50,7 +50,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-type Extra = { mask?: Buffer; model?: string; quality?: "low" | "medium" | "high"; prompt?: string };
+type Extra = { mask?: Buffer; guide?: Buffer; model?: string; quality?: "low" | "medium" | "high"; prompt?: string };
 
 async function call(extra: Extra = {}) {
   const photo = await png(1248, 832);
@@ -167,6 +167,31 @@ describe("falProvider", () => {
     const other = await call({ model: "fal-ai/nano-banana-pro/edit", mask, prompt });
     expect(other.body.image_urls[1]).toBe(dataUrl(mask));
     expect(other.body.prompt).toContain(PLACEMENT_HINT);
+  });
+
+  it("con la guida del volume: seconda immagine al posto della maschera, entro il tetto di immagini", async () => {
+    const mask = await leftHalfMask(1248, 832);
+    const guide = await png(1248, 832, [10, 200, 30]);
+    const { body, photo, refs } = await call({ mask, guide });
+    expect(body.image_urls).toEqual([dataUrl(photo), dataUrl(guide), dataUrl(refs[0])]);
+    expect(body.prompt).toContain("The second image is a placement guide");
+    expect(body.prompt).not.toContain("is a mask");
+  });
+
+  it("Kontext non riceve la guida del volume né la sua legenda: la posizione resta nel testo", async () => {
+    const guide = await png(1248, 832, [10, 200, 30]);
+    const prompt = `Task: x.\n\n${GUIDE_LEGEND}\n\nPlacement (exact): foot at (10%, 68%).`;
+    const { body, photo, refs } = await call({ model: "fal-ai/flux-pro/kontext/multi", guide, prompt });
+    expect(body.image_urls).toEqual([dataUrl(photo), dataUrl(refs[0])]);
+    expect(body.prompt).not.toContain(GUIDE_LEGEND);
+    expect(body.prompt).not.toContain("placement guide");
+    expect(body.prompt).toContain("Placement (exact): foot at (10%, 68%).");
+
+    // gli altri modelli ricevono guida e legenda
+    calls.length = 0;
+    const other = await call({ model: "fal-ai/nano-banana-pro/edit", guide, prompt });
+    expect(other.body.image_urls[1]).toBe(dataUrl(guide));
+    expect(other.body.prompt).toContain(GUIDE_LEGEND);
   });
 
   it("Kontext accetta al massimo 4 immagini: i riferimenti in eccesso si tagliano in ordine", async () => {
