@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   DEFAULT_FOCAL_RATIO,
   FOCAL_RATIO_MAX,
@@ -26,7 +27,11 @@ const HINTS: Record<VolumeTool, string> = {
     "Sposta di poco i singoli angoli del volume per correggere piccoli scarti (terreno non piano, foto storta). Montanti e attacco seguono gli angoli.",
 };
 
-/** Campo numerico in mm legato a un valore numerico: scrive solo numeri validi. */
+/**
+ * Campo numerico in mm legato a un valore numerico. Mentre si scrive tiene il testo così
+ * com'è (altrimenti l'arrotondamento ai 10 mm stravolgerebbe ogni cifra battuta) e lo
+ * applica all'uscita dal campo o con Invio.
+ */
 function MmField({
   id,
   label,
@@ -42,6 +47,13 @@ function MmField({
   min?: number;
   step?: number;
 }) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const n = Number(text);
+    if (text.trim() !== "" && Number.isFinite(n)) onChange(n);
+    setText(null);
+  };
   return (
     <div className="field">
       <label htmlFor={id}>{label} (mm)</label>
@@ -51,10 +63,22 @@ function MmField({
         inputMode="numeric"
         min={min}
         step={step}
-        value={value}
+        value={text ?? value}
         onChange={(e) => {
-          const n = Number(e.target.value);
-          if (e.target.value.trim() !== "" && Number.isFinite(n)) onChange(n);
+          // Le frecce del campo cambiano il valore di un passo: quelle si applicano subito.
+          const typed = (e.nativeEvent as InputEvent).inputType !== undefined;
+          if (typed) setText(e.target.value);
+          else {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onChange(n);
+          }
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault(); // non deve inviare il modulo
+            commit();
+          }
         }}
       />
     </div>

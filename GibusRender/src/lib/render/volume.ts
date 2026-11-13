@@ -86,8 +86,15 @@ export const VOLUME_BEHIND =
 
 /** Lato minimo del riquadro, come frazione del lato corto della foto. */
 const MIN_REF_SIDE = 0.05;
-/** Sotto questa "fuga" (in unità normalizzate) il riquadro è considerato frontale. */
-const FRONTAL_EPS = 0.02;
+/**
+ * "Fuga" delle linee orizzontali del riquadro (in unità normalizzate: circa
+ * sen(angolo di scorcio) × larghezza del riquadro / distanza). Sotto OBLIQUE_EPS il muro è
+ * trattato come frontale. La focale si ricava dal riquadro solo sopra FOCAL_EPS: con muri
+ * poco di scorcio un pixel di errore nei clic la farebbe oscillare fra grandangolo e tele,
+ * mentre quella tipica di un telefono sbaglia di poco.
+ */
+const OBLIQUE_EPS = 0.05;
+const FOCAL_EPS = 0.15;
 /** Distanza minima dal piano della camera (mm) per considerare visibile un punto. */
 const NEAR_MM = 1;
 
@@ -221,7 +228,7 @@ export function solvePose(
   // verticali (h2z) vale pochi pixel e dipende dalla precisione dei clic. Con un muro visto
   // di scorcio, quindi, la componente in profondità dell'asse verticale non si legge
   // dall'omografia: si ricava imponendo che sia perpendicolare alla direzione del muro.
-  const oblique = Math.abs(h1[2]) >= FRONTAL_EPS;
+  const oblique = Math.abs(h1[2]) >= OBLIQUE_EPS;
   const hh1 = h1[0] * h1[0] + h1[1] * h1[1];
   const hh2 = h2[0] * h2[0] + h2[1] * h2[1];
   const h12 = h1[0] * h2[0] + h1[1] * h2[1];
@@ -231,16 +238,13 @@ export function solvePose(
   if (focalRatio === null) {
     // Focale dalle proporzioni reali del riquadro: i due assi devono avere la stessa lunghezza.
     let f2 = NaN;
-    if (oblique) {
+    if (Math.abs(h1[2]) >= FOCAL_EPS) {
       // Con u = 1/f²: (h12²/h1z²)·u² + (hh2 − hh1)·u − h1z² = 0, radice positiva.
       const z2 = h1[2] * h1[2];
       const qa = (h12 * h12) / z2;
       const qb = hh2 - hh1;
       const inv = qa > 1e-12 ? (-qb + Math.sqrt(qb * qb + 4 * qa * z2)) / (2 * qa) : z2 / qb;
       f2 = 1 / inv;
-    } else if (Math.abs(h2[2]) >= FRONTAL_EPS) {
-      // Muro frontale ma camera molto inclinata: resta la convergenza delle verticali.
-      f2 = (hh1 - hh2) / (h2[2] * h2[2] - h1[2] * h1[2]);
     }
     const est = Math.sqrt(f2);
     if (Number.isFinite(est) && est >= FOCAL_RATIO_MIN && est <= FOCAL_RATIO_MAX) {

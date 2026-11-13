@@ -57,8 +57,11 @@ type Photo =
 
 type Dims = { widthMm: string; depthMm: string; clearHeightMm: string; totalHeightMm: string };
 type Mode = "sagoma" | "scala";
-/** Come si indica la posizione: volume 3D, sagoma disegnata a mano, o solo a parole. */
-type PositionMode = "volume" | "sagoma" | "testo";
+/**
+ * Come si indica la posizione: con il volume 3D, oppure come prima del volume
+ * (sagoma disegnata a mano e/o descrizione a parole, con la linea di scala facoltativa).
+ */
+type PositionMode = "volume" | "sagoma";
 
 const VOLUME_INCOMPLETE = "Completa il volume: clicca i quattro angoli del riquadro di facciata e indicane le misure";
 const VOLUME_OFF_PHOTO = "Il volume è fuori dalla foto: riposizionalo";
@@ -198,7 +201,7 @@ export function NewRenderForm({
       // Con il volume la sagoma salvata è quella ricavata da lui: non va riproposta come disegnata a mano.
       polygon: draft?.volume ? [] : (draft?.polygon ?? []),
       volume: draft?.volume ?? null,
-      posMode: (!draft || draft.volume ? "volume" : draft.polygon ? "sagoma" : "testo") as PositionMode,
+      posMode: (!draft || draft.volume ? "volume" : "sagoma") as PositionMode,
       positionText: draft?.positionText ?? "",
       scale: draft?.scaleLine ? { a: draft.scaleLine.a, b: draft.scaleLine.b } : ({} as ScaleDraft),
       scaleMm: draft?.scaleLine ? String(draft.scaleLine.lengthMm) : "",
@@ -325,7 +328,8 @@ export function NewRenderForm({
     color: finishes.find((f) => f.id === colorId),
     fabric: finishes.find((f) => f.id === fabricId),
     positionText,
-    polygon,
+    // La sagoma a mano conta solo nella sua modalità: altrove non viene inviata.
+    polygon: posMode === "sagoma" ? polygon : [],
     scale: scaleLine,
     photo,
     supportsMask: provider?.supportsMask ?? true,
@@ -612,8 +616,7 @@ export function NewRenderForm({
         <div className="row" style={{ marginBottom: "0.75rem" }}>
           <div className="segmented" role="group" aria-label="Come indicare la posizione">
             <button type="button" aria-pressed={posMode === "volume"} onClick={() => setPosMode("volume")}>Volume 3D</button>
-            <button type="button" aria-pressed={posMode === "sagoma"} onClick={() => setPosMode("sagoma")}>Sagoma a mano</button>
-            <button type="button" aria-pressed={posMode === "testo"} onClick={() => setPosMode("testo")}>Solo descrizione</button>
+            <button type="button" aria-pressed={posMode === "sagoma"} onClick={() => setPosMode("sagoma")}>Sagoma o descrizione</button>
           </div>
         </div>
         {posMode === "volume" && (

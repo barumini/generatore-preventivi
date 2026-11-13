@@ -142,6 +142,34 @@ describe("solvePose", () => {
     }
   });
 
+  it.each([
+    ["muro quasi frontale (3° di scorcio)", 3, 0],
+    ["muro a 8° di scorcio", 8, 0],
+    ["muro frontale con camera inclinata di 5°", 0, -5],
+  ])("clic imprecisi di un pixel su %s: focale predefinita e volume stabile", (_name, yaw, pitch) => {
+    const truth = synth(0.6, yaw, pitch, 0, 10000, [2600, 1200, 0]);
+    const world: Vec3[] = [[0, 0, 0], [5200, 0, 0], [5200, 2400, 0], [0, 2400, 0]];
+    const exact = world.map((p) => project(truth, p)!);
+    // Tutte le combinazioni di ±1 px sugli otto valori sarebbero 256: se ne provano alcune, fisse.
+    const patterns = [
+      [1, -1, -1, 1, 1, 1, -1, -1],
+      [-1, 1, 1, -1, -1, -1, 1, 1],
+      [1, 1, -1, -1, 1, -1, -1, 1],
+      [-1, -1, 1, 1, -1, 1, 1, -1],
+      [1, -1, 1, -1, -1, 1, -1, 1],
+    ];
+    for (const n of patterns) {
+      const corners = exact.map((c, i) => ({ x: c.x + n[2 * i] / W, y: c.y + n[2 * i + 1] / H })) as RefRect["corners"];
+      const r = solvePose({ corners, widthMm: 5200, heightMm: 2400, baseMm: 0 }, W, H, null);
+      if (!r.ok) throw new Error(r.error);
+      expect(r.focalAuto).toBe(false);
+      expect(r.focalRatio).toBe(DEFAULT_FOCAL_RATIO);
+      for (const p of [[600, 0, 3000], [4600, 2500, 3000]] as Vec3[]) {
+        expect(pxDist(project(r.pose, p)!, project(truth, p)!)).toBeLessThan(0.02 * DIAG);
+      }
+    }
+  });
+
   it("rifiuta un riquadro con tre punti allineati", () => {
     const ref: RefRect = {
       corners: [{ x: 0.2, y: 0.8 }, { x: 0.5, y: 0.8 }, { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.3 }],

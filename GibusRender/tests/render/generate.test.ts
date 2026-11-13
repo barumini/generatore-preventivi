@@ -561,6 +561,32 @@ describe("generateVariant", () => {
     expect(store.variants.get(v2.id)!.placementOffset ?? null).toBeNull();
   });
 
+  it("prodotto disegnato lontano dal volume: lo scostamento resta alto anche se la ricomposizione lo taglia", async () => {
+    const r = await newRender({ polygon: undefined, volume: volumeInput() });
+    const xs = (r.polygon as { x: number }[]).map((p) => p.x);
+    const right = Math.max(...xs);
+    // Il fornitore rimanda la foto con un blocco scuro subito a destra del volume, non dentro.
+    const provider = {
+      ...fakeProvider().provider,
+      generate: async (i: { photo: Buffer }) => {
+        const meta = await sharp(i.photo).metadata();
+        const w = meta.width!;
+        const h = meta.height!;
+        const block = await sharp({
+          create: { width: Math.round(0.18 * w), height: Math.round(0.3 * h), channels: 3, background: { r: 15, g: 15, b: 15 } },
+        })
+          .png()
+          .toBuffer();
+        return sharp(i.photo)
+          .composite([{ input: block, left: Math.round((right + 0.06) * w), top: Math.round(0.4 * h) }])
+          .png()
+          .toBuffer();
+      },
+    };
+    const v = await generateVariant(r.id, { provider });
+    expect(store.variants.get(v.id)!.placementOffset as number).toBeGreaterThan(0.25);
+  });
+
   it("senza volume non c'è immagine-guida", async () => {
     const r = await newRender();
     const { provider, calls } = fakeProvider();

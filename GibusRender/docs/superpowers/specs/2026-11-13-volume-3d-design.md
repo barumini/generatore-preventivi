@@ -49,7 +49,7 @@ Come oggi: chi prepara il preventivo, in ufficio, da computer con mouse, senza f
 
 ## Come funziona per l'utente
 
-Nella sezione **5 · Posizione** del modulo "Nuovo render" compare una scelta fra tre modi: **Volume 3D** (nuovo, predefinito), **Sagoma a mano** (quello di oggi) e la sola descrizione a parole. Il testo libero di posizione resta sempre disponibile come nota aggiuntiva.
+Nella sezione **5 · Posizione** del modulo "Nuovo render" compare una scelta fra due modi: **Volume 3D** (nuovo, predefinito) e **Sagoma o descrizione** (quello di oggi, invariato: sagoma a mano e/o descrizione a parole, con la scala facoltativa). *Aggiornato dopo la revisione finale: una terza modalità "solo descrizione" avrebbe tolto la linea di scala a chi oggi descrive a parole.* Il testo libero di posizione resta sempre disponibile come nota aggiuntiva.
 
 Con "Volume 3D" i passi sono:
 

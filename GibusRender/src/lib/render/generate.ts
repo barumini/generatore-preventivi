@@ -449,8 +449,9 @@ export async function generateVariant(
         ? await addDisclaimer(full, W, H)
         : await toJpeg(full);
 
-    // Con il volume: quanto il prodotto disegnato si discosta dall'ingombro indicato.
-    const offset = projected && polygon ? await placementOffset(photo, out, polygon, W, H) : null;
+    // Con il volume: quanto il prodotto disegnato dal modello (prima della ricomposizione,
+    // che lo taglierebbe) si discosta dall'ingombro indicato.
+    const offset = projected && polygon ? await placementOffset(photo, full, polygon, W, H) : null;
     const imageUrl = await putFile(`renders/${render.id}/${variant.id}.jpg`, out, "image/jpeg");
     return await db.variant.update({
       where: { id: variant.id },
