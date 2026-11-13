@@ -285,3 +285,26 @@ textarea.prompt-text { background: #fff; max-height: none; }
 .archive-item .card-link {
   width: 100%;
 }
+
+/* Editor del volume 3D */
+.loupe {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  background-repeat: no-repeat;
+  background-color: var(--surface);
+}
+.loupe::before, .loupe::after { content: ""; position: absolute; background: rgba(255, 214, 10, 0.95); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.loupe::before { left: 50%; top: 25%; width: 1px; height: 50%; }
+.loupe::after { top: 50%; left: 25%; height: 1px; width: 50%; }
+.volume-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.volume-panel .field { margin-bottom: 0; }
+.volume-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.75rem; }
+.volume-legend i { display: inline-block; width: 1.4rem; height: 0; border-top: 4px solid; vertical-align: middle; margin-right: 0.35rem; }
+.volume-group { border-top: 1px solid var(--border); padding-top: 0.9rem; margin-top: 0.25rem; }
+.volume-group > h3 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+.range-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.range-row input[type="range"] { flex: 1 1 10rem; padding: 0; }

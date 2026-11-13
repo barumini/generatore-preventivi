@@ -91,6 +91,16 @@ const FRONTAL_EPS = 0.02;
 /** Distanza minima dal piano della camera (mm) per considerare visibile un punto. */
 const NEAR_MM = 1;
 
+/** Colori del volume, gli stessi nell'interfaccia, nell'immagine-guida e nella legenda del prompt. */
+export const VOLUME_COLORS = { wall: "#ff3b30", post: "#2f7bff", edge: "#ffffff" } as const;
+
+/** Spigoli del volume come coppie di indici dei vertici: a terra, in alto, verticali. */
+export const VOLUME_EDGES: [number, number][] = [
+  [0, 1], [1, 2], [2, 3], [3, 0],
+  [4, 5], [5, 6], [6, 7], [7, 4],
+  [0, 4], [1, 5], [2, 6], [3, 7],
+];
+
 export const roundMm = (v: number) => Math.round(v / 10) * 10;
 
 const cross2 = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
@@ -102,8 +112,6 @@ const cross = (a: Vec3, b: Vec3): Vec3 => [
 ];
 const norm = (a: Vec3) => Math.hypot(a[0], a[1], a[2]);
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const unit = (a: Vec3): Vec3 => scale(a, 1 / norm(a));
 const toCam = (pose: Pose, p: Vec3): Vec3 => [
   dot(pose.R[0] as Vec3, p) + pose.t[0],
@@ -209,16 +217,31 @@ export function solvePose(
   const h2: Vec3 = [h[1], h[4], h[7]];
   const h3: Vec3 = [h[2], h[5], 1];
 
+  // La fuga delle linee orizzontali del muro (h1z) è un dato robusto; la convergenza dei lati
+  // verticali (h2z) vale pochi pixel e dipende dalla precisione dei clic. Con un muro visto
+  // di scorcio, quindi, la componente in profondità dell'asse verticale non si legge
+  // dall'omografia: si ricava imponendo che sia perpendicolare alla direzione del muro.
+  const oblique = Math.abs(h1[2]) >= FRONTAL_EPS;
+  const hh1 = h1[0] * h1[0] + h1[1] * h1[1];
+  const hh2 = h2[0] * h2[0] + h2[1] * h2[1];
+  const h12 = h1[0] * h2[0] + h1[1] * h2[1];
+
   let ratio = focalRatio ?? DEFAULT_FOCAL_RATIO;
   let focalAuto = false;
-  if (focalRatio === null && Math.max(Math.abs(h1[2]), Math.abs(h2[2])) >= FRONTAL_EPS) {
-    // r1 ⟂ r2 e |r1| = |r2|: si usa la condizione meglio condizionata.
-    const d1 = h1[2] * h2[2];
-    const d2 = h2[2] * h2[2] - h1[2] * h1[2];
-    const f2 =
-      Math.abs(d1) > Math.abs(d2)
-        ? -(h1[0] * h2[0] + h1[1] * h2[1]) / d1
-        : (h1[0] * h1[0] + h1[1] * h1[1] - h2[0] * h2[0] - h2[1] * h2[1]) / d2;
+  if (focalRatio === null) {
+    // Focale dalle proporzioni reali del riquadro: i due assi devono avere la stessa lunghezza.
+    let f2 = NaN;
+    if (oblique) {
+      // Con u = 1/f²: (h12²/h1z²)·u² + (hh2 − hh1)·u − h1z² = 0, radice positiva.
+      const z2 = h1[2] * h1[2];
+      const qa = (h12 * h12) / z2;
+      const qb = hh2 - hh1;
+      const inv = qa > 1e-12 ? (-qb + Math.sqrt(qb * qb + 4 * qa * z2)) / (2 * qa) : z2 / qb;
+      f2 = 1 / inv;
+    } else if (Math.abs(h2[2]) >= FRONTAL_EPS) {
+      // Muro frontale ma camera molto inclinata: resta la convergenza delle verticali.
+      f2 = (hh1 - hh2) / (h2[2] * h2[2] - h1[2] * h1[2]);
+    }
     const est = Math.sqrt(f2);
     if (Number.isFinite(est) && est >= FOCAL_RATIO_MIN && est <= FOCAL_RATIO_MAX) {
       ratio = est;
@@ -229,20 +252,14 @@ export function solvePose(
   const f = ratio;
   const a1: Vec3 = [h1[0] / f, h1[1] / f, h1[2]];
   const a2: Vec3 = [h2[0] / f, h2[1] / f, h2[2]];
+  // Asse verticale corretto (vedi sopra); la facciata continua a usare a2 così com'è.
+  const up: Vec3 = oblique ? [a2[0], a2[1], -(a1[0] * a2[0] + a1[1] * a2[1]) / a1[2]] : a2;
   const n1 = norm(a1);
-  const n2 = norm(a2);
-  if (!(n1 > 0) || !(n2 > 0)) return { ok: false, error: REF_INVALID };
+  const n2 = norm(up);
+  const normal = cross(a1, up);
+  if (!(n1 > 0) || !(n2 > 0) || !(norm(normal) > 1e-12)) return { ok: false, error: REF_INVALID };
   const s = 2 / (n1 + n2);
-  // La direzione della sporgenza è la normale ai due assi del muro, ortonormalizzati in modo
-  // simmetrico (l'errore di una focale non esatta si divide sui due assi).
-  const e1 = scale(a1, 1 / n1);
-  const e2 = scale(a2, 1 / n2);
-  const sum = add(e1, e2);
-  const dif = sub(e1, e2);
-  if (!(norm(sum) > 1e-9) || !(norm(dif) > 1e-9)) return { ok: false, error: REF_INVALID };
-  const cU = unit(sum);
-  const dU = unit(sub(dif, scale(cU, dot(dif, cU))));
-  const r3 = cross(scale(add(cU, dU), Math.SQRT1_2), scale(sub(cU, dU), Math.SQRT1_2));
+  const r3 = unit(normal);
   const r1 = scale(a1, s);
   const r2 = scale(a2, s);
   const t: Vec3 = [(h3[0] / f) * s * u, (h3[1] / f) * s * u, s * u];

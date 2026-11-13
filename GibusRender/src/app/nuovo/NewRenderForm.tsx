@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { buildPrompt } from "@/lib/render/prompt";
+import { buildPrompt, promptVolume, type PromptVolume } from "@/lib/render/prompt";
 import { estimateCost } from "@/lib/render/cost";
 import { POSITION_REQUIRED, validatePolygon, type Point, type ScaleLine } from "@/lib/render/geometry";
 import { COVER_LABELS, MOUNT_LABELS, type CoverType, type FinishKind, type MountType } from "@/lib/catalog/types";
@@ -11,6 +11,10 @@ import type { RenderDraft } from "@/lib/render/draft";
 import { prepareUpload } from "./upload";
 import { PolygonEditor } from "./PolygonEditor";
 import { ScaleLineEditor, type ScaleDraft } from "./ScaleLineEditor";
+import { projectVolume, volumeOutline, type Volume } from "@/lib/render/volume";
+import { VolumeEditor, type DimsPatch, type VolumeTool } from "./volume/VolumeEditor";
+import { VolumePanel } from "./volume/VolumePanel";
+import { draftFromVolume, volumeReducer, type VolumeAction, type VolumeContext } from "./volume/state";
 
 export interface ProductInfo {
   id: string;
@@ -53,6 +57,11 @@ type Photo =
 
 type Dims = { widthMm: string; depthMm: string; clearHeightMm: string; totalHeightMm: string };
 type Mode = "sagoma" | "scala";
+/** Come si indica la posizione: volume 3D, sagoma disegnata a mano, o solo a parole. */
+type PositionMode = "volume" | "sagoma" | "testo";
+
+const VOLUME_INCOMPLETE = "Completa il volume: clicca i quattro angoli del riquadro di facciata e indicane le misure";
+const VOLUME_OFF_PHOTO = "Il volume è fuori dalla foto: riposizionalo";
 
 const DIM_FIELDS: { key: keyof Dims; label: string }[] = [
   { key: "widthMm", label: "Larghezza" },
@@ -98,13 +107,24 @@ type PromptState = {
   scale: ScaleLine | null;
   photo: { width: number; height: number } | null;
   supportsMask: boolean;
+  /** Volume 3D proiettato: se c'è, sagoma a mano e scala non contano. */
+  volume?: PromptVolume;
 };
+
+/** Volume proiettato sulla foto con le misure correnti; null se manca qualcosa. */
+function projectDraft(volume: Volume | null, dims: Dims, product: ProductInfo | undefined, photo: { width: number; height: number } | null) {
+  if (!volume || !photo) return null;
+  const widthMm = intOrNull(dims.widthMm) ?? product?.widthMm;
+  const depthMm = intOrNull(dims.depthMm) ?? product?.depthMm;
+  if (!widthMm || !depthMm) return null;
+  return projectVolume(volume, { widthMm, depthMm }, photo.width, photo.height);
+}
 
 /** Prompt automatico (stesso calcolo del server); "" se manca il prodotto. */
 function autoPrompt(s: PromptState): string {
   if (!s.product) return "";
   const num = (v: string, fallback: number) => intOrNull(v) ?? fallback;
-  const hasPolygon = s.polygon.length > 0 && validatePolygon(s.polygon).ok;
+  const hasPolygon = s.volume ? true : s.polygon.length > 0 && validatePolygon(s.polygon).ok;
   return buildPrompt({
     product: {
       name: s.product.name,
@@ -123,8 +143,9 @@ function autoPrompt(s: PromptState): string {
     positionText: s.positionText.trim(),
     hasMask: hasPolygon && s.supportsMask,
     maskHint: hasPolygon && !s.supportsMask,
+    volume: s.volume,
     scale:
-      s.scale && s.photo
+      s.scale && s.photo && !s.volume
         ? {
             lengthMm: s.scale.lengthMm,
             pixelLength: Math.hypot(
@@ -174,7 +195,10 @@ export function NewRenderForm({
       dims: draft ? dimsOf(draft) : { widthMm: "", depthMm: "", clearHeightMm: "", totalHeightMm: "" },
       colorId: finishOrEmpty(draft?.colorId ?? null, compatible(product, finishes, "COLORE")),
       fabricId: finishOrEmpty(draft?.fabricId ?? null, compatible(product, finishes, "TESSUTO")),
-      polygon: draft?.polygon ?? [],
+      // Con il volume la sagoma salvata è quella ricavata da lui: non va riproposta come disegnata a mano.
+      polygon: draft?.volume ? [] : (draft?.polygon ?? []),
+      volume: draft?.volume ?? null,
+      posMode: (!draft || draft.volume ? "volume" : draft.polygon ? "sagoma" : "testo") as PositionMode,
       positionText: draft?.positionText ?? "",
       scale: draft?.scaleLine ? { a: draft.scaleLine.a, b: draft.scaleLine.b } : ({} as ScaleDraft),
       scaleMm: draft?.scaleLine ? String(draft.scaleLine.lengthMm) : "",
@@ -196,6 +220,7 @@ export function NewRenderForm({
     // Il prompt del render di partenza resta "modificato a mano" solo se diverso da quello automatico.
     let manualPrompt: string | null = null;
     if (draft && product) {
+      const pv = projectDraft(state.volume, state.dims, product, state.photo);
       const auto = autoPrompt({
         product,
         dims: state.dims,
@@ -206,6 +231,7 @@ export function NewRenderForm({
         scale: completeScale(state.scale, state.scaleMm),
         photo: state.photo,
         supportsMask: providers.find((p) => p.id === providerId)?.supportsMask ?? true,
+        volume: state.volume && pv?.ok ? promptVolume(state.volume.box, pv) : undefined,
       });
       const saved = draft.prompt.replace(/\r\n?/g, "\n");
       if (saved.trim() !== auto.trim()) manualPrompt = saved;
@@ -228,6 +254,9 @@ export function NewRenderForm({
   const [scale, setScale] = useState<ScaleDraft>(initial.scale);
   const [scaleMm, setScaleMm] = useState(initial.scaleMm);
   const [mode, setMode] = useState<Mode>("sagoma");
+  const [posMode, setPosMode] = useState<PositionMode>(initial.posMode);
+  const [volumeDraft, setVolumeDraft] = useState(() => draftFromVolume(initial.volume));
+  const [volumeTool, setVolumeTool] = useState<VolumeTool>(initial.volume ? "volume" : "riquadro");
   const [providerId, setProviderId] = useState(initial.providerId);
   const [model, setModel] = useState(initial.model);
   const [quality, setQuality] = useState(initial.quality);
@@ -250,9 +279,44 @@ export function NewRenderForm({
   const colors = compatible(product, finishes, "COLORE");
   const fabrics = compatible(product, finishes, "TESSUTO");
   const provider = providers.find((p) => p.id === providerId);
-  const scaleLine = completeScale(scale, scaleMm);
-  const polygonCheck = polygon.length > 0 ? validatePolygon(polygon) : null;
+  // Sagoma a mano e scala contano solo nella loro modalità.
+  const scaleLine = posMode === "sagoma" ? completeScale(scale, scaleMm) : null;
+  const polygonCheck = posMode === "sagoma" && polygon.length > 0 ? validatePolygon(polygon) : null;
   const hasPolygon = polygonCheck?.ok === true;
+
+  // --- Volume 3D ---
+  const freestanding = product?.mountType === "AUTOPORTANTE";
+  const volumeCtx = (dimsNow: Dims, p: ProductInfo | undefined): VolumeContext => ({
+    dims: {
+      widthMm: intOrNull(dimsNow.widthMm) ?? p?.widthMm ?? 4000,
+      depthMm: intOrNull(dimsNow.depthMm) ?? p?.depthMm ?? 3000,
+    },
+    totalHeightMm: intOrNull(dimsNow.totalHeightMm) ?? p?.totalHeightMm ?? 2500,
+    freestanding: p?.mountType === "AUTOPORTANTE",
+  });
+  const ctx = volumeCtx(dims, product);
+  const dispatchVolume = (a: VolumeAction) => {
+    setVolumeDraft((s) => {
+      const next = volumeReducer(s, a, ctx);
+      // Appena il riquadro è completo si passa alle maniglie del volume.
+      if (!s.volume && next.volume) setVolumeTool("volume");
+      if (s.volume && !next.volume) setVolumeTool("riquadro");
+      return next;
+    });
+  };
+  const onVolumeDims = (patch: DimsPatch) =>
+    setDims((d) => ({
+      ...d,
+      ...(patch.widthMm !== undefined ? { widthMm: String(patch.widthMm) } : {}),
+      ...(patch.depthMm !== undefined ? { depthMm: String(patch.depthMm) } : {}),
+      ...(patch.totalHeightMm !== undefined ? { totalHeightMm: String(patch.totalHeightMm) } : {}),
+    }));
+  const volume = posMode === "volume" ? volumeDraft.volume : null;
+  const projected = projectDraft(volume, dims, product, photo);
+  const pv = projected?.ok ? projected : null;
+  const volumeOutlineOk = pv ? validatePolygon(volumeOutline(pv)).ok : false;
+  /** C'è un'area che protegge la casa: sagoma a mano valida oppure volume valido. */
+  const hasArea = hasPolygon || (pv !== null && volumeOutlineOk);
   const variantsN = intOrNull(variants);
 
   const auto = autoPrompt({
@@ -265,6 +329,7 @@ export function NewRenderForm({
     scale: scaleLine,
     photo,
     supportsMask: provider?.supportsMask ?? true,
+    volume: volume && pv && volumeOutlineOk ? promptVolume(volume.box, pv) : undefined,
   });
   const prompt = manualPrompt ?? auto;
   const cost = variantsN ? estimateCost(providerId, model.trim(), quality, variantsN) : null;
@@ -284,6 +349,8 @@ export function NewRenderForm({
       if (photo) {
         setPolygon([]);
         setScale({});
+        setVolumeDraft(draftFromVolume(null));
+        setVolumeTool("riquadro");
       }
       setPhoto(next);
     } catch (err) {
@@ -296,7 +363,10 @@ export function NewRenderForm({
   function chooseProduct(p: ProductInfo) {
     if (p.id === productId) return;
     // Con un render di partenza il cui prodotto non esiste più, si tengono le sue misure.
-    if (productId || !draft) setDims(dimsOf(p));
+    const nextDims = productId || !draft ? dimsOf(p) : dims;
+    if (productId || !draft) setDims(nextDims);
+    // Il volume riparte dalle misure e dal tipo del nuovo prodotto, sullo stesso riquadro.
+    setVolumeDraft((s) => volumeReducer(s, { type: "remount" }, volumeCtx(nextDims, p)));
     const cs = compatible(p, finishes, "COLORE");
     const fs = compatible(p, finishes, "TESSUTO");
     setColorId(finishOrEmpty(p.defaultColorId, cs));
@@ -320,9 +390,14 @@ export function NewRenderForm({
       if (v === null) return `${label}: deve essere un numero intero di millimetri`;
       if (v < 500 || v > 15000) return `${label}: deve essere tra 500 e 15000 mm`;
     }
+    if (posMode === "volume") {
+      if (!volume) return VOLUME_INCOMPLETE;
+      if (projected && !projected.ok) return projected.error;
+      if (!pv || !volumeOutlineOk) return VOLUME_OFF_PHOTO;
+    }
     if (polygonCheck && !polygonCheck.ok) return `${polygonCheck.error}: completala o cancellala`;
-    if (!hasPolygon && !positionText.trim()) return POSITION_REQUIRED;
-    const scaleStarted = scale.a || scale.b || scaleMm.trim();
+    if (!hasArea && !positionText.trim()) return POSITION_REQUIRED;
+    const scaleStarted = posMode === "sagoma" && (scale.a || scale.b || scaleMm.trim());
     if (scaleStarted && !scaleLine) {
       return "Scala incompleta: traccia i due punti e indica la lunghezza in mm, oppure cancellala";
     }
@@ -354,6 +429,7 @@ export function NewRenderForm({
     if (colorId) fd.set("colorId", colorId);
     if (fabricId) fd.set("fabricId", fabricId);
     if (hasPolygon) fd.set("polygon", JSON.stringify(polygon));
+    if (volume) fd.set("volume", JSON.stringify(volume));
     fd.set("positionText", positionText.trim());
     if (scaleLine) fd.set("scaleLine", JSON.stringify(scaleLine));
     fd.set("prompt", prompt);
@@ -382,6 +458,8 @@ export function NewRenderForm({
   // --- Interfaccia ---
 
   const mmValue = intOrNull(scaleMm);
+  // Il passo "Scala" esiste solo con la sagoma a mano: senza, i passi successivi scalano di uno.
+  const stepShift = posMode === "sagoma" ? 0 : 1;
 
   return (
     <form className="stack new-render" onSubmit={onGenerate} noValidate>
@@ -482,7 +560,12 @@ export function NewRenderForm({
                     max={15000}
                     step={1}
                     value={dims[key]}
-                    onChange={(e) => setDims({ ...dims, [key]: e.target.value })}
+                    onChange={(e) => {
+                      setDims({ ...dims, [key]: e.target.value });
+                      // Con il volume, l'altezza totale è l'altezza al muro: restano uguali.
+                      const n = intOrNull(e.target.value);
+                      if (key === "totalHeightMm" && n) dispatchVolume({ type: "setBox", patch: { wallHeightMm: n } });
+                    }}
                   />
                 </div>
               ))}
@@ -526,6 +609,58 @@ export function NewRenderForm({
       {/* 5. Posizione (e linea di scala sulla stessa foto) */}
       <section className="card">
         <h2><span className="step">5</span>Posizione</h2>
+        <div className="row" style={{ marginBottom: "0.75rem" }}>
+          <div className="segmented" role="group" aria-label="Come indicare la posizione">
+            <button type="button" aria-pressed={posMode === "volume"} onClick={() => setPosMode("volume")}>Volume 3D</button>
+            <button type="button" aria-pressed={posMode === "sagoma"} onClick={() => setPosMode("sagoma")}>Sagoma a mano</button>
+            <button type="button" aria-pressed={posMode === "testo"} onClick={() => setPosMode("testo")}>Solo descrizione</button>
+          </div>
+        </div>
+        {posMode === "volume" && (
+          <>
+            <p className="muted small">
+              Disegna sulla foto il volume che la pergola occuperà: in prospettiva, con le misure reali, l&apos;attacco a muro
+              e i montanti. L&apos;IA lo riceve come riferimento esatto e l&apos;area da modificare si ricava da qui.
+            </p>
+            {!photo ? (
+              <p className="muted">Carica prima la foto.</p>
+            ) : !product ? (
+              <p className="muted">Scegli prima il prodotto: il volume parte dalle sue misure.</p>
+            ) : (
+              <>
+                <div className="photo-stage" style={{ aspectRatio: `${photo.width} / ${photo.height}` }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo.url} alt="Foto del sopralluogo" draggable={false} />
+                  <VolumeEditor
+                    draft={volumeDraft}
+                    dispatch={dispatchVolume}
+                    pv={pv}
+                    tool={volumeTool}
+                    dims={ctx.dims}
+                    onDims={onVolumeDims}
+                    freestanding={freestanding}
+                    photoUrl={photo.url}
+                    width={photo.width}
+                    height={photo.height}
+                  />
+                </div>
+                <VolumePanel
+                  draft={volumeDraft}
+                  dispatch={dispatchVolume}
+                  pv={pv}
+                  poseError={projected && !projected.ok ? projected.error : pv && !volumeOutlineOk ? VOLUME_OFF_PHOTO : null}
+                  tool={volumeTool}
+                  onTool={setVolumeTool}
+                  onDims={onVolumeDims}
+                  freestanding={freestanding}
+                  clearHeightMm={intOrNull(dims.clearHeightMm)}
+                />
+              </>
+            )}
+          </>
+        )}
+        {posMode === "sagoma" && (
+          <>
         <p className="muted small">
           Disegna sulla foto la sagoma dell&apos;ingombro visibile della pergola (montanti e copertura), descrivila a
           parole, o entrambe le cose.
@@ -581,19 +716,24 @@ export function NewRenderForm({
             {polygonCheck && !polygonCheck.ok && <p className="small muted">{polygonCheck.error}.</p>}
           </>
         )}
-        {!hasPolygon && (
+          </>
+        )}
+        {!hasArea && (
           <div className="banner-warn" role="status">
-            {NO_MASK_WARNING}. Descrivi la posizione a parole.
+            {NO_MASK_WARNING}. {posMode === "volume" ? "Completa il volume, oppure descrivi la posizione a parole." : "Descrivi la posizione a parole."}
           </div>
         )}
-        {hasPolygon && provider && !provider.supportsMask && (
+        {hasArea && provider && !provider.supportsMask && (
           <p className="small muted">
-            {provider.label} usa la sagoma solo come indicazione, senza garantirla: la casa viene comunque ripristinata fuori dalla
-            sagoma.
+            {provider.label} usa {posMode === "volume" ? "il volume" : "la sagoma"} solo come indicazione, senza garantirla: la casa
+            viene comunque ripristinata fuori dall&apos;area.
           </p>
         )}
-        <div className="field">
-          <label htmlFor="positionText">Descrizione a parole{hasPolygon ? " (facoltativa)" : ""}</label>
+        <div className="field" style={{ marginTop: "1rem" }}>
+          <label htmlFor="positionText">
+            {posMode === "volume" ? "Note sulla posizione" : "Descrizione a parole"}
+            {hasArea ? " (facoltativa)" : ""}
+          </label>
           <textarea
             id="positionText"
             value={positionText}
@@ -606,6 +746,7 @@ export function NewRenderForm({
       </section>
 
       {/* 6. Scala facoltativa */}
+      {posMode === "sagoma" && (
       <section className="card">
         <h2><span className="step">6</span>Scala (facoltativa)</h2>
         <p className="muted small">
@@ -640,10 +781,11 @@ export function NewRenderForm({
                 : "Nessuna linea di scala."}
         </p>
       </section>
+      )}
 
       {/* 7. Fornitore, modello e qualità */}
       <section className="card">
-        <h2><span className="step">7</span>Fornitore, modello e qualità</h2>
+        <h2><span className="step">{7 - stepShift}</span>Fornitore, modello e qualità</h2>
         <p className="muted small">Valori dalle Impostazioni; le modifiche valgono solo per questo render.</p>
         <div className="grid-2">
           <div className="field">
@@ -687,7 +829,7 @@ export function NewRenderForm({
 
       {/* 8. Varianti e dicitura */}
       <section className="card">
-        <h2><span className="step">8</span>Varianti e dicitura</h2>
+        <h2><span className="step">{8 - stepShift}</span>Varianti e dicitura</h2>
         <div className="grid-2">
           <div className="field">
             <label htmlFor="variants">Numero di varianti</label>
@@ -714,7 +856,7 @@ export function NewRenderForm({
 
       {/* 9. Prompt */}
       <section className="card">
-        <h2><span className="step">9</span>Testo per l&apos;IA</h2>
+        <h2><span className="step">{9 - stepShift}</span>Testo per l&apos;IA</h2>
         {!product ? (
           <p className="muted">Scegli un prodotto per vedere il testo che verrà inviato all&apos;IA.</p>
         ) : (
@@ -759,7 +901,7 @@ export function NewRenderForm({
       {/* 10. Stima e Genera */}
       <section className="card generate-bar">
         <div>
-          <h2 style={{ marginBottom: "0.25rem" }}><span className="step">10</span>Genera</h2>
+          <h2 style={{ marginBottom: "0.25rem" }}><span className="step">{10 - stepShift}</span>Genera</h2>
           <p className="muted small" style={{ margin: 0 }}>
             {cost
               ? `Costo stimato: circa ${eur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`

@@ -126,6 +126,22 @@ describe("solvePose", () => {
     refWorld().forEach((p, i) => expect(pxDist(project(r.pose, p)!, ref.corners[i])).toBeLessThan(0.5));
   });
 
+  it("clic imprecisi sui lati verticali (resi paralleli) non falsano la profondità", () => {
+    // Camera a 1,6 m da terra inclinata in basso di 5°: i lati verticali convergono di pochi pixel.
+    const truth = synth(0.62, 22, -5, 0, 11000, [2000, 800, 0]);
+    const ref = refFrom(truth);
+    // Chi clicca li allinea a occhio: stessa x in alto e in basso.
+    const [bl, br, tr, tl] = ref.corners;
+    ref.corners = [bl, br, { x: br.x, y: tr.y }, { x: bl.x, y: tl.y }];
+    expect(Math.abs(tr.x - br.x) * W).toBeLessThan(8); // la convergenza vera è davvero piccola
+    const r = solvePose(ref, W, H, null);
+    if (!r.ok) throw new Error(r.error);
+    // Il piede anteriore di un volume profondo 3,8 m deve cadere vicino a quello vero.
+    for (const p of [[0, 0, 3800], [4000, 0, 3800]] as Vec3[]) {
+      expect(pxDist(project(r.pose, p)!, project(truth, p)!)).toBeLessThan(0.015 * DIAG);
+    }
+  });
+
   it("rifiuta un riquadro con tre punti allineati", () => {
     const ref: RefRect = {
       corners: [{ x: 0.2, y: 0.8 }, { x: 0.5, y: 0.8 }, { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.3 }],

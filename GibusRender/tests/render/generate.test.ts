@@ -343,8 +343,8 @@ describe("createRender con il volume 3D", () => {
     expect(polygon.every((p) => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)).toBe(true);
     // La sagoma copre il riquadro di facciata, su cui il volume è appoggiato.
     const xs = polygon.map((p) => p.x);
-    expect(Math.min(...xs)).toBeLessThanOrEqual(0.3);
-    expect(Math.max(...xs)).toBeGreaterThanOrEqual(0.6);
+    expect(Math.min(...xs)).toBeLessThan(0.3 + 1e-9);
+    expect(Math.max(...xs)).toBeGreaterThan(0.6 - 1e-9);
   });
 
   it("il prompt riporta le posizioni esatte del volume e la legenda della guida", async () => {
