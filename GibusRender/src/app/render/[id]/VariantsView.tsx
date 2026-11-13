@@ -50,6 +50,7 @@ function fromJson(json: unknown): VariantInfo | null {
     error: typeof o.error === "string" ? o.error : null,
     driftScore: typeof o.driftScore === "number" ? o.driftScore : null,
     truncated: o.truncated === true,
+    placementOffset: typeof o.placementOffset === "number" ? o.placementOffset : null,
     stale: false,
     createdAt: o.createdAt,
   };

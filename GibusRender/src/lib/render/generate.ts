@@ -11,6 +11,7 @@ import { POSITION_REQUIRED, validatePolygon, type Point } from "./geometry";
 import { sceneDrift } from "./drift";
 import { GROW_LIMITS, growMask } from "./grow";
 import { renderGuide } from "./guide";
+import { placementOffset } from "./placement";
 import { featheredAlpha, polygonToMask } from "./mask";
 import {
   addDisclaimer,
@@ -448,10 +449,20 @@ export async function generateVariant(
         ? await addDisclaimer(full, W, H)
         : await toJpeg(full);
 
+    // Con il volume: quanto il prodotto disegnato si discosta dall'ingombro indicato.
+    const offset = projected && polygon ? await placementOffset(photo, out, polygon, W, H) : null;
     const imageUrl = await putFile(`renders/${render.id}/${variant.id}.jpg`, out, "image/jpeg");
     return await db.variant.update({
       where: { id: variant.id },
-      data: { status: "DONE", imageUrl, protected: hasPolygon, error: null, driftScore, truncated },
+      data: {
+        status: "DONE",
+        imageUrl,
+        protected: hasPolygon,
+        error: null,
+        driftScore,
+        truncated,
+        placementOffset: offset,
+      },
     });
   } catch (err) {
     console.error(`Generazione variante ${variant.id} fallita:`, err);

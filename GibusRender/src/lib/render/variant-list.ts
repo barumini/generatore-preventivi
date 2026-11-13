@@ -12,6 +12,8 @@ export type VariantInfo = {
   driftScore?: number | null;
   /** Pergola probabilmente tagliata dal bordo dell'area ricomposta. */
   truncated?: boolean;
+  /** Scostamento del prodotto dal volume 3D (frazione dell'ingombro); null/assente senza volume. */
+  placementOffset?: number | null;
   /** PENDING da più di 6 minuti: si mostra come fallita. */
   stale: boolean;
   /** ISO 8601, orologio del server. */

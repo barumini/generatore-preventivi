@@ -551,6 +551,16 @@ describe("generateVariant", () => {
     expect(sent.guide!.equals(sent.photo)).toBe(false);
   });
 
+  it("con il volume salva lo scostamento del prodotto dal volume; senza volume resta null", async () => {
+    const withVolume = await newRender({ polygon: undefined, volume: volumeInput() });
+    const v1 = await generateVariant(withVolume.id, { provider: fakeProvider().provider });
+    expect(typeof store.variants.get(v1.id)!.placementOffset).toBe("number");
+
+    const plain = await newRender();
+    const v2 = await generateVariant(plain.id, { provider: fakeProvider().provider });
+    expect(store.variants.get(v2.id)!.placementOffset ?? null).toBeNull();
+  });
+
   it("senza volume non c'è immagine-guida", async () => {
     const r = await newRender();
     const { provider, calls } = fakeProvider();
