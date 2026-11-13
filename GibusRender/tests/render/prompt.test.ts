@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompt, type PromptInput } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, PLACEMENT_HINT, buildPrompt, promptVolume, type PromptInput } from "@/lib/render/prompt";
 
 const zenit: PromptInput = {
   product: {
@@ -135,5 +135,98 @@ describe("buildPrompt: regole emerse dalle prove sul campo", () => {
     const p = buildPrompt(zenit);
     expect(p).toContain("width : depth : clear height = 4200 : 3800 : 2400");
     expect(p).toContain("1.75 : 1.58 : 1");
+  });
+});
+
+describe("buildPrompt con il volume 3D", () => {
+  const volume: NonNullable<PromptInput["volume"]> = {
+    wallHeightMm: 2800,
+    frontHeightMm: 2500,
+    distanceMm: 0,
+    wallLine: [
+      { x: 0.161, y: 0.344 },
+      { x: 0.69, y: 0.36 },
+    ],
+    frontEdge: [
+      { x: 0.1, y: 0.31 },
+      { x: 0.75, y: 0.342 },
+    ],
+    posts: [
+      { foot: { x: 0.1, y: 0.68 }, head: { x: 0.1, y: 0.31 }, xMm: 0, rear: false },
+      { foot: { x: 0.75, y: 0.62 }, head: { x: 0.75, y: 0.342 }, xMm: 4200, rear: false },
+    ],
+    guideImage: true,
+  };
+  const withVolume: PromptInput = {
+    ...zenit,
+    hasMask: false,
+    maskHint: true,
+    scale: { lengthMm: 2100, pixelLength: 300, photoWidth: 1200 },
+    volume,
+  };
+
+  it("sostituisce l'indicazione generica e la scala con le posizioni esatte", () => {
+    const p = buildPrompt(withVolume);
+    expect(p).not.toContain(PLACEMENT_HINT);
+    expect(p).not.toContain("Reference for scale");
+    expect(p).toContain("Placement (exact):");
+    expect(p).toContain("from (16%, 34%) to (69%, 36%)");
+    expect(p).toContain("2 front posts");
+    expect(p).toContain("foot at (10%, 68%), top at (10%, 31%), 0 mm from the left end");
+    expect(p).toContain("foot at (75%, 62%), top at (75%, 34%), 4200 mm from the left end");
+    expect(p).toContain("front edge of the roof runs from (10%, 31%) to (75%, 34%)");
+  });
+
+  it("riporta altezza al muro e altezza sul fronte al posto dell'altezza totale", () => {
+    const p = buildPrompt(withVolume);
+    expect(p).toContain("height at the wall 2800 mm");
+    expect(p).toContain("height at the front 2500 mm");
+    expect(p).toContain("clear height under the beams 2400 mm");
+    expect(p).not.toContain("total height");
+  });
+
+  it("spiega i colori della guida in un paragrafo a sé, solo se la guida viene inviata", () => {
+    const p = buildPrompt(withVolume);
+    expect(p.split("\n\n")).toContain(GUIDE_LEGEND);
+    expect(buildPrompt({ ...withVolume, volume: { ...volume, guideImage: false } })).not.toContain(GUIDE_LEGEND);
+    for (const s of ["red", "blue", "white dashed", "never draw them in the result"]) expect(GUIDE_LEGEND).toContain(s);
+  });
+
+  it("autoportante: niente attacco a muro, distanza dal muro e montanti posteriori", () => {
+    const p = buildPrompt({
+      ...withVolume,
+      volume: {
+        ...volume,
+        distanceMm: 800,
+        wallLine: null,
+        posts: [...volume.posts, { foot: { x: 0.2, y: 0.6 }, head: { x: 0.2, y: 0.33 }, xMm: 0, rear: true }],
+      },
+    });
+    expect(p).toContain("not attached to the wall");
+    expect(p).toContain("800 mm");
+    expect(p).toContain("1 rear post");
+    expect(p).not.toContain("Wall attachment");
+  });
+
+  it("senza montanti lo dice esplicitamente", () => {
+    expect(buildPrompt({ ...withVolume, volume: { ...volume, posts: [] } })).toContain("no posts");
+  });
+
+  it("promptVolume ricava i dati del prompt dal volume proiettato", () => {
+    const pv = {
+      vertices: Array.from({ length: 8 }, (_, i) => ({ x: i / 10, y: i / 20 })),
+      posts: volume.posts,
+      wallLine: volume.wallLine,
+    };
+    const box = { offsetXMm: 0, distanceMm: 0, wallHeightMm: 2800, frontHeightMm: 2500 };
+    expect(promptVolume(box, pv)).toEqual({
+      wallHeightMm: 2800,
+      frontHeightMm: 2500,
+      distanceMm: 0,
+      wallLine: volume.wallLine,
+      frontEdge: [pv.vertices[7], pv.vertices[6]],
+      posts: volume.posts,
+      guideImage: true,
+    });
   });
 });

@@ -20,7 +20,7 @@ import {
   toJpeg,
   toProviderSize,
 } from "./image";
-import { buildPrompt } from "./prompt";
+import { buildPrompt, promptVolume } from "./prompt";
 import {
   FOCAL_RATIO_MAX,
   FOCAL_RATIO_MIN,
@@ -293,6 +293,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
       // "area mascherata" solo se il modello la applica, altrimenti la descrive come guida.
       hasMask: !!polygon && provider.supportsMask,
       maskHint: !!polygon && !provider.supportsMask,
+      volume: volume && projected ? promptVolume(volume.box, projected) : undefined,
       scale: data.scaleLine
         ? {
             lengthMm: data.scaleLine.lengthMm,

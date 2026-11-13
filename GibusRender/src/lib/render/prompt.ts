@@ -5,6 +5,40 @@
 // dell'utente è riportato tra virgolette così com'è.
 
 import type { CoverType, MountType } from "@/lib/catalog/types";
+import type { Point } from "./geometry";
+import type { Post, ProjectedVolume, VolumeBox } from "./volume";
+
+/** Dati del volume 3D che servono al prompt (posizioni in coordinate 0..1 della foto). */
+export type PromptVolume = {
+  wallHeightMm: number;
+  frontHeightMm: number;
+  /** Distanza dal muro; 0 = addossato. */
+  distanceMm: number;
+  /** Linea di attacco a muro; null se il volume è staccato dal muro. */
+  wallLine: [Point, Point] | null;
+  /** Bordo anteriore della copertura, da sinistra a destra. */
+  frontEdge: [Point, Point];
+  posts: Post[];
+  /** La guida disegnata arriva al modello come immagine: il prompt ne spiega i colori. */
+  guideImage: boolean;
+};
+
+/** Dati del prompt dal volume proiettato (stesso calcolo nel modulo e sul server). */
+export function promptVolume(
+  box: VolumeBox,
+  pv: Pick<ProjectedVolume, "vertices" | "posts" | "wallLine">,
+  guideImage = true,
+): PromptVolume {
+  return {
+    wallHeightMm: box.wallHeightMm,
+    frontHeightMm: box.frontHeightMm,
+    distanceMm: box.distanceMm,
+    wallLine: pv.wallLine,
+    frontEdge: [pv.vertices[7], pv.vertices[6]],
+    posts: pv.posts,
+    guideImage,
+  };
+}
 
 export type PromptInput = {
   product: { name: string; mountType: MountType; coverType: CoverType; aiDescription: string };
@@ -20,6 +54,8 @@ export type PromptInput = {
    */
   maskHint: boolean;
   scale?: { lengthMm: number; pixelLength: number; photoWidth: number };
+  /** Volume 3D: se presente sostituisce l'indicazione generica di posizione e la scala. */
+  volume?: PromptVolume;
   referenceCount: number;
 };
 
@@ -44,8 +80,56 @@ export const PLACEMENT_HINT =
   "Placement: The pergola must be placed exactly inside the white area of the mask image provided. " +
   "The mask is only a placement guide: do not draw it in the result.";
 
+/**
+ * Legenda dell'immagine-guida del volume. È un paragrafo a sé: i fornitori che non
+ * inviano la guida a un modello lo tolgono dal prompt, come per PLACEMENT_HINT.
+ */
+export const GUIDE_LEGEND =
+  "Placement guide: one of the attached images is this same photo with a schematic drawing of the pergola volume. " +
+  "The red line is the beam fixed to the wall, the blue lines are the posts (exact number and position), " +
+  "the white dashed lines are the outer edges of the structure and roof. " +
+  "Build the pergola exactly inside this volume, with its edges on those lines. " +
+  "The guide lines are annotations: never draw them in the result.";
+
+const pct = (p: Point) => `(${Math.round(p.x * 100)}%, ${Math.round(p.y * 100)}%)`;
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+/** Sezione di posizione esatta ricavata dal volume. */
+function placementSection(v: PromptVolume): string {
+  const lines = [
+    "Placement (exact): positions are given as (x%, y%) of the photo, measured from its top-left corner.",
+  ];
+  if (v.wallLine) {
+    lines.push(
+      `- Wall attachment: the rear beam is fixed to the wall along the straight line from ${pct(v.wallLine[0])} to ${pct(v.wallLine[1])}, ` +
+        `${mm(v.wallHeightMm)} above the ground.`,
+    );
+  } else {
+    lines.push(
+      `- The pergola is freestanding, not attached to the wall: its rear side is ${mm(v.distanceMm)} away from the wall and parallel to it.`,
+    );
+  }
+  lines.push(
+    `- The front edge of the roof runs from ${pct(v.frontEdge[0])} to ${pct(v.frontEdge[1])}, ${mm(v.frontHeightMm)} above the ground.`,
+  );
+  const describe = (posts: Post[], noun: string) => {
+    if (!posts.length) return;
+    lines.push(`- ${count(posts.length, noun)}, vertical, standing on the ground:`);
+    posts.forEach((p, i) =>
+      lines.push(`  ${i + 1}. foot at ${pct(p.foot)}, top at ${pct(p.head)}, ${mm(p.xMm)} from the left end`),
+    );
+  };
+  const front = v.posts.filter((p) => !p.rear);
+  const rear = v.posts.filter((p) => p.rear);
+  if (!v.posts.length) lines.push("- The structure has no posts: do not add any.");
+  describe(front, "front post");
+  describe(rear, "rear post");
+  lines.push("These positions are exact: do not move, resize or re-proportion the pergola, and do not add or remove posts.");
+  return lines.join("\n");
+}
+
 export function buildPrompt(input: PromptInput): string {
-  const { product, dims, color, fabric, positionText, hasMask, maskHint, scale, referenceCount } = input;
+  const { product, dims, color, fabric, positionText, hasMask, maskHint, scale, volume, referenceCount } = input;
   const sections: string[] = [];
 
   // 1. Compito
@@ -68,10 +152,13 @@ export function buildPrompt(input: PromptInput): string {
       `Description: ${product.aiDescription}`,
   );
 
-  // 3. Misure
+  // 3. Misure (con il volume: altezza al muro e sul fronte al posto della sola altezza totale)
+  const heights = volume
+    ? `height at the wall ${mm(volume.wallHeightMm)}, height at the front ${mm(volume.frontHeightMm)}, ` +
+      `clear height under the beams ${mm(dims.clearHeightMm)}`
+    : `clear height under the beams ${mm(dims.clearHeightMm)}, total height ${mm(dims.totalHeightMm)}`;
   sections.push(
-    `Real dimensions: width ${mm(dims.widthMm)}, depth (projection) ${mm(dims.depthMm)}, ` +
-      `clear height under the beams ${mm(dims.clearHeightMm)}, total height ${mm(dims.totalHeightMm)}. ` +
+    `Real dimensions: width ${mm(dims.widthMm)}, depth (projection) ${mm(dims.depthMm)}, ${heights}. ` +
       `Proportions, width : depth : clear height = ${Math.round(dims.widthMm)} : ${Math.round(dims.depthMm)} : ${Math.round(dims.clearHeightMm)} ` +
       `(about ${ratio(dims.widthMm, dims.clearHeightMm)} : ${ratio(dims.depthMm, dims.clearHeightMm)} : 1). ` +
       "Keep these proportions consistent with the building and the people-scale elements in the photo (doors are about 2100 mm high).",
@@ -84,13 +171,16 @@ export function buildPrompt(input: PromptInput): string {
   if (finishes.length) sections.push(`Finishes: ${finishes.join("; ")}.`);
 
   // 5. Posizione: sagoma indicativa e/o testo dell'utente (così com'è)
-  if (maskHint && !hasMask) sections.push(PLACEMENT_HINT);
+  if (volume) {
+    if (volume.guideImage) sections.push(GUIDE_LEGEND);
+    sections.push(placementSection(volume));
+  } else if (maskHint && !hasMask) sections.push(PLACEMENT_HINT);
   if (positionText.trim()) {
     sections.push(`Position, as described by the sales staff (in Italian): "${positionText}".`);
   }
 
   // 6. Scala
-  if (scale && scale.pixelLength > 0 && scale.photoWidth > 0) {
+  if (!volume && scale && scale.pixelLength > 0 && scale.photoWidth > 0) {
     const refPct = (scale.pixelLength / scale.photoWidth) * 100;
     const pergolaPct = (dims.widthMm / scale.lengthMm) * refPct;
     sections.push(

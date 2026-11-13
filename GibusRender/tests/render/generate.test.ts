@@ -347,6 +347,14 @@ describe("createRender con il volume 3D", () => {
     expect(Math.max(...xs)).toBeGreaterThanOrEqual(0.6);
   });
 
+  it("il prompt riporta le posizioni esatte del volume e la legenda della guida", async () => {
+    const r = await newRender({ polygon: undefined, volume: volumeInput() });
+    expect(r.prompt).toContain("Placement (exact):");
+    expect(r.prompt).toContain("2 front posts");
+    expect(r.prompt).toContain("Placement guide:");
+    expect(r.prompt).toContain("height at the wall 2746 mm");
+  });
+
   it("se arrivano volume e sagoma a mano, vince il volume", async () => {
     const withBoth = await newRender({ volume: volumeInput() });
     const onlyVolume = await newRender({ polygon: undefined, volume: volumeInput() });
