@@ -67,10 +67,29 @@ export function VolumeShape({
   );
 }
 
-/** Volume sovrapposto a un'immagine (sola lettura): va dentro un contenitore con position: relative. */
-export function VolumeOverlay({ pv, width, height }: { pv: ProjectedVolume; width: number; height: number }) {
+/**
+ * Volume sovrapposto a un'immagine (sola lettura): va dentro un contenitore con position: relative.
+ * `fit="contain"` per le immagini mostrate con object-fit: contain (miniature), altrimenti
+ * il contenitore ha già le proporzioni della foto.
+ */
+export function VolumeOverlay({
+  pv,
+  width,
+  height,
+  fit = "fill",
+}: {
+  pv: ProjectedVolume;
+  width: number;
+  height: number;
+  fit?: "fill" | "contain";
+}) {
   return (
-    <svg className="overlay" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      className="overlay"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={fit === "contain" ? "xMidYMid meet" : "none"}
+      aria-hidden="true"
+    >
       <VolumeShape pv={pv} width={width} height={height} />
     </svg>
   );

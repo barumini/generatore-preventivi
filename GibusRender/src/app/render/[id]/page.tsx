@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { isStale } from "@/lib/render/generate";
+import { isStale, storedVolume } from "@/lib/render/generate";
+import { projectVolume, type ProjectedVolume, type Volume } from "@/lib/render/volume";
 import { disabledProviderMessage, listProviders } from "@/lib/providers/registry";
 import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/render/format";
@@ -40,6 +41,22 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
     stale: isStale(v, now),
     createdAt: v.createdAt.toISOString(),
   }));
+  // Volume 3D del render (se c'è), proiettato qui per sovrapporlo alle varianti.
+  let volume: Volume | undefined;
+  let projected: ProjectedVolume | null = null;
+  try {
+    volume = storedVolume(render.volume);
+    const pv = volume
+      ? projectVolume(volume, { widthMm: render.widthMm, depthMm: render.depthMm }, render.photoWidth, render.photoHeight)
+      : null;
+    if (pv?.ok) {
+      const { pose, focalRatio, focalAuto, vertices, posts, wallLine, outOfFrame } = pv;
+      projected = { pose, focalRatio, focalAuto, vertices, posts, wallLine, outOfFrame };
+    }
+  } catch (err) {
+    // Un volume salvato illeggibile non deve impedire di vedere il render.
+    console.error(`Volume del render ${render.id} non leggibile:`, err);
+  }
   // Stesso controllo della route delle varianti, mostrato prima di premere i pulsanti.
   const providerDisabled = disabledProviderMessage(render.providerId, (await getSettings()).enabledProviders);
   const providerLabel = listProviders().find((p) => p.id === render.providerId)?.label ?? render.providerId;
@@ -74,6 +91,7 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
           requested={render.variantsRequested}
           defaultMore={Math.min(6, Math.max(1, render.variantsRequested))}
           providerDisabled={providerDisabled}
+          volume={projected}
         />
 
         <section className="card">
@@ -90,8 +108,25 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
             <dd>{finishes.length ? finishes.join(", ") : "Nessuna"}</dd>
             <dt>Posizione</dt>
             <dd>{render.positionText || "—"}</dd>
+            {volume && (
+              <>
+                <dt>Volume 3D</dt>
+                <dd>
+                  altezza al muro {volume.box.wallHeightMm} mm · altezza sul fronte {volume.box.frontHeightMm} mm ·{" "}
+                  {volume.box.distanceMm > 0 ? `staccato dal muro di ${volume.box.distanceMm} mm` : "addossato al muro"} ·{" "}
+                  montanti: {volume.frontPosts.length} sul fronte
+                  {volume.box.distanceMm > 0 ? `, ${volume.rearPosts.length} sul retro` : ""}
+                </dd>
+              </>
+            )}
             <dt>Sagoma</dt>
-            <dd>{render.polygon ? "Disegnata (casa protetta)" : "Nessuna (casa non protetta)"}</dd>
+            <dd>
+              {volume
+                ? "Ricavata dal volume 3D (casa protetta)"
+                : render.polygon
+                  ? "Disegnata (casa protetta)"
+                  : "Nessuna (casa non protetta)"}
+            </dd>
             <dt>Fornitore</dt>
             <dd>{providerLabel}</dd>
             <dt>Modello</dt>

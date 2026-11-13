@@ -8,11 +8,14 @@ export function BeforeAfter({
   afterUrl,
   width,
   height,
+  overlay,
 }: {
   beforeUrl: string;
   afterUrl: string;
   width: number;
   height: number;
+  /** Disegno sovrapposto a entrambe le immagini (il volume 3D). */
+  overlay?: React.ReactNode;
 }) {
   const [pos, setPos] = useState(50);
   const stage = useRef<HTMLDivElement>(null);
@@ -55,6 +58,7 @@ export function BeforeAfter({
           draggable={false}
           style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
         />
+        {overlay}
         <div className="ba-divider" style={{ left: `${pos}%` }} aria-hidden="true" />
         <span className="ba-label ba-label-left">Prima</span>
         <span className="ba-label ba-label-right">Dopo</span>

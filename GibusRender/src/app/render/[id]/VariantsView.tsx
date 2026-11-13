@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { chooseVariant, deleteVariant } from "@/lib/render/actions";
 import { isSceneAltered } from "@/lib/render/scene-check";
+import { isMisplaced } from "@/lib/render/placement-threshold";
+import type { ProjectedVolume } from "@/lib/render/volume";
+import { VolumeOverlay } from "@/components/VolumeOverlay";
 import { shouldAutoStart, visibleVariants, type VariantInfo } from "@/lib/render/variant-list";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -15,6 +18,7 @@ const STALE_MESSAGE = "Tempo scaduto, riprova";
 const UNPROTECTED = "Casa non protetta: verificare che nulla sia cambiato";
 const ALTERED = "Scena alterata: probabile scarto";
 const TRUNCATED = "Pergola forse tagliata: allarga la sagoma e rigenera";
+const MISPLACED = "Fuori posto: confronta con il volume";
 
 const dismissedKey = (renderId: string) => `gibusrender:nascoste:${renderId}`;
 
@@ -71,7 +75,10 @@ export function VariantsView({
   requested,
   defaultMore,
   providerDisabled,
+  volume,
 }: {
+  /** Volume 3D del render proiettato sulla foto; null se il render non ne ha. */
+  volume: ProjectedVolume | null;
   renderId: string;
   photoUrl: string;
   photoWidth: number;
@@ -93,6 +100,7 @@ export function VariantsView({
   const [chosenId, setChosenId] = useState(initialChosenId);
   const [prevChosenProp, setPrevChosenProp] = useState(initialChosenId);
   const [compareId, setCompareId] = useState<string | null>(null);
+  const [showVolume, setShowVolume] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [askMore, setAskMore] = useState(false);
   const [moreN, setMoreN] = useState(String(defaultMore));
@@ -225,6 +233,13 @@ export function VariantsView({
         )}
       </div>
 
+      {volume && (
+        <label className="row small" style={{ gap: "0.4rem" }}>
+          <input type="checkbox" checked={showVolume} onChange={(e) => setShowVolume(e.target.checked)} />
+          Mostra volume: sovrappone alle varianti il volume disegnato, per controllare allineamento e misure
+        </label>
+      )}
+
       {providerDisabled && (
         <div className="banner-warn" role="status">
           {providerDisabled}.
@@ -239,7 +254,13 @@ export function VariantsView({
             <h2 style={{ margin: 0 }}>Confronto prima/dopo</h2>
             <button type="button" className="btn btn-small" onClick={() => setCompareId(null)}>Chiudi</button>
           </div>
-          <BeforeAfter beforeUrl={photoUrl} afterUrl={compare.v.imageUrl} width={photoWidth} height={photoHeight} />
+          <BeforeAfter
+            beforeUrl={photoUrl}
+            afterUrl={compare.v.imageUrl}
+            width={photoWidth}
+            height={photoHeight}
+            overlay={volume && showVolume ? <VolumeOverlay pv={volume} width={photoWidth} height={photoHeight} /> : null}
+          />
         </div>
       )}
 
@@ -296,6 +317,9 @@ export function VariantsView({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={v.imageUrl} alt={title} />
+                  {volume && showVolume && (
+                    <VolumeOverlay pv={volume} width={photoWidth} height={photoHeight} fit="contain" />
+                  )}
                 </button>
                 <div className="card-body">
                   <div className="row" style={{ justifyContent: "space-between" }}>
@@ -310,6 +334,16 @@ export function VariantsView({
                         title="Il modello ha disegnato la pergola oltre l'area che l'app può ricomporre: allarga la sagoma (soprattutto dal lato in cui la pergola si estende) con Duplica e modifica."
                       >
                         {TRUNCATED}
+                      </span>
+                    </p>
+                  )}
+                  {isMisplaced(v.placementOffset) && !isSceneAltered(v.driftScore) && (
+                    <p>
+                      <span
+                        className="badge badge-warn"
+                        title={`La zona cambiata dal modello si discosta dal volume disegnato di circa il ${Math.round((v.placementOffset ?? 0) * 100)}% del suo ingombro: attiva "Mostra volume" e controlla posizione e dimensione.`}
+                      >
+                        {MISPLACED}
                       </span>
                     </p>
                   )}
