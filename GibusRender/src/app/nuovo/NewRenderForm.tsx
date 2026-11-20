@@ -8,6 +8,8 @@ import { estimateCost } from "@/lib/render/cost";
 import { POSITION_REQUIRED, validatePolygon, type Point, type ScaleLine } from "@/lib/render/geometry";
 import { COVER_LABELS, MOUNT_LABELS, type CoverType, type FinishKind, type MountType } from "@/lib/catalog/types";
 import type { RenderDraft } from "@/lib/render/draft";
+import { checkCombos, finishCombos } from "@/lib/render/combos";
+import { FinishChecklist } from "./FinishChecklist";
 import { prepareUpload } from "./upload";
 import { PolygonEditor } from "./PolygonEditor";
 import { ScaleLineEditor, type ScaleDraft } from "./ScaleLineEditor";
@@ -267,6 +269,9 @@ export function NewRenderForm({
   const [disclaimer, setDisclaimer] = useState(initial.disclaimer);
   const [manualPrompt, setManualPrompt] = useState<string | null>(initial.manualPrompt);
   const [editingPrompt, setEditingPrompt] = useState(initial.manualPrompt !== null);
+  const [compareOn, setCompareOn] = useState(false);
+  const [colorIds, setColorIds] = useState<string[]>([]);
+  const [fabricIds, setFabricIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -335,8 +340,47 @@ export function NewRenderForm({
     supportsMask: provider?.supportsMask ?? true,
     volume: volume && pv && volumeOutlineOk ? promptVolume(volume.box, pv) : undefined,
   });
-  const prompt = manualPrompt ?? auto;
-  const cost = variantsN ? estimateCost(providerId, model.trim(), quality, variantsN) : null;
+  // Confronto: una combinazione per finitura; il testo mostrato è quello della prima.
+  const combos = finishCombos(colorIds, fabricIds);
+  const comboNames = combos.map((c) => {
+    const names = [c.colorId, c.fabricId]
+      .filter((id): id is string => id !== null)
+      .map((id) => finishes.find((f) => f.id === id)?.name ?? id);
+    return names.length > 0 ? names.join(" · ") : "Nessuno";
+  });
+  const autoFirst = compareOn
+    ? autoPrompt({
+        product,
+        dims,
+        color: finishes.find((f) => f.id === combos[0].colorId),
+        fabric: finishes.find((f) => f.id === combos[0].fabricId),
+        positionText,
+        polygon: posMode === "sagoma" ? polygon : [],
+        scale: scaleLine,
+        photo,
+        supportsMask: provider?.supportsMask ?? true,
+        volume: volume && pv && volumeOutlineOk ? promptVolume(volume.box, pv) : undefined,
+      })
+    : null;
+  const prompt = autoFirst ?? manualPrompt ?? auto;
+  const imageCount = variantsN ? variantsN * (compareOn ? combos.length : 1) : null;
+  const cost = imageCount ? estimateCost(providerId, model.trim(), quality, imageCount) : null;
+
+  function toggleCompare(on: boolean) {
+    if (on) {
+      if (
+        manualPrompt !== null &&
+        !window.confirm("Il testo modificato a mano verrà scartato: ogni finitura riceve il proprio testo automatico. Continuare?")
+      ) {
+        return;
+      }
+      setManualPrompt(null);
+      setEditingPrompt(false);
+      setColorIds(colorId ? [colorId] : []);
+      setFabricIds(fabricId ? [fabricId] : []);
+    }
+    setCompareOn(on);
+  }
 
   // --- Azioni ---
 
@@ -375,6 +419,10 @@ export function NewRenderForm({
     const fs = compatible(p, finishes, "TESSUTO");
     setColorId(finishOrEmpty(p.defaultColorId, cs));
     setFabricId(finishOrEmpty(p.defaultFabricId, fs));
+    const dc = finishOrEmpty(p.defaultColorId, cs);
+    const df = finishOrEmpty(p.defaultFabricId, fs);
+    setColorIds(dc ? [dc] : []);
+    setFabricIds(df ? [df] : []);
     setProductId(p.id);
   }
 
@@ -409,6 +457,10 @@ export function NewRenderForm({
     if (!providerId) return "Nessun fornitore abilitato nelle impostazioni";
     if (!model.trim()) return "Indica il modello";
     if (variantsN === null || variantsN < 1 || variantsN > 6) return "Le varianti devono essere tra 1 e 6";
+    if (compareOn) {
+      const comboProblem = checkCombos(combos);
+      if (comboProblem) return comboProblem;
+    }
     if (!prompt.trim()) return "Il testo per l'IA è vuoto: premi Ripristina";
     return null;
   }
@@ -430,13 +482,16 @@ export function NewRenderForm({
     else fd.set("sourceRenderId", photo!.sourceRenderId);
     fd.set("productId", productId);
     for (const { key } of DIM_FIELDS) fd.set(key, dims[key].trim());
-    if (colorId) fd.set("colorId", colorId);
-    if (fabricId) fd.set("fabricId", fabricId);
+    if (!compareOn) {
+      if (colorId) fd.set("colorId", colorId);
+      if (fabricId) fd.set("fabricId", fabricId);
+    }
     if (hasPolygon) fd.set("polygon", JSON.stringify(polygon));
     if (volume) fd.set("volume", JSON.stringify(volume));
     fd.set("positionText", positionText.trim());
     if (scaleLine) fd.set("scaleLine", JSON.stringify(scaleLine));
-    fd.set("prompt", prompt);
+    if (compareOn) fd.set("finishes", JSON.stringify(combos));
+    else fd.set("prompt", prompt);
     fd.set("providerId", providerId);
     fd.set("model", model.trim());
     fd.set("quality", quality);
@@ -444,15 +499,15 @@ export function NewRenderForm({
     fd.set("disclaimer", disclaimer ? "true" : "false");
 
     try {
-      const res = await fetch("/api/renders", { method: "POST", body: fd });
+      const res = await fetch(compareOn ? "/api/confronti" : "/api/renders", { method: "POST", body: fd });
       const body = (await res.json().catch(() => null)) as { id?: string; error?: string } | null;
       if (!res.ok || !body?.id) {
-        setError(body?.error ?? `Creazione del render non riuscita (errore ${res.status})`);
+        setError(body?.error ?? `Creazione ${compareOn ? "del confronto" : "del render"} non riuscita (errore ${res.status})`);
         setSubmitting(false);
         return;
       }
       // submitting resta true: si sta lasciando la pagina.
-      router.push(`/render/${body.id}?avvia=1`);
+      router.push(compareOn ? `/confronto/${body.id}?avvia=1` : `/render/${body.id}?avvia=1`);
     } catch {
       setError("Connessione non riuscita: controlla la rete e riprova");
       setSubmitting(false);
@@ -585,28 +640,48 @@ export function NewRenderForm({
         {!product ? (
           <p className="muted">Scegli un prodotto per vedere le finiture disponibili.</p>
         ) : (
-          <div className="grid-2">
-            <div className="field">
-              <label htmlFor="colorId">Colore struttura</label>
-              <select id="colorId" value={colorId} onChange={(e) => setColorId(e.target.value)}>
-                <option value="">Nessuno (non indicato all&apos;IA)</option>
-                {colors.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
-                ))}
-              </select>
-            </div>
-            {fabrics.length > 0 && (
-              <div className="field">
-                <label htmlFor="fabricId">Tessuto</label>
-                <select id="fabricId" value={fabricId} onChange={(e) => setFabricId(e.target.value)}>
-                  <option value="">Nessuno (non indicato all&apos;IA)</option>
-                  {fabrics.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
-                  ))}
-                </select>
-              </div>
+          <>
+            <label className="check" style={{ marginBottom: "0.75rem" }}>
+              <input type="checkbox" checked={compareOn} onChange={(e) => toggleCompare(e.target.checked)} />
+              Confronta più finiture
+            </label>
+            {compareOn ? (
+              <>
+                <div className="grid-2">
+                  <FinishChecklist label="Colori struttura" finishes={colors} selected={colorIds} onChange={setColorIds} />
+                  {fabrics.length > 0 && (
+                    <FinishChecklist label="Tessuti" finishes={fabrics} selected={fabricIds} onChange={setFabricIds} />
+                  )}
+                </div>
+                <p className="small" style={{ marginTop: "0.75rem" }}>
+                  {combos.length} {combos.length === 1 ? "finitura" : "finiture"}: {comboNames.join(", ")}
+                </p>
+              </>
+            ) : (
+                <div className="grid-2">
+                  <div className="field">
+                    <label htmlFor="colorId">Colore struttura</label>
+                    <select id="colorId" value={colorId} onChange={(e) => setColorId(e.target.value)}>
+                      <option value="">Nessuno (non indicato all&apos;IA)</option>
+                      {colors.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                  {fabrics.length > 0 && (
+                    <div className="field">
+                      <label htmlFor="fabricId">Tessuto</label>
+                      <select id="fabricId" value={fabricId} onChange={(e) => setFabricId(e.target.value)}>
+                        <option value="">Nessuno (non indicato all&apos;IA)</option>
+                        {fabrics.map((f) => (
+                          <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
             )}
-          </div>
+          </>
         )}
       </section>
 
@@ -865,12 +940,12 @@ export function NewRenderForm({
         ) : (
           <>
             <div className="row" style={{ marginBottom: "0.75rem" }}>
-              {!editingPrompt && (
+              {!compareOn && !editingPrompt && (
                 <button type="button" className="btn btn-small" onClick={() => setEditingPrompt(true)}>
                   Modifica testo per l&apos;IA
                 </button>
               )}
-              {manualPrompt !== null && (
+              {!compareOn && manualPrompt !== null && (
                 <>
                   <span className="badge badge-warn">Modificato a mano: non si aggiorna più da solo</span>
                   <button
@@ -886,7 +961,10 @@ export function NewRenderForm({
                 </>
               )}
             </div>
-            {editingPrompt ? (
+            {compareOn && (
+              <p className="muted small">Ogni finitura riceve il proprio testo, uguale salvo colore e tessuto.</p>
+            )}
+            {!compareOn && editingPrompt ? (
               <textarea
                 aria-label="Testo per l'IA"
                 className="prompt-text"
@@ -907,7 +985,9 @@ export function NewRenderForm({
           <h2 style={{ marginBottom: "0.25rem" }}><span className="step">{10 - stepShift}</span>Genera</h2>
           <p className="muted small" style={{ margin: 0 }}>
             {cost
-              ? `Costo stimato: circa ${eur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
+              ? compareOn
+                ? `${combos.length} finiture × ${variantsN} varianti = ${imageCount} immagini, circa ${eur(cost.eur)}`
+                : `Costo stimato: circa ${eur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
               : "Stima del costo non disponibile per questo modello"}
           </p>
         </div>
