@@ -6,11 +6,10 @@ import { chooseVariant, deleteVariant } from "@/lib/render/actions";
 import type { ProjectedVolume } from "@/lib/render/volume";
 import { VolumeOverlay } from "@/components/VolumeOverlay";
 import {
-  localVariantFailure,
+  postVariant,
   recommendationReason,
   recommendedVariant,
   shouldAutoStart,
-  variantFromJson,
   visibleVariants,
   RECOMMENDED,
   STALE_MESSAGE,
@@ -103,16 +102,7 @@ export function VariantsView({
       const key = `tmp-${++seq.current}`;
       setInflight((list) => [...list, key]);
       void (async () => {
-        let v: VariantInfo;
-        try {
-          const res = await fetch(`/api/renders/${renderId}/variants`, { method: "POST" });
-          const json: unknown = await res.json().catch(() => null);
-          const parsed = res.ok ? variantFromJson(json) : null;
-          const msg = (json as { error?: unknown } | null)?.error;
-          v = parsed ?? localVariantFailure(key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
-        } catch {
-          v = localVariantFailure(key, "Errore di rete, riprova");
-        }
+        const v = await postVariant(renderId, key);
         setResults((list) => [...list.filter((r) => r.id !== v.id), v]);
         setInflight((list) => list.filter((k) => k !== key));
       })();

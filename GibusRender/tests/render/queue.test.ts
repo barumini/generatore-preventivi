@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PARALLEL, planLaunch, runLimited, type ColumnState } from "@/lib/render/queue";
+import { MAX_PARALLEL, planLaunch, QueueStopped, runLimited, type ColumnState } from "@/lib/render/queue";
 
 const cols: ColumnState[] = [
   { renderId: "a", requested: 3, existing: 3 },
@@ -63,6 +63,28 @@ describe("runLimited", () => {
     });
     await expect(runLimited(tasks, 2)).rejects.toThrow("rete 1");
     expect(finished.sort()).toEqual([0, 2, 3, 5]);
+  });
+
+  it("quando shouldContinue diventa false non parte più nessun compito; quelli partiti finiscono", async () => {
+    let open = true;
+    const started: number[] = [];
+    const finished: number[] = [];
+    const tasks = Array.from({ length: 10 }, (_, i) => async () => {
+      started.push(i);
+      await new Promise((r) => setTimeout(r, 5));
+      finished.push(i);
+      return i;
+    });
+    const run = runLimited(tasks, 4, { shouldContinue: () => open });
+    open = false; // la pagina è stata lasciata subito dopo l'avvio
+    await expect(run).rejects.toBeInstanceOf(QueueStopped);
+    expect(started).toEqual([0, 1, 2, 3]);
+    expect(finished.sort()).toEqual([0, 1, 2, 3]);
+  });
+
+  it("con shouldContinue sempre true si comporta come senza", async () => {
+    const tasks = Array.from({ length: 5 }, (_, i) => async () => i);
+    expect(await runLimited(tasks, 2, { shouldContinue: () => true })).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("senza compiti risolve con un elenco vuoto", async () => {

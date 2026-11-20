@@ -148,3 +148,19 @@ export function variantFromJson(json: unknown): VariantInfo | null {
 export function localVariantFailure(key: string, error: string): VariantInfo {
   return { id: key, status: "FAILED", imageUrl: null, protected: false, error, stale: false, createdAt: "", local: true };
 }
+
+/**
+ * Chiede una nuova variante del render (POST /api/renders/<id>/variants). Non rifiuta mai:
+ * per ogni errore (server, risposta non valida, rete) restituisce una scheda locale con `key`.
+ */
+export async function postVariant(renderId: string, key: string): Promise<VariantInfo> {
+  try {
+    const res = await fetch(`/api/renders/${renderId}/variants`, { method: "POST" });
+    const json: unknown = await res.json().catch(() => null);
+    const parsed = res.ok ? variantFromJson(json) : null;
+    const msg = (json as { error?: unknown } | null)?.error;
+    return parsed ?? localVariantFailure(key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
+  } catch {
+    return localVariantFailure(key, "Errore di rete, riprova");
+  }
+}

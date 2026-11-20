@@ -6,13 +6,12 @@ import { useRouter } from "next/navigation";
 import { chooseVariant } from "@/lib/render/actions";
 import { estimateCost } from "@/lib/render/cost";
 import { formatEur } from "@/lib/render/format";
-import { MAX_PARALLEL, planLaunch, runLimited } from "@/lib/render/queue";
+import { MAX_PARALLEL, planLaunch, QueueStopped, runLimited } from "@/lib/render/queue";
 import {
-  localVariantFailure,
+  postVariant,
   recommendationReason,
   recommendedVariant,
   shouldAutoStart,
-  variantFromJson,
   visibleVariants,
   RECOMMENDED,
   STALE_MESSAGE,
@@ -99,6 +98,8 @@ export function ComparisonView({
   const started = useRef(false);
   /** Richieste non ancora concluse, aggiornato subito (lo stato arriva al render successivo). */
   const pending = useRef(0);
+  /** false dopo lo smontaggio (pagina lasciata, anche con un link interno): la coda non avvia altre richieste. */
+  const mounted = useRef(false);
 
   // La scelta può cambiare sul server (altra scheda, refresh): si riallinea quando cambia la prop.
   if (initialChosenId !== prevChosenProp) {
@@ -108,16 +109,7 @@ export function ComparisonView({
 
   async function requestVariant(job: Job): Promise<void> {
     setRunning((s) => new Set(s).add(job.key));
-    let v: VariantInfo;
-    try {
-      const res = await fetch(`/api/renders/${job.renderId}/variants`, { method: "POST" });
-      const json: unknown = await res.json().catch(() => null);
-      const parsed = res.ok ? variantFromJson(json) : null;
-      const msg = (json as { error?: unknown } | null)?.error;
-      v = parsed ?? localVariantFailure(job.key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
-    } catch {
-      v = localVariantFailure(job.key, "Errore di rete, riprova");
-    }
+    const v = await postVariant(job.renderId, job.key);
     pending.current--;
     setResults((list) => [...list.filter((r) => r.v.id !== v.id), { renderId: job.renderId, v }]);
     setQueue((list) => list.filter((j) => j.key !== job.key));
@@ -134,10 +126,14 @@ export function ComparisonView({
     const jobs = plan.map((renderId) => ({ renderId, key: `tmp-${++seq.current}` }));
     pending.current += jobs.length;
     setQueue((list) => [...list, ...jobs]);
-    void runLimited(
+    runLimited(
       jobs.map((job) => () => requestVariant(job)),
       MAX_PARALLEL,
-    );
+      { shouldContinue: () => mounted.current },
+    ).catch((err: unknown) => {
+      // Pagina lasciata: le richieste partite le completa il server, le altre non partono.
+      if (!(err instanceof QueueStopped)) console.error(err);
+    });
   }
 
   const queueOf = (renderId: string) => queue.filter((j) => j.renderId === renderId).map((j) => j.key);
@@ -156,6 +152,14 @@ export function ComparisonView({
     ]).size;
   const columnStates = () =>
     columns.map((c) => ({ renderId: c.renderId, requested: c.requested, existing: existingOf(c) }));
+
+  // Prima dell'avvio: la coda controlla questo flag prima di far partire ogni richiesta.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   // Al montaggio, con ?avvia=1: lancia una sola volta le varianti richieste di tutti i render
   // e toglie il parametro dall'indirizzo, così ricaricando non si rilanciano.
@@ -182,7 +186,8 @@ export function ComparisonView({
 
   const cards = columns.map(cardsOf);
 
-  // Varianti PENDING arrivate dal server (pagina ricaricata durante la generazione): aggiorna ogni tanto.
+  // Varianti PENDING arrivate dal server (pagina ricaricata o lasciata durante la generazione):
+  // le completa il server; intanto si aggiorna ogni tanto.
   const waitingOnServer =
     !busy && cards.some((list) => list.some((c) => c.kind === "variant" && c.v.status === "PENDING" && !c.v.stale));
   useEffect(() => {
@@ -191,7 +196,12 @@ export function ComparisonView({
     return () => clearInterval(t);
   }, [waitingOnServer, router]);
 
-  const missingPlan = busy ? [] : planLaunch(columnStates(), { providerDisabled: !!providerDisabled, mode: "missing" });
+  // Le mancanti si propongono solo quando nessuna richiesta è in corso, né qui né sul server:
+  // altrimenti si supererebbero le 4 richieste insieme e si rischierebbero doppioni.
+  const missingPlan =
+    busy || waitingOnServer
+      ? []
+      : planLaunch(columnStates(), { providerDisabled: !!providerDisabled, mode: "missing" });
   const missingCost = (() => {
     let eur = 0;
     for (const c of columns) {
@@ -223,9 +233,13 @@ export function ComparisonView({
         </div>
       )}
 
-      {(busy || missingPlan.length > 0) && (
+      {(busy || waitingOnServer || missingPlan.length > 0) && (
         <div className="generate-bar">
-          {busy ? (
+          {waitingOnServer ? (
+            <p className="muted small" style={{ margin: 0 }}>
+              Varianti in generazione sul server: la pagina si aggiorna da sola.
+            </p>
+          ) : busy ? (
             <p className="muted small" style={{ margin: 0 }}>
               {runningCount} in generazione · {queue.length - runningCount} in coda. Lasciando la pagina, le
               varianti in coda non partono.

@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   archiveThumbnail,
   clampPage,
   localVariantFailure,
+  postVariant,
   recommendationReason,
   recommendedVariant,
   shouldAutoStart,
@@ -216,5 +217,50 @@ describe("variantFromJson", () => {
 
   it("localVariantFailure crea un errore locale", () => {
     expect(localVariantFailure("k", "x")).toMatchObject({ id: "k", status: "FAILED", error: "x", local: true });
+  });
+});
+
+describe("postVariant", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const respond = (status: number, body: unknown) =>
+    vi.fn(async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
+
+  it("chiama la route delle varianti del render e restituisce la variante", async () => {
+    const fetchMock = respond(200, { id: "v1", createdAt: T(1), status: "DONE", imageUrl: "/x.jpg", protected: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const v = await postVariant("r1", "tmp-1");
+    expect(fetchMock).toHaveBeenCalledWith("/api/renders/r1/variants", { method: "POST" });
+    expect(v).toMatchObject({ id: "v1", status: "DONE", imageUrl: "/x.jpg" });
+    expect(v.local).toBeUndefined();
+  });
+
+  it("errore del server con messaggio: scheda locale con il messaggio", async () => {
+    vi.stubGlobal("fetch", respond(409, { error: "Fornitore disabilitato" }));
+    expect(await postVariant("r1", "tmp-2")).toMatchObject({
+      id: "tmp-2",
+      status: "FAILED",
+      error: "Fornitore disabilitato",
+      local: true,
+    });
+  });
+
+  it("errore del server senza messaggio o risposta non valida: Errore del server (N)", async () => {
+    vi.stubGlobal("fetch", respond(500, "non json"));
+    expect(await postVariant("r1", "tmp-3")).toMatchObject({ id: "tmp-3", error: "Errore del server (500)", local: true });
+    vi.stubGlobal("fetch", respond(200, { id: "v1" }));
+    expect(await postVariant("r1", "tmp-4")).toMatchObject({ id: "tmp-4", error: "Errore del server (200)", local: true });
+  });
+
+  it("errore di rete: non rifiuta, restituisce Errore di rete, riprova", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    expect(await postVariant("r1", "tmp-5")).toMatchObject({ id: "tmp-5", error: "Errore di rete, riprova", local: true });
   });
 });
