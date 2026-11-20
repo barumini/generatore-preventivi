@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { isStale } from "@/lib/render/generate";
+import { isStale, storedVolume } from "@/lib/render/generate";
 import { disabledProviderMessage } from "@/lib/providers/registry";
 import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/render/format";
@@ -33,13 +33,22 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
   if (!comparison || comparison.renders.length === 0) notFound();
 
   const now = new Date();
+  const hasVolume = (r: { id: string; volume: unknown }): boolean => {
+    try {
+      return storedVolume(r.volume) !== undefined;
+    } catch (err) {
+      // Un volume salvato illeggibile non deve impedire di vedere il confronto.
+      console.error(`Volume del render ${r.id} non leggibile:`, err);
+      return false;
+    }
+  };
   // isStale è solo lato server: al client arrivano dati semplici con il flag già calcolato.
   const columns: ComparisonColumn[] = comparison.renders.map((r) => ({
     renderId: r.id,
     color: finishInfo(r.color),
     fabric: finishInfo(r.fabric),
     requested: r.variantsRequested,
-    hasVolume: r.volume != null,
+    hasVolume: hasVolume(r),
     providerId: r.providerId,
     model: r.model,
     quality: r.quality,

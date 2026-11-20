@@ -988,7 +988,7 @@ export function NewRenderForm({
               ? "Costo non calcolato: correggi la scelta delle finiture"
               : cost
               ? compareOn
-                ? `${combos.length} finiture × ${variantsN} varianti = ${imageCount} immagini, circa ${formatEur(cost.eur)}`
+                ? `${combos.length} ${combos.length === 1 ? "finitura" : "finiture"} × ${variantsN} ${variantsN === 1 ? "variante" : "varianti"} = ${imageCount} ${imageCount === 1 ? "immagine" : "immagini"}, circa ${formatEur(cost.eur)}`
                 : `Costo stimato: circa ${formatEur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
               : "Stima del costo non disponibile per questo modello"}
           </p>

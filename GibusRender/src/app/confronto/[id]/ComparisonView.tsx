@@ -180,8 +180,25 @@ export function ComparisonView({
       e.preventDefault();
       e.returnValue = "";
     };
+    // I link interni (next/link) non scatenano beforeunload: la conferma si chiede al clic.
+    const confirmLeave = (e: MouseEvent) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
+      if (!(a instanceof HTMLAnchorElement) || a.target === "_blank" || a.hasAttribute("download")) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return; // gli esterni li copre beforeunload
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (!window.confirm("Le varianti in coda non partiranno. Lasciare la pagina?")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", confirmLeave, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", confirmLeave, true);
+    };
   }, [busy]);
 
   const cards = columns.map(cardsOf);

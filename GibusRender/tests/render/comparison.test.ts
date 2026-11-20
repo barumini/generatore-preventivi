@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 
 // --- Finto Prisma in memoria e finto storage ------------------------------------
@@ -94,6 +94,17 @@ vi.mock("@/lib/db", () => {
           }
           return out;
         },
+        findMany: async ({ where }: { where: { comparisonId?: string } }) =>
+          [...store.renders.values()].filter((r) => r.comparisonId === where.comparisonId).map(clone),
+        updateMany: async ({ where, data }: { where: { comparisonId?: string }; data: Record<string, unknown> }) => {
+          let count = 0;
+          for (const r of store.renders.values()) {
+            if (r.comparisonId !== where.comparisonId) continue;
+            Object.assign(r, clone(data));
+            count++;
+          }
+          return { count };
+        },
         delete: async ({ where }: { where: { id: string } }) => {
           const row = store.renders.get(where.id);
           if (!row) throw new Error("not found");
@@ -187,6 +198,10 @@ beforeEach(() => {
 // --- createComparison -------------------------------------------------------------
 
 describe("createComparison", () => {
+  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  beforeEach(() => errorSpy.mockClear());
+  afterEach(() => errorSpy.mockClear());
+
   it("crea un confronto e un render per combinazione, ognuno con la propria foto", async () => {
     const { id, renderIds } = await createComparison(baseInput(), COMBOS);
     expect(renderIds).toHaveLength(3);
@@ -233,6 +248,18 @@ describe("createComparison", () => {
     expect(store.comparisons.size).toBe(0);
     expect(files.deleted).toHaveLength(1);
     expect(files.data.size).toBe(0);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("tutto o niente: un errore al terzo render annulla i due già creati, anche sciogliendo il confronto", async () => {
+    const bad = [COMBOS[0], COMBOS[1], { colorId: "nessuno", fabricId: null }];
+    await expect(createComparison(baseInput(), bad)).rejects.toThrow(new RenderInputError("Colore non trovato"));
+    expect(store.renders.size).toBe(0);
+    expect(store.variants.size).toBe(0);
+    expect(store.comparisons.size).toBe(0);
+    expect(files.deleted).toHaveLength(2);
+    expect(files.data.size).toBe(0);
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it("senza combinazioni valide lancia RenderInputError e non scrive nulla", async () => {
