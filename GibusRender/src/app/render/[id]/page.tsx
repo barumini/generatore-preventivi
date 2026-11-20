@@ -92,6 +92,7 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
           defaultMore={Math.min(6, Math.max(1, render.variantsRequested))}
           providerDisabled={providerDisabled}
           volume={projected}
+          hasVolume={volume !== undefined}
         />
 
         <section className="card">

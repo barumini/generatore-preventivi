@@ -7,7 +7,16 @@ import { isSceneAltered } from "@/lib/render/scene-check";
 import { isMisplaced } from "@/lib/render/placement-threshold";
 import type { ProjectedVolume } from "@/lib/render/volume";
 import { VolumeOverlay } from "@/components/VolumeOverlay";
-import { shouldAutoStart, visibleVariants, type VariantInfo } from "@/lib/render/variant-list";
+import {
+  localVariantFailure,
+  recommendationReason,
+  recommendedVariant,
+  shouldAutoStart,
+  variantFromJson,
+  visibleVariants,
+  RECOMMENDED,
+  type VariantInfo,
+} from "@/lib/render/variant-list";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { BeforeAfter } from "./BeforeAfter";
@@ -41,30 +50,6 @@ function saveDismissed(renderId: string, ids: Set<string>): void {
   }
 }
 
-function fromJson(json: unknown): VariantInfo | null {
-  if (!json || typeof json !== "object") return null;
-  const o = json as Record<string, unknown>;
-  if (typeof o.id !== "string" || typeof o.createdAt !== "string") return null;
-  if (!["PENDING", "DONE", "FAILED"].includes(o.status as string)) return null;
-  return {
-    id: o.id,
-    status: o.status as VariantInfo["status"],
-    imageUrl: typeof o.imageUrl === "string" ? o.imageUrl : null,
-    protected: o.protected === true,
-    error: typeof o.error === "string" ? o.error : null,
-    driftScore: typeof o.driftScore === "number" ? o.driftScore : null,
-    truncated: o.truncated === true,
-    placementOffset: typeof o.placementOffset === "number" ? o.placementOffset : null,
-    stale: false,
-    createdAt: o.createdAt,
-  };
-}
-
-/** Errore nato nel browser: nessuna riga nel database, ordinato dopo le varianti reali. */
-function localFailure(key: string, error: string): VariantInfo {
-  return { id: key, status: "FAILED", imageUrl: null, protected: false, error, stale: false, createdAt: "", local: true };
-}
-
 export function VariantsView({
   renderId,
   photoUrl,
@@ -76,9 +61,12 @@ export function VariantsView({
   defaultMore,
   providerDisabled,
   volume,
+  hasVolume,
 }: {
   /** Volume 3D del render proiettato sulla foto; null se il render non ne ha. */
   volume: ProjectedVolume | null;
+  /** Il render ha un volume 3D: la variante consigliata è quella più vicina al volume. */
+  hasVolume: boolean;
   renderId: string;
   photoUrl: string;
   photoWidth: number;
@@ -124,11 +112,11 @@ export function VariantsView({
         try {
           const res = await fetch(`/api/renders/${renderId}/variants`, { method: "POST" });
           const json: unknown = await res.json().catch(() => null);
-          const parsed = res.ok ? fromJson(json) : null;
+          const parsed = res.ok ? variantFromJson(json) : null;
           const msg = (json as { error?: unknown } | null)?.error;
-          v = parsed ?? localFailure(key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
+          v = parsed ?? localVariantFailure(key, typeof msg === "string" ? msg : `Errore del server (${res.status})`);
         } catch {
-          v = localFailure(key, "Errore di rete, riprova");
+          v = localVariantFailure(key, "Errore di rete, riprova");
         }
         setResults((list) => [...list.filter((r) => r.id !== v.id), v]);
         setInflight((list) => list.filter((k) => k !== key));
@@ -150,6 +138,10 @@ export function VariantsView({
 
   const busy = inflight.length > 0;
   const visible = visibleVariants(initialVariants, results, inflight, dismissed);
+  const recommendedId = recommendedVariant(
+    visible.flatMap((c) => (c.kind === "variant" ? [c.v] : [])),
+    { hasVolume },
+  );
 
   // Varianti PENDING arrivate dal server (pagina ricaricata durante la generazione): aggiorna ogni tanto.
   const waitingOnServer = !busy && visible.some((c) => c.kind === "variant" && c.v.status === "PENDING" && !c.v.stale);
@@ -324,7 +316,14 @@ export function VariantsView({
                 <div className="card-body">
                   <div className="row" style={{ justifyContent: "space-between" }}>
                     <h2>{title}</h2>
-                    {chosen && <span className="badge badge-ok">Scelta</span>}
+                    <span className="row">
+                      {v.id === recommendedId && (
+                        <span className="badge badge-ok" title={recommendationReason(hasVolume)}>
+                          {RECOMMENDED}
+                        </span>
+                      )}
+                      {chosen && <span className="badge badge-ok">Scelta</span>}
+                    </span>
                   </div>
                   {!v.protected && <p><span className="badge badge-warn">{UNPROTECTED}</span></p>}
                   {v.truncated === true && !isSceneAltered(v.driftScore) && (

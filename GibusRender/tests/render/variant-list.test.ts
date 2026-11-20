@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   archiveThumbnail,
   clampPage,
+  localVariantFailure,
+  recommendationReason,
+  recommendedVariant,
   shouldAutoStart,
+  variantFromJson,
   visibleVariants,
   type VariantInfo,
 } from "@/lib/render/variant-list";
@@ -125,5 +129,92 @@ describe("clampPage", () => {
     expect(clampPage(undefined, 3)).toBe(1);
     expect(clampPage(["2", "3"], 3)).toBe(1);
     expect(clampPage("5", 0)).toBe(1);
+  });
+});
+
+describe("recommendedVariant", () => {
+  const withVol = { hasVolume: true };
+  const noVol = { hasVolume: false };
+  const off = (n: number, over: Partial<VariantInfo> = {}) => ({ placementOffset: n, driftScore: 5, ...over });
+
+  it("con volume: la più vicina al volume, escluse le fuori posto", () => {
+    const list = [
+      v("a", "DONE", T(1), off(0.12)),
+      v("b", "DONE", T(2), off(0.08)),
+      v("c", "DONE", T(3), off(0.3)),
+    ];
+    expect(recommendedVariant(list, withVol)).toBe("b");
+  });
+
+  it("senza volume: la scena più fedele (drift minore)", () => {
+    const list = [v("a", "DONE", T(1), { driftScore: 6.1 }), v("b", "DONE", T(2), { driftScore: 4.4 })];
+    expect(recommendedVariant(list, noVol)).toBe("b");
+  });
+
+  it("parità: la più vecchia per createdAt, poi id", () => {
+    expect(
+      recommendedVariant([v("b", "DONE", T(2), off(0.1)), v("a", "DONE", T(1), off(0.1))], withVol),
+    ).toBe("a");
+    expect(
+      recommendedVariant([v("b", "DONE", T(1), off(0.1)), v("a", "DONE", T(1), off(0.1))], withVol),
+    ).toBe("a");
+  });
+
+  const loser = v("z", "DONE", T(9), off(0.2));
+  const winnerOver = (over: Partial<VariantInfo>, volume = true) =>
+    recommendedVariant([v("w", "DONE", T(1), { ...off(0.01), ...over }), loser, v("y", "DONE", T(8), off(0.22, { driftScore: 7 }))], {
+      hasVolume: volume,
+    });
+
+  it.each([
+    ["non protetta", { protected: false }],
+    ["troncata", { truncated: true }],
+    ["scena alterata", { driftScore: 13 }],
+    ["fuori posto", { placementOffset: 0.26 }],
+    ["stale", { stale: true }],
+    ["fallita", { status: "FAILED" as const }],
+  ])("esclude la variante %s", (_n, over) => {
+    expect(winnerOver(over)).toBe("z");
+  });
+
+  it("con volume, offset null esclude; senza volume, drift null esclude", () => {
+    expect(winnerOver({ placementOffset: null })).toBe("z");
+    expect(winnerOver({ driftScore: null }, false)).toBe("z");
+  });
+
+  it("una sola variante DONE, anche perfetta → null", () => {
+    expect(recommendedVariant([v("a", "DONE", T(1), off(0))], withVol)).toBeNull();
+    expect(recommendedVariant([v("a", "DONE", T(1), off(0)), v("b", "FAILED", T(2))], withVol)).toBeNull();
+  });
+
+  it("tutte con avvisi → null", () => {
+    const list = [v("a", "DONE", T(1), off(0.3)), v("b", "DONE", T(2), off(0.4))];
+    expect(recommendedVariant(list, withVol)).toBeNull();
+  });
+
+  it("render vecchio senza punteggi → null", () => {
+    const list = [v("a", "DONE", T(1)), v("b", "DONE", T(2)), v("c", "DONE", T(3))];
+    expect(recommendedVariant(list, noVol)).toBeNull();
+  });
+
+  it("motivo della raccomandazione", () => {
+    expect(recommendationReason(true)).toBe("Nessun avviso e la più vicina al volume");
+    expect(recommendationReason(false)).toBe("Nessun avviso e la scena più fedele alla foto");
+  });
+});
+
+describe("variantFromJson", () => {
+  it("null su oggetto vuoto e su status sconosciuto", () => {
+    expect(variantFromJson({})).toBeNull();
+    expect(variantFromJson({ id: "a", createdAt: T(1), status: "BOH" })).toBeNull();
+  });
+
+  it("legge placementOffset", () => {
+    const r = variantFromJson({ id: "a", createdAt: T(1), status: "DONE", placementOffset: 0.1 });
+    expect(r?.placementOffset).toBe(0.1);
+  });
+
+  it("localVariantFailure crea un errore locale", () => {
+    expect(localVariantFailure("k", "x")).toMatchObject({ id: "k", status: "FAILED", error: "x", local: true });
   });
 });

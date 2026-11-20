@@ -1,6 +1,9 @@
 // Logica pura della pagina render e dell'archivio: nessun import da server o React,
 // usabile sia nei componenti client sia nei test.
 
+import { isMisplaced } from "./placement-threshold";
+import { isSceneAltered } from "./scene-check";
+
 /** Dati semplici di una variante (stale calcolato sul server con isStale). */
 export type VariantInfo = {
   id: string;
@@ -89,4 +92,56 @@ export function clampPage(raw: string | string[] | undefined, pages: number): nu
   const n = typeof raw === "string" ? Number(raw) : NaN;
   if (!Number.isFinite(n)) return 1;
   return Math.min(Math.max(1, pages), Math.max(1, Math.floor(n)));
+}
+
+export const RECOMMENDED = "Consigliata";
+
+export const recommendationReason = (hasVolume: boolean): string =>
+  hasVolume ? "Nessun avviso e la più vicina al volume" : "Nessun avviso e la scena più fedele alla foto";
+
+/**
+ * Id della variante da consigliare: tra le DONE senza alcun avviso e con il punteggio
+ * disponibile, quella più vicina al volume (con volume) o con meno differenza dalla foto
+ * (senza). Parità: la più vecchia. Serve almeno un'altra variante DONE con cui confrontarla;
+ * se nessuna è pulita, null.
+ */
+export function recommendedVariant(variants: readonly VariantInfo[], opts: { hasVolume: boolean }): string | null {
+  const done = variants.filter((v) => v.status === "DONE");
+  if (done.length < 2) return null;
+  const score = (v: VariantInfo): number | null => (opts.hasVolume ? v.placementOffset : v.driftScore) ?? null;
+  const eligible = done.filter(
+    (v) =>
+      !v.stale &&
+      v.protected &&
+      v.truncated !== true &&
+      !isSceneAltered(v.driftScore) &&
+      !isMisplaced(v.placementOffset) &&
+      score(v) !== null,
+  );
+  eligible.sort((a, b) => (score(a) as number) - (score(b) as number) || byCreatedThenId(a, b));
+  return eligible[0]?.id ?? null;
+}
+
+export function variantFromJson(json: unknown): VariantInfo | null {
+  if (!json || typeof json !== "object") return null;
+  const o = json as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.createdAt !== "string") return null;
+  if (!["PENDING", "DONE", "FAILED"].includes(o.status as string)) return null;
+  return {
+    id: o.id,
+    status: o.status as VariantInfo["status"],
+    imageUrl: typeof o.imageUrl === "string" ? o.imageUrl : null,
+    protected: o.protected === true,
+    error: typeof o.error === "string" ? o.error : null,
+    driftScore: typeof o.driftScore === "number" ? o.driftScore : null,
+    truncated: o.truncated === true,
+    placementOffset: typeof o.placementOffset === "number" ? o.placementOffset : null,
+    stale: false,
+    createdAt: o.createdAt,
+  };
+}
+
+/** Errore nato nel browser: nessuna riga nel database, ordinato dopo le varianti reali. */
+export function localVariantFailure(key: string, error: string): VariantInfo {
+  return { id: key, status: "FAILED", imageUrl: null, protected: false, error, stale: false, createdAt: "", local: true };
 }
