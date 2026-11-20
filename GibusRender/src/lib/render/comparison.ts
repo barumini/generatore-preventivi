@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { deleteRender } from "@/lib/render/actions";
 import { checkCombos, type FinishCombo } from "@/lib/render/combos";
-import { createRender, RenderInputError, type CreateRenderInput } from "@/lib/render/generate";
+import { createRender, parse, RenderInputError, type CreateRenderInput } from "@/lib/render/generate";
 
 /**
  * Crea un confronto di finiture: un `Comparison` e un render normale per combinazione,
@@ -19,7 +19,10 @@ export async function createComparison(
   const problem = checkCombos(combos);
   if (problem) throw new RenderInputError(problem);
 
-  const comparison = await db.comparison.create({ data: { clientRef: input.clientRef.trim() } });
+  // Valida l'input una volta sola, prima di scrivere il confronto.
+  const { clientRef } = parse(input);
+
+  const comparison = await db.comparison.create({ data: { clientRef } });
   const renderIds: string[] = [];
   try {
     for (const combo of combos) {

@@ -1,57 +1,23 @@
 import { parseCombos } from "@/lib/render/combos";
 import { createComparison } from "@/lib/render/comparison";
-import {
-  MAX_BODY_BYTES,
-  PHOTO_TOO_LARGE,
-  PhotoTooLargeError,
-  RenderInputError,
-  SourceRenderNotFoundError,
-  renderInputFromForm,
-} from "@/lib/render/generate";
-import { getSettings } from "@/lib/settings";
+import { errorResponse, readRenderRequest, renderErrorResponse } from "@/lib/render/request";
 
 export const runtime = "nodejs";
 
-const error = (message: string, status: number) => Response.json({ error: message }, { status });
-
-const FINISHES_INVALID = "Finiture del confronto non valide";
-
 export async function POST(request: Request) {
-  // Oltre questo limite il proxy tronca il corpo: rispondere 413 prima di leggerlo.
-  const length = Number(request.headers.get("content-length"));
-  if (Number.isFinite(length) && length > MAX_BODY_BYTES) return error(PHOTO_TOO_LARGE, 413);
-  let form: FormData;
   try {
-    form = await request.formData();
-  } catch {
-    return error("Richiesta non valida: atteso un modulo multipart", 400);
-  }
-  try {
-    const settings = await getSettings();
-    const input = renderInputFromForm(form, {
-      providerId: settings.activeProviderId,
-      model: settings.activeModel,
-      quality: settings.quality,
-      variants: settings.defaultVariants,
-      maxPhotoSide: settings.maxPhotoSide,
-    });
-    if (!settings.enabledProviders.includes(input.providerId)) {
-      return error("Fornitore non abilitato nelle impostazioni", 400);
-    }
-    const raw = form.get("finishes");
+    const read = await readRenderRequest(request);
+    if ("response" in read) return read.response;
+    const raw = read.form.get("finishes");
     let combos;
     try {
       combos = parseCombos(typeof raw === "string" ? JSON.parse(raw) : undefined);
     } catch {
-      return error(FINISHES_INVALID, 400);
+      return errorResponse("Finiture del confronto non valide", 400);
     }
-    const { id } = await createComparison(input, combos);
+    const { id } = await createComparison(read.input, combos);
     return Response.json({ id });
   } catch (err) {
-    if (err instanceof PhotoTooLargeError) return error(err.message, 413);
-    if (err instanceof SourceRenderNotFoundError) return error(err.message, 404);
-    if (err instanceof RenderInputError) return error(err.message, 400);
-    console.error("Creazione confronto fallita:", err);
-    return error("Errore interno durante la creazione del confronto", 500);
+    return renderErrorResponse(err, "Creazione confronto fallita:", "Errore interno durante la creazione del confronto");
   }
 }

@@ -303,9 +303,19 @@ describe("POST /api/confronti", () => {
     try {
       const res = await postComparison(post(form()));
       expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Fornitore non abilitato nelle impostazioni" });
       expect(store.renders.size).toBe(0);
+      expect(store.comparisons.size).toBe(0);
     } finally {
       store.enabledProviders = ["openai", "openrouter"];
     }
+  });
+
+  it("senza riferimento del cliente → 400 e nessun confronto scritto", async () => {
+    const res = await postComparison(post(form({ clientRef: undefined })));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Indica il riferimento del cliente" });
+    expect(store.comparisons.size).toBe(0);
+    expect(store.renders.size).toBe(0);
   });
 });

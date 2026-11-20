@@ -193,7 +193,8 @@ export const CreateRenderInput = z
 
 export type CreateRenderInput = z.input<typeof CreateRenderInput>;
 
-function parse(input: unknown) {
+/** Valida l'input di un render; lancia RenderInputError col primo messaggio. */
+export function parse(input: unknown) {
   const r = CreateRenderInput.safeParse(input);
   if (!r.success) throw new RenderInputError(r.error.issues[0]?.message ?? "Dati non validi");
   return r.data;
