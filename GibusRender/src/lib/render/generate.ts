@@ -142,6 +142,8 @@ export const CreateRenderInput = z
     photo: z.union([z.instanceof(Buffer), z.instanceof(File)], { error: PHOTO_REQUIRED }).optional(),
     /** In alternativa a `photo`: riusa la foto normalizzata di questo render. */
     sourceRenderId: optionalId,
+    /** Confronto di finiture a cui appartiene il render (impostato solo da `createComparison`). */
+    comparisonId: optionalId,
     productId: z.string({ error: "Scegli un prodotto" }).trim().min(1, { error: "Scegli un prodotto" }),
     widthMm: mm("Larghezza"),
     depthMm: mm("Profondità"),
@@ -316,6 +318,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
     data: {
       id,
       clientRef: data.clientRef,
+      comparisonId: data.comparisonId ?? null,
       photoUrl,
       photoWidth: width,
       photoHeight: height,
