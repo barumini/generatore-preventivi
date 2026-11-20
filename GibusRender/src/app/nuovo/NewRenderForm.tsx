@@ -363,8 +363,9 @@ export function NewRenderForm({
       })
     : null;
   const prompt = autoFirst ?? manualPrompt ?? auto;
+  const comboProblem = compareOn ? checkCombos(combos) : null;
   const imageCount = variantsN ? variantsN * (compareOn ? combos.length : 1) : null;
-  const cost = imageCount ? estimateCost(providerId, model.trim(), quality, imageCount) : null;
+  const cost = imageCount && !comboProblem ? estimateCost(providerId, model.trim(), quality, imageCount) : null;
 
   function toggleCompare(on: boolean) {
     if (on) {
@@ -458,7 +459,6 @@ export function NewRenderForm({
     if (!model.trim()) return "Indica il modello";
     if (variantsN === null || variantsN < 1 || variantsN > 6) return "Le varianti devono essere tra 1 e 6";
     if (compareOn) {
-      const comboProblem = checkCombos(combos);
       if (comboProblem) return comboProblem;
     }
     if (!prompt.trim()) return "Il testo per l'IA è vuoto: premi Ripristina";
@@ -656,6 +656,7 @@ export function NewRenderForm({
                 <p className="small" style={{ marginTop: "0.75rem" }}>
                   {combos.length} {combos.length === 1 ? "finitura" : "finiture"}: {comboNames.join(", ")}
                 </p>
+                {comboProblem && <p className="small" role="alert"><span className="badge badge-warn">{comboProblem}</span></p>}
               </>
             ) : (
                 <div className="grid-2">
@@ -984,7 +985,9 @@ export function NewRenderForm({
         <div>
           <h2 style={{ marginBottom: "0.25rem" }}><span className="step">{10 - stepShift}</span>Genera</h2>
           <p className="muted small" style={{ margin: 0 }}>
-            {cost
+            {comboProblem
+              ? "Costo non calcolato: correggi la scelta delle finiture"
+              : cost
               ? compareOn
                 ? `${combos.length} finiture × ${variantsN} varianti = ${imageCount} immagini, circa ${eur(cost.eur)}`
                 : `Costo stimato: circa ${eur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
