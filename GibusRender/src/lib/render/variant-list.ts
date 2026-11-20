@@ -82,6 +82,15 @@ export function archiveThumbnail(render: {
   return (chosen ?? done[0])?.imageUrl ?? render.photoUrl;
 }
 
+type ThumbRender = Parameters<typeof archiveThumbnail>[0] & { id: string; createdAt: Date };
+
+/** Miniatura di un confronto: variante scelta in uno qualsiasi dei render, altrimenti quella del render più vecchio. */
+export function comparisonThumbnail(renders: readonly ThumbRender[]): string {
+  const chosen = renders.find((r) => r.variants.some((v) => v.id === r.chosenVariantId));
+  const oldest = [...renders].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1))[0];
+  return archiveThumbnail(chosen ?? oldest);
+}
+
 export type ArchiveRow = { id: string; comparisonId: string | null; createdAt: Date };
 export type ArchiveEntry =
   | { kind: "render"; renderId: string }

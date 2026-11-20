@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { DeleteRenderButton } from "@/components/DeleteRenderButton";
 import { DeleteComparisonButton } from "@/components/DeleteComparisonButton";
 import { formatDate } from "@/lib/render/format";
-import { archiveEntries, archiveThumbnail, clampPage } from "@/lib/render/variant-list";
+import { archiveEntries, archiveThumbnail, clampPage, comparisonThumbnail } from "@/lib/render/variant-list";
 
 export const dynamic = "force-dynamic";
 
@@ -84,10 +84,12 @@ export default async function ArchivioPage({
           {pageEntries.map((entry) => {
             if (entry.kind === "comparison") {
               const members = entry.renderIds.flatMap((id) => byId.get(id) ?? []);
-              const first = members[0];
+              const first = [...members].sort(
+                (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1),
+              )[0];
               if (!first) return null;
               const chosenRender = members.find((r) => r.variants.some((v) => v.id === r.chosenVariantId));
-              const thumb = archiveThumbnail(chosenRender ?? first);
+              const thumb = comparisonThumbnail(members);
               return (
                 <div key={`c-${entry.comparisonId}`} className="archive-item">
                   <Link href={`/confronto/${entry.comparisonId}`} className="card card-link">

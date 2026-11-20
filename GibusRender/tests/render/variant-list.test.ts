@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   archiveEntries,
   archiveThumbnail,
+  comparisonThumbnail,
   clampPage,
   localVariantFailure,
   postVariant,
@@ -284,5 +285,28 @@ describe("archiveEntries", () => {
       { kind: "render", renderId: "b" },
       { kind: "render", renderId: "a" },
     ]);
+  });
+});
+
+describe("comparisonThumbnail", () => {
+  const rv = (id: string, at: number, chosen: string | null, variants: { id: string; at: number }[]) => ({
+    id,
+    createdAt: new Date(at),
+    photoUrl: `/photo-${id}.jpg`,
+    chosenVariantId: chosen,
+    variants: variants.map((x) => ({ id: x.id, status: "DONE", imageUrl: `/img-${x.id}.jpg`, createdAt: new Date(x.at) })),
+  });
+
+  it("la variante scelta in uno qualsiasi dei render vince", () => {
+    const old = rv("a", 1, null, [{ id: "va", at: 1 }]);
+    const mid = rv("b", 2, "vb", [{ id: "vb", at: 2 }]);
+    const recent = rv("c", 3, null, [{ id: "vc", at: 3 }]);
+    expect(comparisonThumbnail([recent, mid, old])).toBe("/img-vb.jpg");
+  });
+
+  it("senza scelta: miniatura del render più vecchio", () => {
+    const old = rv("a", 1, null, [{ id: "va", at: 1 }]);
+    const recent = rv("c", 3, null, [{ id: "vc", at: 3 }]);
+    expect(comparisonThumbnail([recent, old])).toBe("/img-va.jpg");
   });
 });
