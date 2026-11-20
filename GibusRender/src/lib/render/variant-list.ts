@@ -82,6 +82,35 @@ export function archiveThumbnail(render: {
   return (chosen ?? done[0])?.imageUrl ?? render.photoUrl;
 }
 
+export type ArchiveRow = { id: string; comparisonId: string | null; createdAt: Date };
+export type ArchiveEntry =
+  | { kind: "render"; renderId: string }
+  | { kind: "comparison"; comparisonId: string; renderIds: string[] };
+
+/**
+ * Voci dell'archivio: righe già in ordine createdAt decrescente; un confronto compare una
+ * volta, nella posizione della sua riga più recente, con tutti i suoi render.
+ */
+export function archiveEntries(rows: readonly ArchiveRow[]): ArchiveEntry[] {
+  const entries: ArchiveEntry[] = [];
+  const byComparison = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!r.comparisonId) {
+      entries.push({ kind: "render", renderId: r.id });
+      continue;
+    }
+    const existing = byComparison.get(r.comparisonId);
+    if (existing) {
+      existing.push(r.id);
+    } else {
+      const renderIds = [r.id];
+      byComparison.set(r.comparisonId, renderIds);
+      entries.push({ kind: "comparison", comparisonId: r.comparisonId, renderIds });
+    }
+  }
+  return entries;
+}
+
 /** true se l'indirizzo chiede l'avvio (?avvia=1) e non è già stato fatto. */
 export function shouldAutoStart(searchParams: { get(name: string): string | null }, alreadyStarted: boolean): boolean {
   return !alreadyStarted && searchParams.get("avvia") === "1";

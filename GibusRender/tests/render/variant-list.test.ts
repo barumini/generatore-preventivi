@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  archiveEntries,
   archiveThumbnail,
   clampPage,
   localVariantFailure,
@@ -262,5 +263,26 @@ describe("postVariant", () => {
       }),
     );
     expect(await postVariant("r1", "tmp-5")).toMatchObject({ id: "tmp-5", error: "Errore di rete, riprova", local: true });
+  });
+});
+
+describe("archiveEntries", () => {
+  const row = (id: string, comparisonId: string | null) => ({ id, comparisonId, createdAt: new Date(0) });
+
+  it("un confronto compare una volta, nella posizione della riga più recente", () => {
+    const rows = [row("r5", "c1"), row("r4", null), row("r3", "c1"), row("r2", "c2"), row("r1", null)];
+    expect(archiveEntries(rows)).toEqual([
+      { kind: "comparison", comparisonId: "c1", renderIds: ["r5", "r3"] },
+      { kind: "render", renderId: "r4" },
+      { kind: "comparison", comparisonId: "c2", renderIds: ["r2"] },
+      { kind: "render", renderId: "r1" },
+    ]);
+  });
+
+  it("senza confronti: una voce per render, stesso ordine", () => {
+    expect(archiveEntries([row("b", null), row("a", null)])).toEqual([
+      { kind: "render", renderId: "b" },
+      { kind: "render", renderId: "a" },
+    ]);
   });
 });

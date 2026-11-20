@@ -2,8 +2,9 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { DeleteRenderButton } from "@/components/DeleteRenderButton";
+import { DeleteComparisonButton } from "@/components/DeleteComparisonButton";
 import { formatDate } from "@/lib/render/format";
-import { archiveThumbnail, clampPage } from "@/lib/render/variant-list";
+import { archiveEntries, archiveThumbnail, clampPage } from "@/lib/render/variant-list";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +22,19 @@ export default async function ArchivioPage({
   const sp = await searchParams;
   const q = one(sp.q).trim().slice(0, 100);
   const where: Prisma.RenderWhereInput = q ? { clientRef: { contains: q, mode: "insensitive" } } : {};
-  const total = await db.render.count({ where });
+  const rows = await db.render.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { id: true, comparisonId: true, createdAt: true },
+  });
+  const entries = archiveEntries(rows);
+  const total = entries.length;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageN = clampPage(sp.pagina, pages);
-  const renders = await db.render.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    skip: (pageN - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
+  const pageEntries = entries.slice((pageN - 1) * PAGE_SIZE, pageN * PAGE_SIZE);
+  const pageIds = pageEntries.flatMap((e) => (e.kind === "render" ? [e.renderId] : e.renderIds));
+  const details = await db.render.findMany({
+    where: { id: { in: pageIds } },
     include: {
       variants: {
         where: { status: "DONE", imageUrl: { not: null } },
@@ -37,6 +43,7 @@ export default async function ArchivioPage({
       },
     },
   });
+  const byId = new Map(details.map((r) => [r.id, r]));
 
   const pageHref = (n: number) => {
     const p = new URLSearchParams();
@@ -68,13 +75,41 @@ export default async function ArchivioPage({
         {q && <Link href="/" className="btn">Azzera</Link>}
       </form>
 
-      {renders.length === 0 ? (
+      {pageEntries.length === 0 ? (
         <p className="muted">
           {q ? `Nessun render trovato per “${q}”.` : "Nessun render ancora. Crea il primo con “Nuovo render”."}
         </p>
       ) : (
         <div className="grid">
-          {renders.map((r) => {
+          {pageEntries.map((entry) => {
+            if (entry.kind === "comparison") {
+              const members = entry.renderIds.flatMap((id) => byId.get(id) ?? []);
+              const first = members[0];
+              if (!first) return null;
+              const chosenRender = members.find((r) => r.variants.some((v) => v.id === r.chosenVariantId));
+              const thumb = archiveThumbnail(chosenRender ?? first);
+              return (
+                <div key={`c-${entry.comparisonId}`} className="archive-item">
+                  <Link href={`/confronto/${entry.comparisonId}`} className="card card-link">
+                    <div className="thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumb} alt={`Confronto per ${first.clientRef}`} loading="lazy" />
+                    </div>
+                    <div className="card-body">
+                      <h2>{first.clientRef}</h2>
+                      <p className="muted small">Confronto · {members.length} finiture · {first.productName}</p>
+                      <p className="small">
+                        {formatDate(first.createdAt)}
+                        {chosenRender && <span className="badge badge-ok" style={{ marginLeft: "0.5rem" }}>Scelta</span>}
+                      </p>
+                    </div>
+                  </Link>
+                  <DeleteComparisonButton small comparisonId={entry.comparisonId} clientRef={first.clientRef} count={members.length} />
+                </div>
+              );
+            }
+            const r = byId.get(entry.renderId);
+            if (!r) return null;
             const chosen = r.variants.some((v) => v.id === r.chosenVariantId);
             const thumb = archiveThumbnail(r);
             return (
