@@ -17,7 +17,19 @@ export async function chooseVariant(renderId: string, variantId: string): Promis
   if (variant.renderId !== render.id) return fail("La variante non appartiene a questo render");
   if (variant.status !== "DONE") return fail("Si può scegliere solo una variante completata");
 
-  await db.render.update({ where: { id: render.id }, data: { chosenVariantId: variant.id } });
+  if (render.comparisonId) {
+    // In un confronto la scelta è una sola: si azzera quella degli altri render.
+    await db.$transaction([
+      db.render.updateMany({
+        where: { comparisonId: render.comparisonId, id: { not: render.id } },
+        data: { chosenVariantId: null },
+      }),
+      db.render.update({ where: { id: render.id }, data: { chosenVariantId: variant.id } }),
+    ]);
+    revalidatePath(`/confronto/${render.comparisonId}`);
+  } else {
+    await db.render.update({ where: { id: render.id }, data: { chosenVariantId: variant.id } });
+  }
   revalidatePath(`/render/${render.id}`);
   revalidatePath("/");
   return { ok: true };
@@ -58,7 +70,38 @@ export async function deleteRender(renderId: string): Promise<ActionResult> {
   if (!render) return fail("Render non trovato");
   await db.render.delete({ where: { id: render.id } }); // le varianti seguono (onDelete: Cascade)
   await removeFiles([render.photoUrl, ...render.variants.map((v) => v.imageUrl)]);
+  if (render.comparisonId) {
+    // Un confronto con meno di 2 render non ha senso: si scioglie.
+    const left = await db.render.findMany({ where: { comparisonId: render.comparisonId } });
+    if (left.length <= 1) {
+      if (left.length === 1) {
+        await db.render.updateMany({ where: { comparisonId: render.comparisonId }, data: { comparisonId: null } });
+      }
+      await db.comparison.deleteMany({ where: { id: render.comparisonId } });
+    }
+    revalidatePath(`/confronto/${render.comparisonId}`);
+  }
   revalidatePath(`/render/${render.id}`);
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/** Elimina un intero confronto: tutti i suoi render (foto e varianti) e il confronto stesso. */
+export async function deleteComparison(comparisonId: string): Promise<ActionResult> {
+  if (typeof comparisonId !== "string" || !comparisonId) return fail("Dati non validi");
+  const comparison = await db.comparison.findUnique({
+    where: { id: comparisonId },
+    include: { renders: { include: { variants: true } } },
+  });
+  if (!comparison) return fail("Confronto non trovato");
+  const urls = comparison.renders.flatMap((r) => [r.photoUrl, ...r.variants.map((v) => v.imageUrl)]);
+  // I render vanno via per primi (le varianti seguono in cascata), poi il confronto.
+  await db.$transaction([
+    db.render.deleteMany({ where: { comparisonId: comparison.id } }),
+    db.comparison.deleteMany({ where: { id: comparison.id } }),
+  ]);
+  await removeFiles(urls);
+  revalidatePath(`/confronto/${comparison.id}`);
   revalidatePath("/");
   return { ok: true };
 }
