@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { chooseVariant, deleteVariant } from "@/lib/render/actions";
-import { isSceneAltered } from "@/lib/render/scene-check";
-import { isMisplaced } from "@/lib/render/placement-threshold";
 import type { ProjectedVolume } from "@/lib/render/volume";
 import { VolumeOverlay } from "@/components/VolumeOverlay";
 import {
@@ -15,19 +13,16 @@ import {
   variantFromJson,
   visibleVariants,
   RECOMMENDED,
+  STALE_MESSAGE,
   type VariantInfo,
 } from "@/lib/render/variant-list";
 import { DeleteButton } from "@/components/DeleteButton";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { VariantWarnings } from "@/components/VariantWarnings";
 import { BeforeAfter } from "./BeforeAfter";
 
 const MAX_MORE = 6;
 const POLL_MS = 10_000;
-const STALE_MESSAGE = "Tempo scaduto, riprova";
-const UNPROTECTED = "Casa non protetta: verificare che nulla sia cambiato";
-const ALTERED = "Scena alterata: probabile scarto";
-const TRUNCATED = "Pergola forse tagliata: allarga la sagoma e rigenera";
-const MISPLACED = "Fuori posto: confronta con il volume";
 
 const dismissedKey = (renderId: string) => `gibusrender:nascoste:${renderId}`;
 
@@ -325,37 +320,7 @@ export function VariantsView({
                       {chosen && <span className="badge badge-ok">Scelta</span>}
                     </span>
                   </div>
-                  {!v.protected && <p><span className="badge badge-warn">{UNPROTECTED}</span></p>}
-                  {v.truncated === true && !isSceneAltered(v.driftScore) && (
-                    <p>
-                      <span
-                        className="badge badge-warn"
-                        title="Il modello ha disegnato la pergola oltre l'area che l'app può ricomporre: allarga la sagoma (soprattutto dal lato in cui la pergola si estende) con Duplica e modifica."
-                      >
-                        {TRUNCATED}
-                      </span>
-                    </p>
-                  )}
-                  {isMisplaced(v.placementOffset) && !isSceneAltered(v.driftScore) && (
-                    <p>
-                      <span
-                        className="badge badge-warn"
-                        title={`La zona cambiata dal modello si discosta dal volume disegnato di circa il ${Math.round((v.placementOffset ?? 0) * 100)}% del suo ingombro: attiva "Mostra volume" e controlla posizione e dimensione.`}
-                      >
-                        {MISPLACED}
-                      </span>
-                    </p>
-                  )}
-                  {isSceneAltered(v.driftScore) && (
-                    <p>
-                      <span
-                        className="badge badge-warn"
-                        title={`Il modello ha rifatto la scena fuori dalla sagoma (differenza ${Math.round(v.driftScore ?? 0)} su 255): controlla bene la casa prima di scegliere questa variante.`}
-                      >
-                        {ALTERED}
-                      </span>
-                    </p>
-                  )}
+                  <VariantWarnings v={v} />
                   <div className="row">
                     <button type="button" className="btn btn-small" onClick={() => setCompareId(v.id)}>Confronta</button>
                     <button

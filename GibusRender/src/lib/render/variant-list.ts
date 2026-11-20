@@ -96,6 +96,9 @@ export function clampPage(raw: string | string[] | undefined, pages: number): nu
 
 export const RECOMMENDED = "Consigliata";
 
+/** Testo di una variante rimasta PENDING troppo a lungo (isStale). */
+export const STALE_MESSAGE = "Tempo scaduto, riprova";
+
 export const recommendationReason = (hasVolume: boolean): string =>
   hasVolume ? "Nessun avviso e la più vicina al volume" : "Nessun avviso e la scena più fedele alla foto";
 

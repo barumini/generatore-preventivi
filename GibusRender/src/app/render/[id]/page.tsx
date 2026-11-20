@@ -23,6 +23,7 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
       color: true,
       fabric: true,
       variants: { orderBy: { createdAt: "asc" } },
+      comparison: { select: { id: true, _count: { select: { renders: true } } } },
     },
   });
   if (!render) notFound();
@@ -73,6 +74,13 @@ export default async function RenderPage({ params }: { params: Promise<{ id: str
           <p className="muted">
             {render.productName} · {formatDate(render.createdAt)}
           </p>
+          {render.comparison && (
+            <p className="small">
+              <Link href={`/confronto/${render.comparison.id}`}>
+                Fa parte di un confronto di {render.comparison._count.renders} finiture
+              </Link>
+            </p>
+          )}
         </div>
         <div className="row">
           <Link href={`/nuovo?da=${render.id}`} className="btn">Duplica e modifica</Link>

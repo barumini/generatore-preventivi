@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { buildPrompt, promptVolume, type PromptVolume } from "@/lib/render/prompt";
 import { estimateCost } from "@/lib/render/cost";
+import { formatEur } from "@/lib/render/format";
 import { POSITION_REQUIRED, validatePolygon, type Point, type ScaleLine } from "@/lib/render/geometry";
 import { COVER_LABELS, MOUNT_LABELS, type CoverType, type FinishKind, type MountType } from "@/lib/catalog/types";
 import type { RenderDraft } from "@/lib/render/draft";
@@ -169,8 +170,6 @@ function completeScale(line: ScaleDraft, mm: string): ScaleLine | null {
   if (!line.a || !line.b || !lengthMm) return null;
   return { a: line.a, b: line.b, lengthMm };
 }
-
-const eur = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
 export function NewRenderForm({
   products,
@@ -989,8 +988,8 @@ export function NewRenderForm({
               ? "Costo non calcolato: correggi la scelta delle finiture"
               : cost
               ? compareOn
-                ? `${combos.length} finiture × ${variantsN} varianti = ${imageCount} immagini, circa ${eur(cost.eur)}`
-                : `Costo stimato: circa ${eur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
+                ? `${combos.length} finiture × ${variantsN} varianti = ${imageCount} immagini, circa ${formatEur(cost.eur)}`
+                : `Costo stimato: circa ${formatEur(cost.eur)} per ${variantsN} ${variantsN === 1 ? "variante" : "varianti"}`
               : "Stima del costo non disponibile per questo modello"}
           </p>
         </div>
