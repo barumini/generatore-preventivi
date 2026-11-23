@@ -77,6 +77,9 @@ describe("falProvider", () => {
     expect(falProvider.supportsMask).toBe(false);
     expect(falProvider.suggestedModels[0]).toBe("blackforestlabs/flux-3/klein/edit-image");
     expect(falProvider.suggestedModels).toContain("fal-ai/nano-banana-pro/edit");
+    expect(falProvider.suggestedModels[1]).toBe("blackforestlabs/flux-3/edit-image");
+    expect(falProvider.suggestedModels).not.toContain("fal-ai/qwen-image-edit-2511");
+    expect(falProvider.suggestedModels).not.toContain("openai/gpt-image-2/edit");
   });
 
   it("invia alla coda, controlla lo stato, legge il risultato e scarica l'immagine", async () => {
@@ -252,6 +255,34 @@ describe("falProvider", () => {
     expect(sent.enable_prompt_expansion).toBe(false);
     expect(sent.image_urls).toHaveLength(10);
     expect(sent.image_urls[0]).toBe(dataUrl(photo));
+  });
+
+  // Modelli di fascia intermedia in prova (2026-11-23), schemi da fal.ai/api/openapi.
+  it("FLUX 3 Edit: risoluzione 1k, rapporto dalla foto, prompt non riscritto, fino a 10 immagini", async () => {
+    const photo = await png(1248, 832);
+    const refs = await Promise.all(Array.from({ length: 12 }, (_, i) => png(32, 32, [i * 10, 0, 0])));
+    await falProvider.generate({ photo, references: refs, prompt: "x", model: "blackforestlabs/flux-3/edit-image", quality: "low" });
+    const sent = JSON.parse(calls.find((c) => c.init.method === "POST")!.init.body as string);
+    expect(sent.resolution).toBe("1k");
+    expect(sent.aspect_ratio).toBeUndefined();
+    expect(sent.enable_prompt_expansion).toBe(false);
+    expect(sent.image_urls).toHaveLength(10);
+  });
+
+  it("Qwen Image Edit 2511: nessun parametro di formato (l'uscita segue la foto)", async () => {
+    const { body } = await call({ model: "fal-ai/qwen-image-edit-2511" });
+    expect(body.aspect_ratio).toBeUndefined();
+    expect(body.resolution).toBeUndefined();
+    expect(body.image_size).toBeUndefined();
+    expect(body.quality).toBeUndefined();
+  });
+
+  it("GPT Image 2: image_size 'auto' (dalla foto) e qualità scelta", async () => {
+    const { body, submit } = await call({ model: "openai/gpt-image-2/edit", quality: "low" });
+    expect(submit.url).toBe("https://queue.fal.run/openai/gpt-image-2/edit");
+    expect(body.image_size).toBe("auto");
+    expect(body.quality).toBe("low");
+    expect(body.aspect_ratio).toBeUndefined();
   });
 
   it("continua a controllare lo stato finché la richiesta non è completata", async () => {

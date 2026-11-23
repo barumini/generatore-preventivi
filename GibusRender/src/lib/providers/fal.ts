@@ -12,8 +12,12 @@ const LABEL = "fal.ai";
 // hanno inserito la pergola lasciando intatta la casa. Gestiti ma NON suggeriti:
 // FLUX Kontext (con i disegni fa collage, a immagine singola non inserisce la pergola),
 // Nano Banana Lite e GPT Image 1.5 low (hanno rifatto la scena), fal-ai/nano-banana/edit.
+// Prova del 2026-11-23: FLUX 3 Edit più costante di Klein quando Klein sbaglia posizione;
+// gestiti ma NON suggeriti: Qwen Image Edit 2511 (incolla la sagoma del volume),
+// GPT Image 2 low (altera porte, finestre e alberi).
 const MODELS = [
   "blackforestlabs/flux-3/klein/edit-image", // ~0,009 $, il più economico
+  "blackforestlabs/flux-3/edit-image", // ~0,048 $, più fedele di Klein
   "fal-ai/nano-banana-2/edit", // ~0,08 $
   "fal-ai/nano-banana-pro/edit", // ~0,15 $, il più fedele
 ];
@@ -27,7 +31,8 @@ export const falPollConfig = { intervalMs: 1_500, timeoutMs: PROVIDER_TIMEOUT_MS
 /** Numero massimo di immagini in ingresso per richiesta, dove il modello lo limita. */
 function maxInputImages(model: string): number {
   if (/flux-pro\/kontext/.test(model)) return 4;
-  if (/flux-3\/klein/.test(model)) return 10;
+  if (/flux-3\//.test(model)) return 10; // Klein e FLUX 3 Edit
+  if (/gpt-image-2/.test(model)) return 16;
   return Number.POSITIVE_INFINITY;
 }
 
@@ -88,6 +93,8 @@ function falError(status: number, body: unknown): ProviderError {
 /** Campi specifici del modello oltre a prompt e immagini. */
 function modelParams(input: GenerateInput, width: number | undefined, height: number | undefined) {
   const model = input.model;
+  // GPT Image 2: accetta solo preset o "auto", che ricava la dimensione dalle immagini in ingresso.
+  if (/gpt-image-2/.test(model)) return { image_size: "auto", quality: input.quality };
   if (/gpt-image/.test(model)) {
     const ar = width && height ? width / height : 1.5;
     const size = GPT_SIZES.reduce((a, b) => (Math.abs(Math.log(b.ratio / ar)) < Math.abs(Math.log(a.ratio / ar)) ? b : a)).size;
@@ -96,6 +103,10 @@ function modelParams(input: GenerateInput, width: number | undefined, height: nu
   // FLUX.3 Klein: la dimensione d'uscita segue la prima immagine (la foto); niente rapporti.
   // La riscrittura del prompt è disattivata: il testo dell'app è già dettagliato.
   if (/flux-3\/klein/.test(model)) return { enable_prompt_expansion: false };
+  // FLUX 3 Edit: rapporto "auto" dalla prima immagine; 1k è il livello a prezzo base (0,048 $).
+  if (/flux-3\/edit-image/.test(model)) return { enable_prompt_expansion: false, resolution: "1k" };
+  // Qwen Image Edit: senza image_size l'uscita ha le dimensioni della foto.
+  if (/qwen-image-edit/.test(model)) return {};
   const ratio = geminiRatio(width, height);
   if (/flux-pro\/kontext/.test(model)) return ratio && KONTEXT_RATIOS.has(ratio) ? { aspect_ratio: ratio } : {};
   // Pro: 1K e 2K costano uguale. Nano Banana 2: 2K costa il 50% in più, quindi solo con qualità alta.

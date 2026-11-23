@@ -46,6 +46,10 @@ describe("estimateCost", () => {
     expect(estimateCost("fal", "fal-ai/nano-banana-2/edit", "high", 1)!.eur).toBeCloseTo(0.12 * 0.92, 6);
     expect(estimateCost("fal", "blackforestlabs/flux-3/klein/edit-image", "high", 2)!.eur).toBeCloseTo(0.009 * 2 * 0.92, 6);
     expect(estimateCost("fal", "google/nano-banana-lite/edit", "high", 1)!.eur).toBeGreaterThan(0);
+    expect(estimateCost("fal", "blackforestlabs/flux-3/edit-image", "low", 1)!.eur).toBeCloseTo(0.048 * 0.92, 6);
+    expect(estimateCost("fal", "fal-ai/qwen-image-edit-2511", "low", 1)!.eur).toBeCloseTo(0.037 * 0.92, 6);
+    expect(estimateCost("fal", "openai/gpt-image-2/edit", "low", 1)!.eur).toBeCloseTo(0.015 * 0.92, 6);
+    expect(estimateCost("fal", "openai/gpt-image-2/edit", "high", 1)).toBeNull();
     expect(estimateCost("fal", "fal-ai/nano-banana/edit", "high", 1)).toBeNull();
   });
 });

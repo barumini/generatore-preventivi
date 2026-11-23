@@ -68,7 +68,7 @@ const GEMINI: Record<string, number> = {
  *   flux-pro/kontext/multi: 0,04 $ a immagine.
  *   nano-banana/edit: prezzo non pubblicato sulla pagina del modello, escluso.
  */
-const FAL: Record<string, number | Record<Quality, number>> = {
+const FAL: Record<string, number | Partial<Record<Quality, number>>> = {
   "fal-ai/nano-banana-pro/edit": 0.15,
   // Nano Banana 2: 0,08 $ a 1K, 0,12 $ a 2K (l'app chiede 2K solo con qualità alta).
   "fal-ai/nano-banana-2/edit": { low: 0.08, medium: 0.08, high: 0.12 },
@@ -78,6 +78,13 @@ const FAL: Record<string, number | Record<Quality, number>> = {
   "blackforestlabs/flux-3/klein/edit-image": 0.009,
   "fal-ai/flux-pro/kontext/multi": 0.04,
   "fal-ai/gpt-image-1.5/edit": { low: 0.013, medium: 0.05, high: 0.199 },
+  // In prova (pagine fal.ai del 2026-11-23). FLUX 3 Edit: prezzo fisso a 1K, qualunque numero di riferimenti.
+  "blackforestlabs/flux-3/edit-image": 0.048,
+  // Qwen Image Edit 2511: 0,03 $ a megapixel; la foto dell'app è circa 1,23 MP (1280×960).
+  "fal-ai/qwen-image-edit-2511": 0.037,
+  // GPT Image 2 a qualità bassa: 0,011–0,017 $ secondo il formato, più le immagini in ingresso
+  // (a token, importo non pubblicato). Medium e high non verificati: nessuna stima.
+  "openai/gpt-image-2/edit": { low: 0.015 },
 };
 
 function usdPerImage(providerId: string, model: string, quality: string): number | null {
@@ -91,7 +98,7 @@ function usdPerImage(providerId: string, model: string, quality: string): number
     const p = Object.hasOwn(FAL, model) ? FAL[model] : undefined;
     if (p === undefined) return null;
     if (typeof p === "number") return p;
-    return Object.hasOwn(p, quality) ? p[quality as Quality] : null;
+    return (Object.hasOwn(p, quality) ? p[quality as Quality] : undefined) ?? null;
   }
   if (providerId === "gemini") return Object.hasOwn(GEMINI, model) ? GEMINI[model] : null;
   return null;
