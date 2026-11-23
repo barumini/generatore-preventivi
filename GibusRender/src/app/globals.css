@@ -200,6 +200,17 @@ input[type="file"] { font: inherit; font-size: 0.9rem; }
 .overlay-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 .overlay .handle { cursor: grab; }
 .overlay .handle:active { cursor: grabbing; }
+/* Conferma di eliminazione nella pagina (al posto di window.confirm) */
+.confirm-delete {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-text);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  max-width: 32rem;
+}
+.confirm-delete p { margin: 0 0 0.5rem; }
 .banner-warn {
   background: #fff4dc;
   border: 1px solid #ecd39a;
