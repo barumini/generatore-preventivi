@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { falProvider, falPollConfig } from "@/lib/providers/fal";
 import { ProviderError } from "@/lib/providers/types";
-import { GUIDE_LEGEND, PLACEMENT_HINT } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, GUIDE_LEGEND_FREESTANDING, PLACEMENT_HINT } from "@/lib/render/prompt";
 import { jsonResponse, leftHalfMask, png } from "./helpers";
 
 const fetchMock = vi.fn();
@@ -192,6 +192,14 @@ describe("falProvider", () => {
     const other = await call({ model: "fal-ai/nano-banana-pro/edit", guide, prompt });
     expect(other.body.image_urls[1]).toBe(dataUrl(guide));
     expect(other.body.prompt).toContain(GUIDE_LEGEND);
+  });
+
+  it("Kontext toglie anche la legenda della pergola autoportante", async () => {
+    const guide = await png(1248, 832, [10, 200, 30]);
+    const prompt = `Task: x.\n\n${GUIDE_LEGEND_FREESTANDING}\n\nPlacement (exact): foot at (10%, 68%).`;
+    const { body } = await call({ model: "fal-ai/flux-pro/kontext/multi", guide, prompt });
+    expect(body.prompt).not.toContain(GUIDE_LEGEND_FREESTANDING);
+    expect(body.prompt).not.toContain("placement guide");
   });
 
   it("Kontext accetta al massimo 4 immagini: i riferimenti in eccesso si tagliano in ordine", async () => {

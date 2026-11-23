@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GUIDE_LEGEND, PLACEMENT_HINT, buildPrompt, promptVolume, type PromptInput } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, GUIDE_LEGEND_FREESTANDING, PLACEMENT_HINT, buildPrompt, promptVolume, type PromptInput } from "@/lib/render/prompt";
 
 const zenit: PromptInput = {
   product: {
@@ -265,6 +265,28 @@ describe("buildPrompt con il volume 3D", () => {
     expect(p).toContain("800 mm");
     expect(p).toContain("1 rear post");
     expect(p).not.toContain("Wall attachment");
+  });
+
+  // Senza attacco a muro la guida non ha la linea rossa e non c'è un'altezza "al muro".
+  it("autoportante: legenda senza linea rossa e altezza posteriore al posto di quella al muro", () => {
+    // Il prodotto di base è addossato: per un volume staccato dal muro serve un'autoportante.
+    const p = buildPrompt({
+      ...withVolume,
+      product: { ...withVolume.product, mountType: "AUTOPORTANTE" },
+      volume: { ...volume, distanceMm: 430, wallLine: null },
+    });
+    expect(p.split("\n\n")).toContain(GUIDE_LEGEND_FREESTANDING);
+    expect(p).not.toContain(GUIDE_LEGEND);
+    expect(p).not.toContain("red line");
+    expect(p).not.toContain("fixed to the wall");
+    expect(p).toContain("height at the rear 2800 mm, height at the front 2500 mm");
+    expect(p).not.toContain("height at the wall");
+    for (const s of ["blue", "white dashed", "not attached to the wall", "never draw them in the result"]) {
+      expect(GUIDE_LEGEND_FREESTANDING).toContain(s);
+    }
+    expect(buildPrompt({ ...withVolume, volume: { ...volume, wallLine: null, guideImage: false } })).not.toContain(
+      GUIDE_LEGEND_FREESTANDING,
+    );
   });
 
   it("senza montanti lo dice esplicitamente", () => {

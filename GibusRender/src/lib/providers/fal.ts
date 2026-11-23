@@ -2,7 +2,7 @@
 // Documentazione: https://fal.ai/docs/model-apis/model-endpoints/queue (2026-11-10).
 import sharp from "sharp";
 import { GEMINI_SIZES, geminiPromptText, geminiRatio } from "./gemini-sizes";
-import { GUIDE_LEGEND, PLACEMENT_HINT } from "@/lib/render/prompt";
+import { GUIDE_LEGEND, GUIDE_LEGEND_FREESTANDING, PLACEMENT_HINT } from "@/lib/render/prompt";
 import { PROVIDER_TIMEOUT_MS, providerFetch, readJson } from "./http";
 import { ProviderError, type GenerateInput, type ImageProvider } from "./types";
 
@@ -131,7 +131,7 @@ async function generate(input: GenerateInput): Promise<Buffer> {
   // Le frasi che nominano un'immagine non inviata si tolgono dal prompt.
   let prompt = input.prompt;
   if (!mask) prompt = prompt.replace(PLACEMENT_HINT, "");
-  if (!guide) prompt = prompt.replace(GUIDE_LEGEND, "");
+  if (!guide) prompt = prompt.replace(GUIDE_LEGEND, "").replace(GUIDE_LEGEND_FREESTANDING, "");
   prompt = prompt.replace(/\n{3,}/g, "\n\n").trim();
   const body = {
     prompt: geminiPromptText(prompt, Boolean(mask), images.length - head.length, Boolean(guide)),

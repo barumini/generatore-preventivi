@@ -93,6 +93,17 @@ export const GUIDE_LEGEND =
   "Build the pergola exactly inside this volume, with its edges on those lines. " +
   "The guide lines are annotations: never draw them in the result.";
 
+/**
+ * Legenda per la pergola staccata dal muro: la guida non ha la linea rossa
+ * (si disegna solo con l'attacco a muro), quindi non la si nomina.
+ */
+export const GUIDE_LEGEND_FREESTANDING =
+  "Placement guide: one of the attached images is this same photo with a schematic drawing of the pergola volume. " +
+  "The blue lines are the posts (exact number and position), " +
+  "the white dashed lines are the outer edges of the structure and roof; the pergola is not attached to the wall. " +
+  "Build the pergola exactly inside this volume, with its edges on those lines. " +
+  "The guide lines are annotations: never draw them in the result.";
+
 const pct = (p: Point) => `(${Math.round(p.x * 100)}%, ${Math.round(p.y * 100)}%)`;
 const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
@@ -155,8 +166,9 @@ export function buildPrompt(input: PromptInput): string {
   );
 
   // 3. Misure (con il volume: altezza al muro e sul fronte al posto della sola altezza totale)
+  // Staccata dal muro, l'altezza "al muro" è quella del lato posteriore.
   const heights = volume
-    ? `height at the wall ${mm(volume.wallHeightMm)}, height at the front ${mm(volume.frontHeightMm)}, ` +
+    ? `height at the ${volume.wallLine ? "wall" : "rear"} ${mm(volume.wallHeightMm)}, height at the front ${mm(volume.frontHeightMm)}, ` +
       `clear height under the beams ${mm(dims.clearHeightMm)}`
     : `clear height under the beams ${mm(dims.clearHeightMm)}, total height ${mm(dims.totalHeightMm)}`;
   sections.push(
@@ -190,7 +202,7 @@ export function buildPrompt(input: PromptInput): string {
 
   // 5. Posizione: sagoma indicativa e/o testo dell'utente (così com'è)
   if (volume) {
-    if (volume.guideImage) sections.push(GUIDE_LEGEND);
+    if (volume.guideImage) sections.push(volume.wallLine ? GUIDE_LEGEND : GUIDE_LEGEND_FREESTANDING);
     sections.push(placementSection(volume));
   } else if (maskHint && !hasMask) sections.push(PLACEMENT_HINT);
   if (positionText.trim()) {
