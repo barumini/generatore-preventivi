@@ -1,0 +1,172 @@
+# GibusRender
+
+App interna per inserire pergole Gibus, generate con l'intelligenza artificiale, nelle foto dei luoghi dei clienti. Si carica la foto, si sceglie il modello del catalogo e le finiture, si disegna (facoltativamente) la sagoma dell'area da modificare e si ottengono alcune varianti da confrontare e scaricare.
+
+Progetto indipendente: tutto vive in `GibusRender/`, con il proprio `package.json`.
+
+## Requisiti
+
+- Node.js 20 o successivo e npm
+- Un database PostgreSQL (in locale con Docker, in produzione Neon)
+- Almeno una chiave API di un fornitore di immagini (OpenAI o OpenRouter)
+- Per la produzione: un account Vercel (con Vercel Blob) e uno Neon
+
+## Avvio in locale
+
+1. Avviare un PostgreSQL locale, ad esempio con Docker:
+
+   ```bash
+   docker run --name gibusrender-db -e POSTGRES_USER=gibus -e POSTGRES_PASSWORD=gibus \
+     -e POSTGRES_DB=gibusrender -p 5432:5432 -d postgres:17
+   ```
+
+2. Creare il file `.env` partendo dall'esempio e compilarlo:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Per un avvio minimo bastano `DATABASE_URL=postgresql://gibus:gibus@localhost:5432/gibusrender` e una chiave (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY` o `FAL_KEY`). Senza `BLOB_READ_WRITE_TOKEN` i file vanno in `GibusRender/.data/`; senza `BASIC_AUTH_USERS` l'accesso è libero.
+
+3. Installare, creare le tabelle, caricare il catalogo iniziale e avviare:
+
+   ```bash
+   npm install
+   npx prisma migrate dev
+   npm run db:seed
+   npm run dev
+   ```
+
+   L'app è su http://localhost:3000. Altri comandi: `npm test` (test), `npm run build` (build di produzione), `npm run lint`.
+
+**Quale file di ambiente legge cosa.** Next.js (`npm run dev`, `npm run build`) legge sia `.env` sia `.env.local`. Prisma (`prisma migrate`) e il seed (`npm run db:seed`) caricano invece **solo `.env`** (tramite `dotenv`). Per evitare sorprese, tenere tutte le variabili in `.env`.
+
+## Variabili d'ambiente
+
+| Variabile | Obbligatoria | Descrizione |
+| --- | --- | --- |
+| `DATABASE_URL` | sì | Stringa di connessione PostgreSQL |
+| `BLOB_READ_WRITE_TOKEN` | in produzione | Token di Vercel Blob; in sviluppo, se manca, i file vanno in `.data/` |
+| `BASIC_AUTH_USERS` | in produzione | Utenti nel formato `utente:password,utente2:password2`. Le password non possono contenere virgole. Se manca: 503 in produzione, accesso libero in sviluppo |
+| `OPENAI_API_KEY` | per usare OpenAI | Chiave API OpenAI |
+| `OPENROUTER_API_KEY` | per usare OpenRouter | Chiave API OpenRouter |
+| `FAL_KEY` | per usare fal.ai | Chiave API fal.ai, formato `id:segreto` |
+| `GEMINI_API_KEY` | per usare Google Gemini direttamente | Chiave API di Google AI Studio |
+| `OPENROUTER_MODELS` | no | Modelli OpenRouter suggeriti nelle Impostazioni, separati da virgola (predefinito `google/gemini-2.5-flash-image`) |
+| `APP_URL` | no | URL pubblico dell'app, inviato a OpenRouter come `HTTP-Referer`; se manca si usa quello di Vercel, o `http://localhost:3000` |
+
+Le chiavi API stanno solo nelle variabili d'ambiente: mai nel codice, nel database o nel repository.
+
+### Come ottenerle
+
+- **Neon (`DATABASE_URL`)**: su https://neon.tech creare un progetto (regione europea), poi dal pannello "Connect" copiare la stringa di connessione (con `sslmode=require`).
+- **Vercel Blob (`BLOB_READ_WRITE_TOKEN`)**: nel progetto Vercel, scheda Storage, creare un archivio Blob e collegarlo al progetto: Vercel aggiunge da solo la variabile `BLOB_READ_WRITE_TOKEN`.
+- **OpenAI (`OPENAI_API_KEY`)**: su https://platform.openai.com, sezione API keys, creare una chiave. Il modello predefinito è `gpt-image-2` (`gpt-image-1` è stato spento da OpenAI il 23/10/2026). L'organizzazione potrebbe dover essere verificata per i modelli di immagini.
+- **OpenRouter (`OPENROUTER_API_KEY`)**: su https://openrouter.ai, sezione Keys, creare una chiave e caricare un po' di credito.
+- **fal.ai (`FAL_KEY`)**: su https://fal.ai/dashboard/keys creare una chiave (serve saldo prepagato). Modelli consigliati: `blackforestlabs/flux-3/klein/edit-image` (predefinito, circa 0,008 € a immagine), `fal-ai/nano-banana-2/edit` (circa 0,07 €) e `fal-ai/nano-banana-pro/edit` (circa 0,14 €, il più fedele): vedi "Modelli consigliati" più sotto. Come Gemini e OpenRouter, fal.ai riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
+- **Google Gemini (`GEMINI_API_KEY`)**: su https://aistudio.google.com/apikey creare una chiave (con fatturazione attiva per i modelli immagine). Modelli: `gemini-3-pro-image` (qualità migliore, circa 0,12 € a immagine), `gemini-3.1-flash-image` (più economico). Come OpenRouter, Gemini riceve la sagoma come indicazione: la casa è protetta dalla ricomposizione dell'app.
+
+## Deploy su Vercel
+
+Il deploy richiede gli account dell'utente (Vercel, Neon) e va fatto da lui.
+
+1. Creare il database Neon e copiare `DATABASE_URL`.
+2. Su Vercel: **Add New Project**, importare il repository e impostare **Root Directory** su `GibusRender`. Il framework (Next.js) è riconosciuto da solo; `vercel.json` porta a 300 secondi la durata massima della route di generazione.
+3. Nel progetto, scheda Storage, creare e collegare un archivio Blob.
+4. In Settings, Environment Variables, impostare `DATABASE_URL`, `BASIC_AUTH_USERS`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY` e/o `FAL_KEY` (e, se serve, `OPENROUTER_MODELS`, `APP_URL`). `BLOB_READ_WRITE_TOKEN` arriva dal collegamento del Blob. Senza `BASIC_AUTH_USERS` l'app risponde 503 in produzione.
+5. Applicare le migrazioni al database di produzione, dalla cartella `GibusRender` con `DATABASE_URL` di produzione nel `.env` (o esportata nella shell):
+
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+6. Caricare il catalogo iniziale **una sola volta** (con `DATABASE_URL` e `BLOB_READ_WRITE_TOKEN` di produzione nel `.env`):
+
+   ```bash
+   npm run db:seed
+   ```
+
+   Il seed è idempotente per i dati del catalogo, ma **a ogni esecuzione ricarica le immagini di riferimento** nell'archivio: non rilanciarlo senza necessità.
+7. Eseguire il deploy (push sul ramo collegato o `vercel --prod`).
+
+## Uso
+
+- **Catalogo**: elenco dei modelli di pergola con descrizione per l'IA e immagini di riferimento, e finiture (strutture, teli) con relativi colori. Si modificano da qui.
+  - **Foto reali come riferimento.** Per ogni modello conviene caricare 1–3 foto ufficiali Gibus al posto dei disegni tecnici: i risultati migliorano molto. Dalla pagina del prodotto scegli il file e, nel passaggio di ritaglio, trascina un rettangolo per tenere **solo la pergola** (senza logo, arredi, persone o sfondo); poi "Ritaglia e usa" e "Carica immagine". Meglio foto con la pergola dello stesso tipo e colore del prodotto (addossata o autoportante, lo stesso RAL). La prima immagine è la miniatura e arriva per prima al modello.
+  - Il catalogo iniziale include "Bioclima Addossata", con due ritagli di una foto ufficiale Gibus (`seed/images/azimut-*.jpg`, da `esempi/GIBUS_AZIMUT_3.jpg`) come riferimento: il nome è provvisorio da sostituire con quello reale del modello. Sono foto di marketing Gibus: verifica di poterle conservare nel repository.
+- **Nuovo render**: si carica la foto del cliente, si sceglie modello e finiture, si indica la posizione e si controlla l'anteprima del prompt e la stima del costo; poi "Genera". La posizione si indica in uno di due modi: **Volume 3D** (predefinito, vedi sotto) oppure **Sagoma o descrizione**, il modo precedente (si disegna l'area da modificare e/o la si descrive a parole, con una linea di scala facoltativa). Senza volume né sagoma la casa non è protetta: l'interfaccia avvisa di verificare che nulla sia cambiato.
+- **Volume 3D**: è il modo per dire all'IA *esattamente* dove va il prodotto e quanto è grande, invece di lasciarglielo indovinare.
+  1. **Riquadro di facciata.** Clicca i quattro angoli di un rettangolo reale della facciata di cui conosci le misure (per esempio dalla base del muro al filo superiore delle porte, da una porta all'altra) e scrivi larghezza e altezza reali in mm. Più il riquadro è grande, più l'allineamento è preciso. Trascinando un angolo compare una lente d'ingrandimento. Se il lato basso non è a terra, indica la sua quota.
+  2. **Volume e montanti.** Il volume compare con le misure del prodotto, appoggiato al muro e in prospettiva. Le maniglie gialle lo spostano lungo il muro e ne cambiano larghezza, sporgenza, altezza al muro e altezza sul fronte (se sono diverse, la copertura è in pendenza); i pallini blu spostano i montanti, il cui numero si sceglie nel pannello. Maniglie e campi numerici scrivono gli stessi valori; larghezza e sporgenza sono quelle delle Misure e l'altezza al muro è l'Altezza totale. Per i prodotti autoportanti c'è anche la distanza dal muro e ci sono i montanti posteriori.
+  3. **Prospettiva e ritocco fine.** Il cursore Prospettiva cambia quanto il volume "fugge" in profondità (la facciata resta ferma sul riquadro): serve soprattutto con le foto quasi frontali. Il ritocco fine sposta di poco i singoli angoli.
+
+  L'IA riceve la foto pulita, una copia con il volume disegnato sopra (rosso = attacco a muro, blu = montanti, tratteggio bianco = ingombro) e un testo con le stesse posizioni e misure. L'area da modificare si ricava dal volume, quindi la casa resta protetta come con la sagoma.
+- **Controllo del risultato**: nella pagina del render, "Mostra volume" sovrappone il volume a ogni variante e al confronto prima/dopo. Le varianti in cui il prodotto si discosta dal volume ricevono il badge "Fuori posto: confronta con il volume".
+- **Varianti**: per ogni render si ottengono più varianti (3 per impostazione predefinita) e quelle in cui il modello ha rifatto la scena sono segnalate da confrontare; si sceglie la migliore, si scarica in JPG (qualità 92, risoluzione della foto originale) e si ritrovano tutte nell'archivio. Le varianti fallite si rigenerano con "Riprova". La dicitura "Immagine a titolo esemplificativo" è facoltativa e disattivata di default; è resa con il font Geist incluso nel repository (`assets/fonts`, licenza SIL OFL 1.1), quindi non dipende dai font di sistema.
+- **Variante consigliata**: tra le varianti completate di un render, quella più vicina al volume (o, senza volume, con la scena più fedele alla foto) riceve il badge "Consigliata". Restano escluse le varianti con scena alterata, prodotto fuori posto, pergola forse tagliata o casa non protetta, e quelle senza il punteggio (le più vecchie); servono almeno 2 varianti completate. È solo un suggerimento: la scelta resta a "Scegli" e può cadere su un'altra variante.
+- **Confronto delle finiture**: nel passo **Finiture** si accende "Confronta più finiture" e si selezionano colori e tessuti. Ogni combinazione (colore × tessuto, da 2 a 6) genera un proprio render, con il numero di varianti per finitura e il costo totale stimato. Con il confronto acceso il testo per l'IA non si modifica a mano.
+  - La pagina `/confronto/[id]` mostra una colonna per finitura, con il badge "Consigliata" calcolato per colonna e un solo "Scelta" per tutto il confronto (scegliere in una colonna toglie la scelta dalle altre). "Scarica la scelta" scarica la variante scelta; "Apri render" porta alla pagina del singolo render per i dettagli.
+  - Le richieste partono al massimo 4 alla volta. Se la coda si interrompe (la pagina è stata chiusa), "Genera le mancanti" rimette in coda solo le varianti mancanti.
+  - Il confronto è una sola scheda nell'archivio ed è eliminabile con "Elimina confronto". Se si elimina un render dalla sua pagina e ne resta uno solo, il confronto si scioglie e il render rimasto torna un render normale.
+- **Eliminare**: una singola variante si elimina dalla sua scheda ("Elimina"), un intero render dalla sua pagina o dall'archivio ("Elimina render"). Con conferma, e togliendo anche i file (foto e immagini generate) dall'archivio; non si può annullare. Se una variante scelta viene eliminata, il render resta senza variante scelta.
+- **Impostazioni**: fornitore attivo, modello (con il costo stimato accanto), qualità, fornitori abilitati, numero predefinito di varianti e tetto di risoluzione della foto.
+
+## Modelli consigliati
+
+Confronto del 10/11/2026 su una foto reale (1024×768, sagoma larga) con il prodotto "foto reali" (due ritagli della foto ufficiale Gibus come riferimento), tutti via fal.ai:
+
+| Modello | Costo a immagine | Esito |
+|---|---|---|
+| `blackforestlabs/flux-3/klein/edit-image` | ~0,009 $ | **Predefinito.** Pergola completa, casa intatta in 3 varianti su 3 (scarto 3,7–7,4) |
+| `fal-ai/nano-banana-2/edit` | ~0,08 $ (1K) | Ottimo, ma 1 variante su 2 ha rifatto la scena |
+| `fal-ai/nano-banana-pro/edit` | ~0,15 $ | Il più fedele, ma 1 variante su 2 con sagoma larga ha alterato la casa |
+| `google/nano-banana-lite/edit` | ~0,045 $ | Scena rifatta, copia arredi dai riferimenti: sconsigliato |
+| `fal-ai/gpt-image-1.5/edit` (low) | ~0,013 $ | Casa alterata: sconsigliato |
+| FLUX Kontext, FLUX Schnell, Fast-SDXL, Nano Banana economico | 0,003–0,04 $ | Non adatti (collage, nessun inserimento o scena riscritta) |
+
+Cose da sapere, emerse dalle prove:
+
+- **I riferimenti contano più del modello.** Con foto reali di una pergola Gibus (senza il logo, ritagliate sulla pergola) i risultati migliorano molto rispetto ai disegni tecnici. Caricale come immagini di riferimento del prodotto nel Catalogo.
+- **Pergola che esce dalla sagoma.** Il modello usa la sagoma solo come indicazione e spesso disegna la struttura più larga. L'app allarga da sola l'area ricomposta alle zone che il modello ha cambiato e che sono attaccate alla sagoma (la pergola che esce, le ombre sul muro), fino al 25% della larghezza dell'immagine (`src/lib/render/grow.ts`). Con una sagoma stretta le pergole passano da "a metà" a complete. La crescita non avviene se la scena risulta rifatta (scarto oltre 22) o se aggiungerebbe oltre il 14% dell'immagine: così non si legittimano le scene alterate. Se restano cambiamenti forti subito fuori dall'area, la variante riceve il badge "Pergola forse tagliata: allarga la sagoma e rigenera".
+- **Margine della sagoma.** Una sagoma con un po' di margine aiuta comunque, ma non serve più indovinarlo; una troppo larga lascia più spazio al modello per alterare la casa.
+- **I modelli variano da una generazione all'altra**: per questo si generano più varianti e si sceglie la migliore.
+- **Scena alterata.** Per ogni variante con sagoma l'app misura quanto l'immagine generata differisce dalla foto *fuori* dalla sagoma, dove dovrebbe essere uguale (`driftScore`, 0–255). Oltre 12 la variante è segnalata "Scena alterata: probabile scarto" (varianti buone: 4–7; alterate: 25–48). La soglia è in `src/lib/render/scene-check.ts`.
+- **Risoluzione.** Il tetto al lato lungo della foto (Impostazioni, predefinito 1280 px) accelera invio e generazione; i modelli lavorano comunque a circa 1 megapixel. Con Nano Banana Pro, Nano Banana 2 e Klein il costo non dipende dalla risoluzione scelta in questo intervallo.
+
+### Volume 3D: cose da sapere
+
+- **Come si ricava la prospettiva** (`src/lib/render/volume.ts`). Dal riquadro di facciata si calcola dove sta la fotocamera rispetto al muro. Si assume che il centro ottico sia al centro della foto: con una foto **ritagliata** la profondità può risultare falsata, e va corretta con il cursore Prospettiva. La focale si ricava dalle proporzioni reali del riquadro quando il muro è visto di scorcio; se il muro è quasi frontale (o la stima è implausibile) si usa quella tipica di un telefono (rapporto focale/diagonale 0,60, circa 26 mm equivalenti). "Di scorcio" vuol dire parecchio: sotto i 15–20° circa un pixel di errore nei clic farebbe oscillare la stima fra grandangolo e tele, quindi l'app non la tenta.
+- **Clic imprecisi.** La convergenza dei lati verticali del riquadro vale pochi pixel e dipende da come si clicca: per questo, con il muro di scorcio, l'app non la usa e si affida alla fuga delle linee orizzontali, molto più stabile. Conviene quindi curare soprattutto i due lati orizzontali (base del muro e filo delle porte).
+- **Le misure del riquadro contano.** Se larghezza e altezza reali sono sbagliate, sono sbagliate anche scala e prospettiva del volume.
+- **Fuori posto** (`src/lib/render/placement.ts`). Per ogni variante con volume l'app confronta l'ingombro della zona cambiata dal modello attorno al volume (sull'immagine generata, prima della ricomposizione) con quello del volume e salva lo scostamento massimo sui quattro lati, in frazione dell'ingombro (`placementOffset`). Oltre `PLACEMENT_THRESHOLD` (0,25, in `placement-threshold.ts`) compare il badge. Prima prova reale del 13/11/2026 (una foto, FLUX.3 Klein, 3 varianti): con il volume lo scostamento è 0,07–0,09; le 3 varianti generate senza volume sulla stessa foto, misurate contro lo stesso volume, danno 0,37–0,49. La soglia 0,25 le separa bene, ma è un solo caso: ombre e riflessi allargano la zona cambiata e su altre foto potrebbe servire ritoccarla.
+- **FLUX Kontext** ridisegna ogni immagine che riceve: non gli arriva la guida del volume (come già la maschera) e la posizione resta solo nel testo.
+- **Limiti.** Il volume è sempre parallelo alla facciata di riferimento (niente rotazione in pianta), il terreno è considerato piano e la distorsione dell'obiettivo non è corretta.
+- **Prova reale del 13/11/2026** (`docs/prove/2026-11-13-volume-3d-confronto.jpg`: in alto le 3 varianti con il volume, al centro le stesse con il volume sovrapposto, in basso 3 varianti senza volume con lo stesso volume sovrapposto). Con FLUX.3 Klein via fal.ai, 3 varianti su 3 hanno la pergola dentro il volume, con i montanti sulle linee blu e l'attacco sulla linea rossa, senza residui della guida e con la casa intatta (scarto 3,1–3,5). Senza volume la pergola era più larga e più alta dell'ingombro voluto. È una sola foto e un solo modello: gli altri modelli e i prodotti autoportanti non sono stati provati.
+
+## Aggiungere un nuovo fornitore di immagini
+
+1. Creare `src/lib/providers/<nome>.ts` che esporta un oggetto che implementa `ImageProvider` (`src/lib/providers/types.ts`): `id`, `label`, `supportsMask`, `supportedSizes`, `suggestedModels`, `isConfigured()` e `generate()`. Gli errori vanno sollevati come `ProviderError`. Quando c'è una sagoma, `generate()` riceve sempre la maschera (bianco = area da modificare); `supportsMask` indica solo se il modello la applica davvero (altrimenti il prompt la descrive come indicazione). Se c'è un volume 3D, `generate()` riceve anche `guide` (la foto con il volume disegnato): va inviata come seconda immagine, al posto della maschera per i fornitori che la usano solo come indicazione.
+2. Registrarlo nell'elenco `PROVIDERS` di `src/lib/providers/registry.ts`.
+3. Aggiungere il suo id al tipo `ProviderId` in `types.ts` e a `PROVIDER_IDS` in `src/lib/settings.ts` (ed eventualmente a `enabledProviders` nei valori predefiniti).
+4. Aggiungere i prezzi in `src/lib/render/cost.ts`; per i modelli non in tabella l'app mostra "Stima non disponibile".
+5. Aggiungere la variabile della chiave in `.env.example` e in questo README, ed estendere i test.
+
+## Limiti
+
+- Le foto sono ridimensionate automaticamente dal browser prima dell'invio e **non possono superare 4 MB** (limite di Vercel sul corpo della richiesta, 4,5 MB).
+- La generazione di ogni variante può durare fino a **300 secondi** (`maxDuration` della route, configurato anche in `vercel.json`).
+- Il piano Vercel deve consentire funzioni da 300 secondi.
+
+## Privacy (punto aperto)
+
+Le foto delle case dei clienti vengono inviate ai fornitori di IA scelti. Se serva un consenso del cliente o vada escluso qualche fornitore è ancora da decidere. L'app non impedisce questa decisione: ogni fornitore si abilita o disabilita da Impostazioni. Un render creato con un fornitore poi disabilitato non genera altre varianti: va duplicato scegliendo un altro fornitore.
+
+Foto, immagini di riferimento e render sono salvati su **Vercel Blob con URL pubblici**: gli indirizzi contengono un suffisso casuale e non sono indovinabili, ma chiunque abbia il link può aprire il file **senza passare dalla Basic Auth** dell'app (il link non scade). Passare a blob privati, serviti dall'app dopo il controllo di accesso, è un possibile intervento futuro.
+
+## Limiti noti
+
+- Foto e render su Vercel Blob hanno URL pubblici non indovinabili che aggirano la Basic Auth (vedi Privacy); i blob privati sono un possibile intervento futuro.
+- Il pulsante "Scarica" di una variante su Vercel Blob reindirizza all'URL di download del Blob (`?download=1`): il file scaricato ha il nome del blob (es. `<id-variante>-<suffisso>.jpg`), non `GibusRender-<cliente>-<id>.jpg` come in sviluppo.
+- OpenRouter (Gemini) riceve la sagoma solo come immagine indicativa e non la rispetta sempre: fuori dalla sagoma la casa viene comunque ripristinata, ma la pergola può risultare tagliata se il modello la disegna altrove.
+- Con `NODE_ENV=production` (anche `npm start` in locale) serve `BLOB_READ_WRITE_TOKEN`: senza, il salvataggio dei file fallisce con "Archivio file non configurato".
+- Il deploy su Vercel non è stato provato: è da fare con gli account dell'utente.

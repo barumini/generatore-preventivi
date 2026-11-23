@@ -1,0 +1,149 @@
+import Link from "next/link";
+import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
+import { DeleteRenderButton } from "@/components/DeleteRenderButton";
+import { DeleteComparisonButton } from "@/components/DeleteComparisonButton";
+import { formatDate } from "@/lib/render/format";
+import { archiveEntries, archiveThumbnail, clampPage, comparisonThumbnail } from "@/lib/render/variant-list";
+
+export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 30;
+
+function one(v: string | string[] | undefined): string {
+  return typeof v === "string" ? v : "";
+}
+
+export default async function ArchivioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const q = one(sp.q).trim().slice(0, 100);
+  const where: Prisma.RenderWhereInput = q ? { clientRef: { contains: q, mode: "insensitive" } } : {};
+  const rows = await db.render.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { id: true, comparisonId: true, createdAt: true },
+  });
+  const entries = archiveEntries(rows);
+  const total = entries.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageN = clampPage(sp.pagina, pages);
+  const pageEntries = entries.slice((pageN - 1) * PAGE_SIZE, pageN * PAGE_SIZE);
+  const pageIds = pageEntries.flatMap((e) => (e.kind === "render" ? [e.renderId] : e.renderIds));
+  const details = await db.render.findMany({
+    where: { id: { in: pageIds } },
+    include: {
+      variants: {
+        where: { status: "DONE", imageUrl: { not: null } },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, status: true, imageUrl: true, createdAt: true },
+      },
+    },
+  });
+  const byId = new Map(details.map((r) => [r.id, r]));
+
+  const pageHref = (n: number) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (n > 1) p.set("pagina", String(n));
+    const s = p.toString();
+    return s ? `/?${s}` : "/";
+  };
+
+  return (
+    <main className="page">
+      <div className="page-head">
+        <div>
+          <h1>Archivio render</h1>
+          <p className="muted">I render generati, dal più recente.</p>
+        </div>
+        <Link href="/nuovo" className="btn btn-primary">Nuovo render</Link>
+      </div>
+
+      <form className="row search-bar" action="/" method="get" role="search">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Cerca per riferimento cliente"
+          aria-label="Cerca per riferimento cliente"
+        />
+        <button type="submit" className="btn">Cerca</button>
+        {q && <Link href="/" className="btn">Azzera</Link>}
+      </form>
+
+      {pageEntries.length === 0 ? (
+        <p className="muted">
+          {q ? `Nessun render trovato per “${q}”.` : "Nessun render ancora. Crea il primo con “Nuovo render”."}
+        </p>
+      ) : (
+        <div className="grid">
+          {pageEntries.map((entry) => {
+            if (entry.kind === "comparison") {
+              const members = entry.renderIds.flatMap((id) => byId.get(id) ?? []);
+              const first = [...members].sort(
+                (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1),
+              )[0];
+              if (!first) return null;
+              const chosenRender = members.find((r) => r.variants.some((v) => v.id === r.chosenVariantId));
+              const thumb = comparisonThumbnail(members);
+              return (
+                <div key={`c-${entry.comparisonId}`} className="archive-item">
+                  <Link href={`/confronto/${entry.comparisonId}`} className="card card-link">
+                    <div className="thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumb} alt={`Confronto per ${first.clientRef}`} loading="lazy" />
+                    </div>
+                    <div className="card-body">
+                      <h2>{first.clientRef}</h2>
+                      <p className="muted small">Confronto · {members.length} finiture · {first.productName}</p>
+                      <p className="small">
+                        {formatDate(first.createdAt)}
+                        {chosenRender && <span className="badge badge-ok" style={{ marginLeft: "0.5rem" }}>Scelta</span>}
+                      </p>
+                    </div>
+                  </Link>
+                  <DeleteComparisonButton small comparisonId={entry.comparisonId} clientRef={first.clientRef} count={members.length} />
+                </div>
+              );
+            }
+            const r = byId.get(entry.renderId);
+            if (!r) return null;
+            const chosen = r.variants.some((v) => v.id === r.chosenVariantId);
+            const thumb = archiveThumbnail(r);
+            return (
+              <div key={r.id} className="archive-item">
+              <Link href={`/render/${r.id}`} className="card card-link">
+                <div className="thumb">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={thumb} alt={`Render per ${r.clientRef}`} loading="lazy" />
+                </div>
+                <div className="card-body">
+                  <h2>{r.clientRef}</h2>
+                  <p className="muted small">{r.productName}</p>
+                  <p className="small">
+                    {formatDate(r.createdAt)}
+                    {chosen && <span className="badge badge-ok" style={{ marginLeft: "0.5rem" }}>Scelta</span>}
+                  </p>
+                </div>
+              </Link>
+              <DeleteRenderButton small renderId={r.id} clientRef={r.clientRef} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {pages > 1 && (
+        <nav className="row pager" aria-label="Pagine">
+          {pageN > 1 && <Link href={pageHref(pageN - 1)} className="btn btn-small">← Precedenti</Link>}
+          <span className="muted small">Pagina {pageN} di {pages}</span>
+          {pageN < pages && <Link href={pageHref(pageN + 1)} className="btn btn-small">Successivi →</Link>}
+        </nav>
+      )}
+    </main>
+  );
+}

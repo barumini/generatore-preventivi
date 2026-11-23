@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "src/app/api/renders/[id]/variants/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}
