@@ -144,7 +144,7 @@ function autoPrompt(s: PromptState): string {
       clearHeightMm: num(s.dims.clearHeightMm, s.product.clearHeightMm),
       totalHeightMm: num(s.dims.totalHeightMm, s.product.totalHeightMm),
     },
-    color: s.color ? { name: s.color.name, code: s.color.code } : undefined,
+    color: s.color ? { name: s.color.name, code: s.color.code, swatchHex: s.color.swatchHex } : undefined,
     fabric: s.fabric ? { name: s.fabric.name, code: s.fabric.code } : undefined,
     positionText: s.positionText.trim(),
     hasMask: hasPolygon && s.supportsMask,

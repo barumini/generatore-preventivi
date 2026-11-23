@@ -5,6 +5,7 @@
 // dell'utente è riportato tra virgolette così com'è.
 
 import type { CoverType, MountType } from "@/lib/catalog/types";
+import { colourName, normalizeHex } from "./colourName";
 import type { Point } from "./geometry";
 import type { Post, ProjectedVolume, VolumeBox } from "./volume";
 
@@ -43,7 +44,8 @@ export function promptVolume(
 export type PromptInput = {
   product: { name: string; mountType: MountType; coverType: CoverType; aiDescription: string };
   dims: { widthMm: number; depthMm: number; clearHeightMm: number; totalHeightMm: number };
-  color?: { name: string; code: string };
+  /** swatchHex: "Colore di anteprima" del catalogo; se valido il colore è descritto anche in inglese. */
+  color?: { name: string; code: string; swatchHex?: string | null };
   fabric?: { name: string; code: string };
   positionText: string;
   /** La maschera arriva al modello e il modello la applica (supportsMask). */
@@ -166,7 +168,23 @@ export function buildPrompt(input: PromptInput): string {
 
   // 4. Finiture
   const finishes: string[] = [];
-  if (color) finishes.push(`structure colour ${color.name} (${color.code}), matt textured powder coating`);
+  if (color) {
+    const parts = product.coverType === "TELO" ? "posts, beams and frame" : "posts, beams and louvres";
+    const hex = normalizeHex(color.swatchHex);
+    const word = colourName(hex);
+    if (hex && word) {
+      // Bianchi e neri vengono spesso resi grigi (riferimenti antracite): lo si esclude.
+      const notGrey = word === "white" || word === "black" ? ", not grey" : "";
+      finishes.push(
+        `structure colour ${word}, ${color.name} (${color.code}, approximately ${hex}), matt textured powder coating: ` +
+          `${parts} all in this ${word} colour${notGrey}`,
+      );
+    } else {
+      finishes.push(
+        `structure colour ${color.name} (${color.code}), matt textured powder coating: ${parts} all in this colour`,
+      );
+    }
+  }
   if (fabric) finishes.push(`canopy fabric ${fabric.name} (${fabric.code})`);
   if (finishes.length) sections.push(`Finishes: ${finishes.join("; ")}.`);
 
@@ -200,8 +218,14 @@ export function buildPrompt(input: PromptInput): string {
       `Reproduce the product exactly as shown in the reference images (${follow}): ` +
         details +
         noExtras +
-        " Use the reference images only for the design of the pergola (posts, beams, louvres, colour): " +
-        "do not copy any building, furniture, people or background from them.",
+        // Con una finitura scelta il colore non va preso dai riferimenti: nelle prove
+        // del confronto un Bianco RAL 9010 usciva grigio come i riferimenti antracite.
+        (finishes.length
+          ? " Use the reference images only for the design of the pergola (posts, beams, louvres): " +
+            "the colours are the ones given under Finishes, even where the reference images show a different colour; " +
+            "do not copy any building, furniture, people or background from them."
+          : " Use the reference images only for the design of the pergola (posts, beams, louvres, colour): " +
+            "do not copy any building, furniture, people or background from them."),
     );
   } else {
     sections.push(

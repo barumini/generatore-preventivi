@@ -131,6 +131,65 @@ describe("buildPrompt: regole emerse dalle prove sul campo", () => {
     expect(none).not.toContain("only for the design of the pergola");
   });
 
+  // Prova reale del confronto: con riferimenti antracite e colore Bianco RAL 9010
+  // la pergola usciva grigia, perché il prompt diceva di prendere il colore dai riferimenti.
+  it("con una finitura scelta il colore viene dalle finiture, non dai riferimenti", () => {
+    const p = buildPrompt({ ...zenit, color: { name: "Bianco puro RAL 9010", code: "RAL 9010" } });
+    expect(p).not.toContain("louvres, colour)");
+    expect(p).toContain("the colours are the ones given under Finishes");
+    expect(p).toContain("even where the reference images show a different colour");
+    expect(p).toContain(
+      "structure colour Bianco puro RAL 9010 (RAL 9010), matt textured powder coating: posts, beams and frame all in this colour",
+    );
+    const lamelle = buildPrompt({
+      ...zenit,
+      product: { ...zenit.product, coverType: "LAMELLE_ORIENTABILI" },
+      fabric: undefined,
+    });
+    expect(lamelle).toContain("matt textured powder coating: posts, beams and louvres all in this colour");
+  });
+
+  // Seconda prova: il solo nome italiano e il codice RAL non bastavano, il bianco
+  // usciva ancora grigio chiaro; con parola inglese ed esadecimale è uscito bianco.
+  it("con il colore di anteprima descrive il colore in inglese con l'esadecimale", () => {
+    const p = buildPrompt({
+      ...zenit,
+      product: { ...zenit.product, coverType: "LAMELLE_ORIENTABILI" },
+      fabric: undefined,
+      color: { name: "Bianco puro RAL 9010", code: "RAL 9010", swatchHex: "#f1ece1" },
+    });
+    expect(p).toContain(
+      "structure colour white, Bianco puro RAL 9010 (RAL 9010, approximately #F1ECE1), matt textured powder coating: " +
+        "posts, beams and louvres all in this white colour, not grey",
+    );
+    const antracite = buildPrompt({
+      ...zenit,
+      color: { name: "Antracite RAL 7016 sablé", code: "RAL 7016", swatchHex: "#383E42" },
+    });
+    expect(antracite).toContain(
+      "structure colour anthracite grey, Antracite RAL 7016 sablé (RAL 7016, approximately #383E42)",
+    );
+    expect(antracite).toContain("all in this anthracite grey colour;");
+    expect(antracite).not.toContain("not grey");
+  });
+
+  it("con un colore di anteprima non valido resta il solo nome", () => {
+    const p = buildPrompt({ ...zenit, color: { name: "Bianco puro RAL 9010", code: "RAL 9010", swatchHex: "bianco" } });
+    expect(p).toContain("structure colour Bianco puro RAL 9010 (RAL 9010), matt textured powder coating");
+    expect(p).not.toContain("approximately");
+  });
+
+  it("vale anche con il solo tessuto", () => {
+    const p = buildPrompt({ ...zenit, color: undefined });
+    expect(p).toContain("the colours are the ones given under Finishes");
+  });
+
+  it("senza finiture il colore resta quello dei riferimenti", () => {
+    const p = buildPrompt({ ...zenit, color: undefined, fabric: undefined });
+    expect(p).toContain("only for the design of the pergola (posts, beams, louvres, colour)");
+    expect(p).not.toContain("given under Finishes");
+  });
+
   it("esprime le proporzioni in modo relativo (larghezza : profondità : altezza libera)", () => {
     const p = buildPrompt(zenit);
     expect(p).toContain("width : depth : clear height = 4200 : 3800 : 2400");

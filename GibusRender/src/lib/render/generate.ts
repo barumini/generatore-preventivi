@@ -291,7 +291,7 @@ export async function createRender(input: CreateRenderInput): Promise<Render> {
         clearHeightMm: data.clearHeightMm,
         totalHeightMm,
       },
-      color: color ? { name: color.name, code: color.code } : undefined,
+      color: color ? { name: color.name, code: color.code, swatchHex: color.swatchHex } : undefined,
       fabric: fabric ? { name: fabric.name, code: fabric.code } : undefined,
       positionText: data.positionText,
       // La maschera arriva sempre al modello quando c'è una sagoma; il prompt parla di
